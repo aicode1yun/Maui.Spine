@@ -1,6 +1,6 @@
 ---
 name: spine-page
-description: Add or change a page in a Plugin.Maui.Spine app — the three-file page pattern, [NavigableRegion] / [NavigableSheet] / [NavigableTab], typed navigation parameters and results, page actions in the header bar, lifecycle hooks, dismiss guards, and tab badges. Use when creating pages, navigating between them, or wiring header-bar buttons. Invoke as /spine-page.
+description: Add or change a page in a Plugin.Maui.Spine app — the three-file page pattern, [NavigableRegion] / [NavigableSheet] / [NavigableTab], typed navigation parameters and results, page actions in the header bar, lifecycle hooks, loading data with TaskState and StateView (loading, error with retry, empty), dismiss guards, and tab badges. Use when creating pages, navigating between them, loading their data, or wiring header-bar buttons. Invoke as /spine-page.
 ---
 
 You are adding or changing a page in an app built on **Plugin.Maui.Spine**. Spine discovers pages by attribute (no route tables, no DI registration) and every navigation call is one typed async method. Full docs: https://github.com/jonatansoderberg/Maui.Spine/tree/master/docs/wiki.
@@ -136,6 +136,27 @@ Both at once: implement both interfaces and call `NavigateToWithResultAsync<TPag
 
 Load data in `OnAppearingAsync`; keep constructors cheap. For work that lives with the page use `Poll(interval, ct => …)` (runs while shown, pauses in the background), `WhileVisible(h => svc.Changed += h, h => svc.Changed -= h, OnChanged)` (subscribed while shown, UI thread) and `PageLifetime` (a token cancelled when the page is left) instead of timers, tokens and subscribe/unsubscribe pairs. Declare page actions with `[PageAction]` (below) rather than adding them in `OnAppearingAsync`. Refresh in `OnResumedAsync` what may have changed while the app was away (server data, today's date) instead of subscribing to `Window.Activated` in code-behind. Spine has no day-change hook; a page that must turn at midnight runs its own timer.
 
+## Loading data (`TaskState` / `StateView`)
+
+For data a page shows, use `Load(...)` from the constructor instead of hand-written `IsLoading`/`HasError` flags and a try/catch in `OnAppearingAsync`. It loads when the page first appears, is cancelled when the page is left, and loads again on reappearing only if it has nothing to show (never loaded, cancelled, failed):
+
+```csharp
+public TaskState<IReadOnlyList<Game>> Games { get; }
+
+public GamesPageViewModel(IGamesApi api)
+{
+    Games = Load(ct => api.GetTodayAsync(ct), isEmpty: g => g.Count == 0);
+}
+```
+
+```xml
+<StateView State="{Binding Games}" EmptyText="No games today">
+    <CollectionView ItemsSource="{Binding Games.Value}" />
+</StateView>
+```
+
+`StateView` shows a spinner, "Couldn't load" + the exception's message + Try again, or the empty text in the content's place; the content keeps the page's binding context. Custom `LoadingTemplate`/`ErrorTemplate`/`EmptyTemplate` bind to the `TaskState` (`ErrorMessage`, `LoadCommand`); app-wide ones are resources `DefaultStateView…Template`. Pull to refresh: `RefreshView IsRefreshing="{Binding Games.IsRefreshing}" Command="{Binding Games.LoadCommand}"`. Skeleton: pass `placeholder: () => [.. Enumerable.Repeat(Game.Empty, 4)]` and bind `Skeleton.IsActive="{Binding Games.IsLoading}"` on the content. A failed refresh keeps the result and sets `HasError`/`ErrorMessage`. When a filter changes, `Games.Reset()` then `Games.LoadAsync()`. Refresh on return with `OnResumedAsync() => Games.LoadAsync()`.
+
 ## Page actions (header bar)
 
 An action that should open a menu rather than run a command is added in the constructor as `PageActions.Add(new PageAction(null, new MenuItems { new MenuSection("Filter:") { new MenuPicker(FilterCommand) { new MenuAction("All", "house.svg") { IsChecked = true }, … } }, new SubMenu("More") { … } }) { Svg = "more.svg" })`; the same `MenuItems` goes on a page button as `MenuButton.Items="{Binding SortMenu}"` (with `MenuButton.ShowsSelection="True"` for a pop-up whose text follows the pick). See docs/wiki/menus.md.
@@ -174,5 +195,6 @@ Hand-made actions still work (`PageActions.Add(new PageAction("Save", SaveComman
 
 - Page pattern: https://github.com/jonatansoderberg/Maui.Spine/blob/master/docs/wiki/page-pattern.md
 - Regions / Sheets / Tab host: https://github.com/jonatansoderberg/Maui.Spine/blob/master/docs/wiki/regions.md · https://github.com/jonatansoderberg/Maui.Spine/blob/master/docs/wiki/sheets.md · https://github.com/jonatansoderberg/Maui.Spine/blob/master/docs/wiki/tab-host.md
+- Loading states: https://github.com/jonatansoderberg/Maui.Spine/blob/master/docs/wiki/loading-states.md
 - Parameters / Results / Page actions: https://github.com/jonatansoderberg/Maui.Spine/blob/master/docs/wiki/navigation-parameters.md · https://github.com/jonatansoderberg/Maui.Spine/blob/master/docs/wiki/navigation-results.md · https://github.com/jonatansoderberg/Maui.Spine/blob/master/docs/wiki/page-actions.md
 - Sample: https://github.com/jonatansoderberg/Maui.Spine/tree/master/samples/MauiSpineSampleApp/Pages

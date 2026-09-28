@@ -127,6 +127,8 @@ For a first page of a list, put `Skeleton.IsActive` on the layout that holds the
 </VerticalStackLayout>
 ```
 
+A `TaskState` with a `placeholder` does the row swapping for you; see [With TaskState](#with-taskstate).
+
 In a `CollectionView` the same idea applies per row: put it on the item template's root layout, bound to a flag every placeholder item carries (the sample shows the `BindableLayout` case only). All skeletons on screen read one clock, so a list of them sweeps as one.
 
 ### How it sits in the layout
@@ -193,6 +195,19 @@ The options object is resolved once per theme change (a cached copy against `Spi
 
 ---
 
-## With TaskState (#302)
+## With TaskState
 
-`Skeleton.IsActive` takes a plain `bool`, so it binds to whatever says "loading": today a view model flag, and a `TaskState`'s loading status once that exists (`Skeleton.IsActive="{Binding Competitions.IsLoading}"`). A `StateView` is expected to use it for its default loading state by showing the content template under `Skeleton.IsActive` instead of a spinner; see the design note on #302.
+`Skeleton.IsActive` takes a plain `bool`, so it binds to whatever says "loading": a view model flag, or a `TaskState`'s `IsLoading`. A `TaskState` made with a `placeholder` gives the placeholder rows as its `Value` until the first result, and a `StateView` shows the content, not a spinner, while it loads. The skeleton needs no flag or row swapping of the page's own:
+
+```csharp
+People = Load(ct => api.GetPeopleAsync(ct), placeholder: () => [.. Enumerable.Repeat(Person.Empty, 4)]);
+```
+
+```xml
+<StateView State="{Binding People}">
+    <VerticalStackLayout Skeleton.IsActive="{Binding People.IsLoading}"
+                         BindableLayout.ItemsSource="{Binding People.Value}"> … </VerticalStackLayout>
+</StateView>
+```
+
+See [Loading states](loading-states.md).
