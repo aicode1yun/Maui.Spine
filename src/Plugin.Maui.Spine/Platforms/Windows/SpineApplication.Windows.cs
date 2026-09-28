@@ -59,7 +59,7 @@ public partial class SpineApplication<TNavigable> where TNavigable : INavigable
     {
         _primaryPageActionView = new PageActionView
         {
-            WidthRequest = 46,
+            IconWidth = 46,
             HeightRequest = 32,
             HorizontalOptions = LayoutOptions.Start,
             VerticalOptions = LayoutOptions.Center,
@@ -68,7 +68,7 @@ public partial class SpineApplication<TNavigable> where TNavigable : INavigable
 
         _secondaryPageActionView = new PageActionView
         {
-            WidthRequest = 46,
+            IconWidth = 46,
             HeightRequest = 32,
             HorizontalOptions = LayoutOptions.End,
             VerticalOptions = LayoutOptions.Center

@@ -175,7 +175,8 @@ internal class HeaderBarView : Microsoft.Maui.Controls.ContentView
         // would still swallow touches meant for whatever the page draws underneath (a hero header).
         InputTransparent = !isVisible;
 
-        _ = AnimateVisibility(Content, isVisible);
+        // The whole bar only fades: shrinking every item at once reads as the bar sinking away.
+        _ = AnimateVisibility(Content, isVisible, scales: false);
     }
 
     void SetIsBackButtonVisible(bool isVisible)
@@ -257,12 +258,7 @@ internal class HeaderBarView : Microsoft.Maui.Controls.ContentView
         return SideMargin + IconButtonWidth;
     }
 
-    void UpdateActionWidth(PageActionView pageActionView)
-    {
-        pageActionView.WidthRequest = string.IsNullOrEmpty(pageActionView?.Action?.Svg)
-            ? HeaderBarConstants.Auto // Allow to size to text content
-            : IconButtonWidth;
-    }
+    void UpdateActionWidth(PageActionView pageActionView) => pageActionView.IconWidth = IconButtonWidth;
 
     // Glass buttons are 44-point circles whose edge lines up with the page's content, as a
     // UINavigationBar's do; without glass the older, platform-specific slots stay.
@@ -401,7 +397,7 @@ internal class HeaderBarView : Microsoft.Maui.Controls.ContentView
             HorizontalOptions = LayoutOptions.Start,
             VerticalOptions = LayoutOptions.Center,
             HeightRequest = HeaderBarConstants.Height,
-            WidthRequest = HeaderBarConstants.SheetButtonWidth,
+            IconWidth = HeaderBarConstants.SheetButtonWidth,
             Padding = HeaderBarConstants.SheetButtonPadding,
             Opacity = 0,
             IsVisible = false
@@ -412,7 +408,7 @@ internal class HeaderBarView : Microsoft.Maui.Controls.ContentView
             HorizontalOptions = LayoutOptions.End,
             VerticalOptions = LayoutOptions.Center,
             HeightRequest = HeaderBarConstants.Height,
-            WidthRequest = HeaderBarConstants.SheetButtonWidth,
+            IconWidth = HeaderBarConstants.SheetButtonWidth,
             Padding = HeaderBarConstants.SheetButtonPadding,
             Opacity = 0,
             IsVisible = false
@@ -455,21 +451,96 @@ internal class HeaderBarView : Microsoft.Maui.Controls.ContentView
         UpdatePresentationSizes();
     }
 
-    async Task AnimateVisibility(View? target, bool show)
+    readonly Dictionary<View, int> _visibilityVersions = [];
+
+    // A navigation bar item fades and grows in, and fades and shrinks out. Liquid Glass cannot fade
+    // through its alpha (it turns flat grey), so glass materializes and dissolves instead.
+    async Task AnimateVisibility(View? target, bool show, bool scales = true)
     {
         if (target is null)
             return;
 
+        var version = _visibilityVersions[target] = _visibilityVersions.GetValueOrDefault(target) + 1;
+        var duration = PageActionView.TransitionDuration;
+        var scale = scales ? PageActionView.TransitionScale : 1;
+        target.AbortAnimation("Visibility");
+
         if (show)
         {
+            if (!target.IsVisible || target.Opacity == 0)
+                target.Scale = scale;
+
             target.IsVisible = true;
             PublishActionSlots();
-            await target.FadeToAsync(1, HeaderBarConstants.FadeInDuration, Easing.SinIn);
+
+#if IOS || MACCATALYST
+            if (GlassAppearance.Applies(target))
+            {
+                target.Opacity = 1;
+                await Task.WhenAll(
+                    GlassAppearance.AnimateAsync(target, show: true, duration),
+                    target.ScaleToAsync(1, duration, PageActionView.TransitionEasing));
+                return;
+            }
+
+            // Glass UIKit has not built yet (the page is still arriving) draws a flat grey stand-in
+            // for its first frames. Keep the action hidden for that frame, then let it
+            // materialize like any other.
+            if (PageActionView.UseGlassHeaderActions)
+            {
+                // One frame: long enough for UIKit to build it, short enough that both actions
+                // of an arriving page start together.
+                await Task.Delay(16);
+
+                if (_visibilityVersions[target] != version)
+                    return;
+
+                target.Opacity = 1;
+                if (GlassAppearance.Applies(target))
+                {
+                    await Task.WhenAll(
+                        GlassAppearance.AnimateAsync(target, show: true, duration),
+                        target.ScaleToAsync(1, duration, PageActionView.TransitionEasing));
+                }
+                else
+                {
+                    target.Scale = 1;
+                }
+                return;
+            }
+#endif
+            await Task.WhenAll(
+                target.FadeToAsync(1, duration, PageActionView.TransitionEasing),
+                target.ScaleToAsync(1, duration, PageActionView.TransitionEasing));
         }
         else
         {
-            await target.FadeToAsync(0, HeaderBarConstants.FadeOutDuration, Easing.SinOut);
+            // Leaving is quicker than arriving, as with a navigation bar's items: gone before the
+            // page that took them has slid away.
+            var outDuration = PageActionView.RemovalDuration;
+
+#if IOS || MACCATALYST
+            if (GlassAppearance.Applies(target))
+            {
+                await Task.WhenAll(
+                    GlassAppearance.AnimateAsync(target, show: false, outDuration),
+                    target.ScaleToAsync(scale, outDuration, PageActionView.TransitionEasing));
+            }
+            else
+#endif
+            {
+                await Task.WhenAll(
+                    target.FadeToAsync(0, outDuration, PageActionView.TransitionEasing),
+                    target.ScaleToAsync(scale, outDuration, PageActionView.TransitionEasing));
+            }
+
+            // Shown again while it went away: leave it.
+            if (_visibilityVersions[target] != version)
+                return;
+
+            target.Opacity = 0;
             target.IsVisible = false;
+            target.Scale = 1;
             PublishActionSlots();
         }
     }
