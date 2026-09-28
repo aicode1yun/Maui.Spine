@@ -1,6 +1,6 @@
 namespace MauiSpineSampleApp.Pages.Lifetime;
 
-public partial class LifetimePageViewModel : ViewModelBase
+public partial class LifetimePageViewModel : SampleViewModel
 {
     [ObservableProperty]
     public partial int Ticks { get; set; }

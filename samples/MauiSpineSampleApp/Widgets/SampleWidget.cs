@@ -1,4 +1,4 @@
-using MauiSpineSampleApp.Pages.Settings;
+using MauiSpineSampleApp.Pages.Widgets;
 using Plugin.Maui.Spine.Common;
 using Plugin.Maui.Spine.Widgets;
 
@@ -6,7 +6,7 @@ namespace MauiSpineSampleApp.Widgets;
 
 /// <summary>
 /// The sample's home-screen widget: built from a tree in C#, rendered natively on a surface of its
-/// own. Tapping it opens the app on the settings page through <see cref="IWidgetLinkHandler"/>; its
+/// own. Tapping it opens the app on the Widgets page through <see cref="IWidgetLinkHandler"/>; its
 /// "Bump" button counts taps through <see cref="IWidgetActionHandler"/> without opening the app.
 /// </summary>
 [Widget("sample")]
@@ -73,7 +73,7 @@ public sealed class SampleWidget(IWidgetService _widgets, INavigationService _na
         return Task.FromResult(timeline);
     }
 
-    public Task OnWidgetOpenedAsync(WidgetLink link) => _navigation.NavigateToAsync<SettingsPage>();
+    public Task OnWidgetOpenedAsync(WidgetLink link) => _navigation.NavigateToAsync<WidgetsPage>();
 
     public Task OnActionAsync(WidgetAction action)
     {

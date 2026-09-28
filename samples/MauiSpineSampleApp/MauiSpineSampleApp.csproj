@@ -291,15 +291,6 @@
 		<Compile Include="Pages\PersonDetailPage.ViewModel.cs">
 			<DependentUpon>PersonDetailPage.cs</DependentUpon>
 		</Compile>
-    
-    <Compile Include="Pages\ToggleListSheet.ViewModel.cs">
-      <DependentUpon>ToggleListSheet.cs</DependentUpon>
-    </Compile>
-
-    <MauiXaml Update="Pages\ToggleListSheet.View.xaml">
-      <Generator>MSBuild:Compile</Generator>
-      <DependentUpon>ToggleListSheet.cs</DependentUpon>
-    </MauiXaml>
 
     <Compile Include="Pages\SimpleBottomSheetPage.ViewModel.cs">
       <DependentUpon>SimpleBottomSheetPage.cs</DependentUpon>
@@ -347,9 +338,9 @@
 			<DependentUpon>FullscreenSheetPage.cs</DependentUpon>
 		</Compile>
 
-		<MauiXaml Update="Pages\Settings\SettingsPage.View.xaml">
+		<MauiXaml Update="Pages\Widgets\WidgetsPage.View.xaml">
 	    <Generator>MSBuild:Compile</Generator>
-      <DependentUpon>SettingsPage.cs</DependentUpon>
+      <DependentUpon>WidgetsPage.cs</DependentUpon>
 	  </MauiXaml>
 
 		<MauiXaml Update="Pages\SmallSheetPage.View.xaml">
@@ -358,8 +349,26 @@
 		</MauiXaml>
 
     
-    <Compile Include="Pages\Settings\SettingsPage.ViewModel.cs">
-      <DependentUpon>SettingsPage.cs</DependentUpon>
+    <Compile Include="Pages\Widgets\WidgetsPage.ViewModel.cs">
+      <DependentUpon>WidgetsPage.cs</DependentUpon>
+    </Compile>
+
+    <MauiXaml Update="Pages\Options\OptionsSheet.View.xaml">
+      <DependentUpon>OptionsSheet.cs</DependentUpon>
+      <Generator>MSBuild:Compile</Generator>
+    </MauiXaml>
+
+    <Compile Include="Pages\Options\OptionsSheet.ViewModel.cs">
+      <DependentUpon>OptionsSheet.cs</DependentUpon>
+    </Compile>
+
+    <MauiXaml Update="Pages\SvgIcons\SvgIconSetPage.View.xaml">
+      <DependentUpon>SvgIconSetPage.cs</DependentUpon>
+      <Generator>MSBuild:Compile</Generator>
+    </MauiXaml>
+
+    <Compile Include="Pages\SvgIcons\SvgIconSetPage.ViewModel.cs">
+      <DependentUpon>SvgIconSetPage.cs</DependentUpon>
     </Compile>
 	</ItemGroup>
 

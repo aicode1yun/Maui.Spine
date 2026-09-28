@@ -2,7 +2,7 @@ namespace MauiSpineSampleApp.Pages.Shimmer;
 
 public sealed record PersonRow(string Name, string Role, string? Photo);
 
-public partial class ShimmerPageViewModel(IThemeService _theme) : ViewModelBase
+public partial class ShimmerPageViewModel : SampleViewModel
 {
     // While loading, the list holds as many empty rows as a typical first page, so the skeleton
     // has the height the loaded list will have.
@@ -17,12 +17,6 @@ public partial class ShimmerPageViewModel(IThemeService _theme) : ViewModelBase
     ];
 
     private bool _loadedOnce;
-
-    // Switches the app theme with the page on screen, to show the placeholders repaint.
-    [ObservableProperty]
-    public partial bool IsDark { get; set; } = _theme.Effective == AppTheme.Dark;
-
-    partial void OnIsDarkChanged(bool value) => _theme.Current = value ? AppTheme.Dark : AppTheme.Light;
 
     [ObservableProperty]
     public partial bool IsWaveRunning { get; set; } = true;
@@ -57,6 +51,16 @@ public partial class ShimmerPageViewModel(IThemeService _theme) : ViewModelBase
         _loadedOnce = true;
         await Reload();
     }
+
+    [RelayCommand]
+    private Task ShowShimmerOptions() => ShowOptionsAsync("Shimmer",
+        new ToggleOption("Loading", "IsLoading: the wave runs while it is on.", () => IsWaveRunning, v => IsWaveRunning = v),
+        new SliderOption("Wave width", 0, 1, () => WaveWidth, v => WaveWidth = v),
+        new SliderOption("Wave opacity", 0, 1, () => WaveOpacity, v => WaveOpacity = v));
+
+    [RelayCommand]
+    private Task ShowSkeletonOptions() => ShowOptionsAsync("Skeleton",
+        new ToggleOption("Loading", "Skeleton.IsActive: keeps the skeleton on, to look at it.", () => IsLoading, v => IsLoading = v));
 
     // What a page does with a real service: show the skeleton, await the data, show the content.
     [RelayCommand]

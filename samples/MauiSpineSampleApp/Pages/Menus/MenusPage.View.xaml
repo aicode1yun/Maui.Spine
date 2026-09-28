@@ -5,29 +5,82 @@
     x:TypeArguments="MenusPageViewModel"
     x:DataType="MenusPageViewModel">
 
-    <ScrollView>
-        <VerticalStackLayout Padding="20,16" Spacing="10">
-            <PackageChips Packages="Plugin.Maui.Spine, Plugin.Maui.Spine.Svg.Icons" />
+    <SampleLayout Packages="Plugin.Maui.Spine, Plugin.Maui.Spine.Svg.Icons">
 
-            <Label Text="The header action (top right) opens a native menu: a titled section with a picker, a submenu with toggles that keep the menu open, and a destructive row. On iOS 26 the glass button morphs into the menu."
-                   FontSize="14" />
+        <Example Title="A menu in the header"
+                 Summary="Give a header action a menu instead of a command, and it opens the platform's own menu. On iOS 26 the glass button morphs into it.">
+            <Label Text="The palette button at the top right is one: a titled section with a picker, and a submenu for the accent." FontSize="15" />
+            <Example.Code>
+                PageActions.Add(new PageAction(null, new MenuItems
+                {
+                    new MenuSection("Appearance") { themePicker },
+                    new SubMenu("Accent", "palette.svg") { accentPicker },
+                })
+                {
+                    Svg = "palette.svg",
+                    Description = "Theme and accent",
+                });
+            </Example.Code>
+        </Example>
 
-            <Label Text="{Binding LastPick}" FontSize="16" FontAttributes="Bold" />
-            <Label Text="{Binding Summary}" FontSize="14" />
+        <Example Title="A button that shows its choice"
+                 Summary="A pop-up button: tap it for the choices, and its text becomes the one picked. For sort orders, filters and modes.">
+            <VerticalStackLayout Spacing="10">
+                <HorizontalStackLayout Spacing="12">
+                    <Label Text="Sort by" FontSize="15" VerticalOptions="Center" />
+                    <Button Text="Name" Glass.Style="Regular" TextColor="{AppThemeBinding Light=Black, Dark=White}"
+                            MenuButton.Items="{Binding SortMenu}" MenuButton.ShowsSelection="True" />
+                </HorizontalStackLayout>
+                <Label Text="{Binding Sorted}" FontSize="15" />
+            </VerticalStackLayout>
+            <Example.Code>
+                &lt;Button Text="Name" Glass.Style="Regular"
+                        MenuButton.Items="{Binding SortMenu}"
+                        MenuButton.ShowsSelection="True" /&gt;
 
-            <Label Text="Pop-up button: the text follows the pick" FontAttributes="Bold" Margin="0,12,0,0" />
-            <HorizontalStackLayout Spacing="12">
-                <Button Text="Name" Glass.Style="Regular" TextColor="{AppThemeBinding Light=Black, Dark=White}"
-                        MenuButton.Items="{Binding SortMenu}" MenuButton.ShowsSelection="True" />
+                SortMenu =
+                [
+                    new MenuPicker(SortCommand)
+                    {
+                        new MenuAction("Name") { IsChecked = true },
+                        new MenuAction("Date"),
+                        new MenuAction("Size") { IsEnabled = false },
+                    },
+                ];
+            </Example.Code>
+        </Example>
+
+        <Example Title="Sections, submenus and toggles"
+                 Summary="One menu holds a lot, in order: sections with a heading, a submenu, toggles that keep the menu open while you tick them, and a destructive row in red.">
+            <VerticalStackLayout Spacing="10">
                 <ImageButton SvgImageSource.Svg="more.svg" SvgImageSource.Padding="10" Glass.Style="Regular"
-                             WidthRequest="44" HeightRequest="44" MenuButton.Items="{Binding MoreMenu}" />
-            </HorizontalStackLayout>
+                             WidthRequest="44" HeightRequest="44" HorizontalOptions="Start"
+                             MenuButton.Items="{Binding MoreMenu}" SemanticProperties.Description="More" />
+                <Label Text="{Binding Summary}" FontSize="15" />
+            </VerticalStackLayout>
+            <Example.Code>
+                &lt;ImageButton SvgImageSource.Svg="more.svg"
+                             MenuButton.Items="{Binding MoreMenu}" /&gt;
 
-            <Border StrokeThickness="0" BackgroundColor="#22808080" Padding="10,8" StrokeShape="RoundRectangle 8" Margin="0,8,0,0">
-                <Label FontSize="11" FontFamily="{OnPlatform iOS=Menlo, MacCatalyst=Menlo, Android=monospace, WinUI=Consolas}"
-                       Text="PageActions.Add(new PageAction(null, new MenuItems&#10;{&#10;    new MenuSection(&quot;Filter:&quot;)&#10;    {&#10;        new MenuPicker(PickCommand)&#10;        {&#10;            new MenuAction(&quot;All items&quot;, &quot;house.svg&quot;) { IsChecked = true },&#10;            new MenuAction(&quot;Favourites&quot;, &quot;star.svg&quot;),&#10;        },&#10;    },&#10;    new MenuSection&#10;    {&#10;        new SubMenu(&quot;Media types&quot;) { photos, videos },   // KeepsMenuOpen toggles&#10;        new MenuAction(&quot;Reset&quot;, &quot;refresh.svg&quot;, ResetCommand) { IsDestructive = true },&#10;    },&#10;}) { Svg = &quot;more.svg&quot; });&#10;&#10;&lt;Button Text=&quot;Name&quot; Glass.Style=&quot;Regular&quot;&#10;        MenuButton.Items=&quot;{Binding SortMenu}&quot; MenuButton.ShowsSelection=&quot;True&quot; /&gt;" />
-            </Border>
-        </VerticalStackLayout>
-    </ScrollView>
+                MoreMenu =
+                [
+                    new MenuSection("Filter:") { filterPicker },
+                    new MenuSection
+                    {
+                        new SubMenu("Media types", "image.svg")
+                        {
+                            new MenuAction("Photos", "cam.svg")
+                                { IsChecked = true, KeepsMenuOpen = true },
+                            new MenuAction("Videos", "play.svg")
+                                { KeepsMenuOpen = true },
+                        },
+                        new MenuAction("Reset", "refresh.svg", ResetCommand)
+                            { IsDestructive = true },
+                    },
+                ];
+            </Example.Code>
+        </Example>
+
+    </SampleLayout>
 
 </SpinePage>

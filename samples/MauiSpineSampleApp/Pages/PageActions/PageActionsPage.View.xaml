@@ -5,25 +5,56 @@
     x:TypeArguments="PageActionsPageViewModel"
     x:DataType="PageActionsPageViewModel">
 
-    <ScrollView>
-        <VerticalStackLayout Padding="20,16" Spacing="12">
-            <PackageChips Packages="Plugin.Maui.Spine, Plugin.Maui.Spine.Svg.Icons" />
+    <SampleLayout Packages="Plugin.Maui.Spine, Plugin.Maui.Spine.Svg.Icons">
 
-            <Label Text="[PageAction] on a [RelayCommand] declares a header button. Every property can change while the page shows."
-                   FontSize="14" />
+        <Example Title="A header button from a command"
+                 Summary="Put [PageAction] on a command and it becomes a button in the header bar: text or an icon, with nothing to wire up in the page.">
+            <Label Text="{Binding Log}" FontSize="15" />
+            <Example.Code>
+                [PageAction("Filter")]
+                [RelayCommand]
+                private void Filter() { … }
 
-            <Label Text="{Binding Log}" FontAttributes="Bold" />
+                // An icon instead of text
+                [PageAction(Svg = "bell.svg")]
+                [RelayCommand]
+                private void Bell() { … }
+            </Example.Code>
+        </Example>
 
-            <Label Text="Filter (Secondary, text)" FontAttributes="Bold" Margin="0,8,0,0" />
-            <Button Text="Count up: Text and Badge" Command="{Binding CountUpCommand}" />
-            <Button Text="Clear count" Command="{Binding ClearCountCommand}" />
-            <Button Text="Toggle IsEnabled" Command="{Binding ToggleEnabledCommand}" />
-            <Button Text="Toggle IsVisible (Bell takes the slot)" Command="{Binding ToggleVisibleCommand}" />
+        <Example Title="Change it while it shows"
+                 Summary="A count on the button, a badge, greyed out or hidden: set the action's properties and the header follows at once. A hidden action gives its place to the next one."
+                 OptionsCommand="{Binding ShowFilterOptionsCommand}">
+            <VerticalStackLayout Spacing="10">
+                <Button Text="Count up" Command="{Binding CountUpCommand}" />
+                <Button Text="Clear count" Command="{Binding ClearCountCommand}" />
+            </VerticalStackLayout>
+            <Example.Code>
+                var filter = PageActions.First(
+                    a =&gt; a.Command == FilterCommand);
 
-            <Label Text="Collection changes" FontAttributes="Bold" Margin="0,8,0,0" />
-            <Button Text="Add / remove a Primary 'Cancel' (replaces Back)" Command="{Binding ToggleCancelCommand}" />
+                filter.Text = $"Filter ({count})";
+                filter.Badge = count.ToString();
+                filter.IsEnabled = false;
+                filter.IsVisible = false;
+            </Example.Code>
+        </Example>
 
-        </VerticalStackLayout>
-    </ScrollView>
+        <Example Title="Replace the back button"
+                 Summary="A Primary action takes the leading slot in place of Back: a Cancel on a page that edits something. Add it and remove it while the page shows.">
+            <Button Text="{Binding CancelLabel}" Command="{Binding ToggleCancelCommand}" />
+            <Example.Code>
+                _cancel = new PageAction("Cancel", CancelCommand)
+                {
+                    Placement = PageActionPlacement.Primary,
+                };
+                PageActions.Add(_cancel);
+
+                // Back returns
+                PageActions.Remove(_cancel);
+            </Example.Code>
+        </Example>
+
+    </SampleLayout>
 
 </SpinePage>

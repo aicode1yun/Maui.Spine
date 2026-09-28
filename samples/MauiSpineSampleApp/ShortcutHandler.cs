@@ -1,4 +1,4 @@
-using MauiSpineSampleApp.Pages.Settings;
+using MauiSpineSampleApp.Pages.Theme;
 
 namespace MauiBottomSheetPoc;
 
@@ -6,13 +6,13 @@ public class ShortcutHandler(INavigationService _navigation) : IShortcutHandler
 {
     public static void Configure(IShortcutBuilder builder)
     {
-        builder.Add(id: "settings", title: "Settings");
+        builder.Add(id: "theme", title: "Theme");
     }
 
     public Task InvokeAsync(string shortcutId) =>
         shortcutId switch
         {
-            "settings" => _navigation.NavigateToAsync<SettingsPage>(),
+            "theme" => _navigation.NavigateToAsync<ThemePage>(),
             _ => Task.CompletedTask
         };
 }

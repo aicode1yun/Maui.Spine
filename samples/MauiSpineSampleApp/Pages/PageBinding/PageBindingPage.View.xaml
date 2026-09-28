@@ -5,45 +5,52 @@
     x:TypeArguments="PageBindingPageViewModel"
     x:DataType="PageBindingPageViewModel">
 
-    <Grid RowDefinitions="Auto,*">
+    <SampleLayout Packages="Plugin.Maui.Spine">
 
-        <VerticalStackLayout Padding="16,8" Spacing="6">
-            <PackageChips Packages="Plugin.Maui.Spine" />
-            <Label Text="Inside an item template the BindingContext is the row, so {Binding PickCommand} would look on the Fruit and find nothing. {PageCommand Pick} and {PageBinding Currency} reach the page's view model instead, without a RelativeSource AncestorType binding."
-                   FontSize="14" />
+        <Example Title="Reach the page from inside a row"
+                 Summary="In an item template the binding context is the row, so the page's commands and settings are out of reach. PageCommand and PageBinding find the page's view model, with no RelativeSource or x:Reference."
+                 OptionsCommand="{Binding ShowOptionsCommand}">
+            <VerticalStackLayout Spacing="12">
+                <Label Text="{Binding Picked}" FontAttributes="Bold" />
+                <VerticalStackLayout Spacing="8" BindableLayout.ItemsSource="{Binding Fruits}">
+                    <BindableLayout.ItemTemplate>
+                        <DataTemplate x:DataType="Fruit">
+                            <Border StrokeThickness="0" Padding="12" BackgroundColor="#22808080" StrokeShape="RoundRectangle 10">
+                                <Grid ColumnDefinitions="*,Auto">
+                                    <VerticalStackLayout VerticalOptions="Center">
+                                        <Label Text="{Binding Name}" FontAttributes="Bold" />
+                                        <Label Text="{Binding PricePerKg, StringFormat='{0:0} SEK/kg'}" FontSize="13" TextColor="Gray"
+                                               IsVisible="{PageBinding ShowPrices}" />
+                                    </VerticalStackLayout>
+                                    <Button Grid.Column="1" Text="Pick" Command="{PageCommand Pick}" CommandParameter="{Binding .}" />
+                                </Grid>
+                            </Border>
+                        </DataTemplate>
+                    </BindableLayout.ItemTemplate>
+                </VerticalStackLayout>
+            </VerticalStackLayout>
+            <Example.Code>
+                &lt;DataTemplate x:DataType="Fruit"&gt;
+                    &lt;HorizontalStackLayout&gt;
+                        &lt;Label Text="{Binding Name}" /&gt;
+                        &lt;Label Text="{Binding PricePerKg}"
+                               IsVisible="{PageBinding ShowPrices}" /&gt;
+                        &lt;Button Text="Pick"
+                                Command="{PageCommand Pick}"
+                                CommandParameter="{Binding .}" /&gt;
+                    &lt;/HorizontalStackLayout&gt;
+                &lt;/DataTemplate&gt;
 
-            <HorizontalStackLayout Spacing="10">
-                <Label Text="Show prices in EUR (page state, shown in every row)" VerticalOptions="Center" FontSize="14" />
-                <Switch IsToggled="{Binding UseEuro}" />
-            </HorizontalStackLayout>
+                // Binding reads the row; PageBinding and
+                // PageCommand read the page's view model
+                [ObservableProperty]
+                public partial bool ShowPrices { get; set; }
 
-            <Label Text="{Binding Picked}" FontAttributes="Bold" />
+                [RelayCommand]
+                private void Pick(Fruit fruit) =&gt; Picked = fruit;
+            </Example.Code>
+        </Example>
 
-            <Border StrokeThickness="0" BackgroundColor="#22808080" Padding="10,8" StrokeShape="RoundRectangle 8">
-                <Label FontSize="11" FontFamily="{OnPlatform iOS=Menlo, MacCatalyst=Menlo, Android=monospace, WinUI=Consolas}"
-                       Text="&lt;DataTemplate x:DataType=&quot;Fruit&quot;&gt;&#10;  &lt;Label Text=&quot;{Binding Name}&quot; /&gt;              row&#10;  &lt;Label Text=&quot;{Binding PricePerKg}&quot; /&gt;        row&#10;  &lt;Label Text=&quot;{PageBinding Currency}&quot; /&gt;     page&#10;  &lt;Button Command=&quot;{PageCommand Pick}&quot;          page&#10;          CommandParameter=&quot;{Binding .}&quot; /&gt;  row&#10;&lt;/DataTemplate&gt;" />
-            </Border>
-        </VerticalStackLayout>
-
-        <CollectionView Grid.Row="1" ItemsSource="{Binding Fruits}">
-            <CollectionView.ItemTemplate>
-                <DataTemplate x:DataType="Fruit">
-                    <Border StrokeThickness="0" Margin="16,6" Padding="12" BackgroundColor="#22808080" StrokeShape="RoundRectangle 10">
-                        <Grid ColumnDefinitions="*,Auto">
-                            <VerticalStackLayout>
-                                <Label Text="{Binding Name}" FontAttributes="Bold" />
-                                <HorizontalStackLayout Spacing="4">
-                                    <Label Text="{Binding PricePerKg, StringFormat='{0:0}'}" FontSize="13" TextColor="Gray" />
-                                    <Label Text="{PageBinding Currency}" FontSize="13" TextColor="Gray" />
-                                </HorizontalStackLayout>
-                            </VerticalStackLayout>
-                            <Button Grid.Column="1" Text="Pick" Command="{PageCommand Pick}" CommandParameter="{Binding .}" />
-                        </Grid>
-                    </Border>
-                </DataTemplate>
-            </CollectionView.ItemTemplate>
-        </CollectionView>
-
-    </Grid>
+    </SampleLayout>
 
 </SpinePage>

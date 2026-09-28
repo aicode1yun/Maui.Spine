@@ -1,8 +1,9 @@
 using System.Collections.ObjectModel;
+using System.ComponentModel;
 
 namespace MauiSpineSampleApp.Pages.DataGrid;
 
-public partial class DataGridPageViewModel(IThemeService _theme) : ViewModelBase
+public partial class DataGridPageViewModel : SampleViewModel
 {
     private const int PageSize = 30;
     private static readonly List<Product> Catalogue = Product.Generate(120);
@@ -25,13 +26,15 @@ public partial class DataGridPageViewModel(IThemeService _theme) : ViewModelBase
     public partial bool IsGrouped { get; set; }
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(ShowGrid))]
-    public partial bool ShowCode { get; set; }
+    public partial bool IsRefreshEnabled { get; set; } = true;
+
+    [ObservableProperty]
+    public partial bool IsCellCopyEnabled { get; set; } = true;
 
     public bool ShowGrid => !ShowCode;
 
     [ObservableProperty]
-    public partial string LastAction { get; set; } = "Tap a row, a SKU or a checkbox; swipe a row; long-press a header or a value.";
+    public partial string LastAction { get; set; } = "Tap a header to sort, or a row, a SKU or a star. Swipe a row; long-press a header or a value.";
 
     public string? GroupByPath => IsGrouped ? nameof(Product.Category) : null;
 
@@ -72,11 +75,19 @@ public partial class DataGridPageViewModel(IThemeService _theme) : ViewModelBase
         LastAction = "Refreshed";
     }
 
-    // The grid colours its rows in code and repaints through SpineTheme.Track; flip the theme here to see it.
-    [PageAction(Svg = "lamp.svg")]
+    protected override void OnPropertyChanged(PropertyChangedEventArgs e)
+    {
+        base.OnPropertyChanged(e);
+
+        if (e.PropertyName == nameof(ShowCode))
+            OnPropertyChanged(nameof(ShowGrid));
+    }
+
     [RelayCommand]
-    private void ToggleTheme() =>
-        _theme.Current = _theme.Effective == AppTheme.Dark ? AppTheme.Light : AppTheme.Dark;
+    private Task ShowGridOptions() => ShowOptionsAsync("DataGrid",
+        new ToggleOption("Group by category", "Rows under a header per category. Grouping shows every row: it does not combine with load more.", () => IsGrouped, v => IsGrouped = v),
+        new ToggleOption("Pull to refresh", "Pull the list down to load it again.", () => IsRefreshEnabled, v => IsRefreshEnabled = v),
+        new ToggleOption("Copy on long-press", "Long-press a value to copy what it shows.", () => IsCellCopyEnabled, v => IsCellCopyEnabled = v));
 
     [RelayCommand]
     private void RowTapped(Product product) => LastAction = $"Row: {product.Name}";

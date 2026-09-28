@@ -1,0 +1,55 @@
+<SpinePage
+    xmlns="http://schemas.microsoft.com/dotnet/maui/global"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    x:Class="MauiSpineSampleApp.Pages.Widgets.WidgetsPage"
+    x:TypeArguments="WidgetsPageViewModel"
+    x:DataType="WidgetsPageViewModel">
+
+    <SampleLayout Packages="Plugin.Maui.Spine.Widgets">
+
+        <Example Title="A home-screen widget"
+                 Summary="A widget written in C#: the app describes it as a tree, and the home screen draws it natively, even while the app is closed. When the app's data changes, it asks for the widgets to be built again. Add the Spine Showcase widget to the home screen and refresh it here.">
+            <VerticalStackLayout Spacing="10">
+                <Button Text="Refresh widgets" Command="{Binding RefreshWidgetsCommand}" />
+                <Label Text="{Binding Refreshed}" FontSize="15" />
+            </VerticalStackLayout>
+            <Example.Code>
+                [Widget("sample")]
+                public sealed class SampleWidget : IWidgetProvider
+                {
+                    public Task&lt;WidgetTimeline&gt; BuildTimelineAsync(WidgetContext context, CancellationToken ct) =&gt;
+                        Task.FromResult(WidgetTimeline.Single(
+                            W.VStack(4,
+                                W.Text("Next event").Caption(),
+                                W.Text("Product demo").Headline().Bold())));
+                }
+
+                // When the data changes
+                await _widgets.RefreshAllAsync();
+            </Example.Code>
+        </Example>
+
+        <Example Title="A Live Activity"
+                 Summary="Something happening right now (a delivery, a match, a meeting) on the lock screen and in the Dynamic Island. The countdown runs on its own, without the app.">
+            <Button Text="{Binding LiveActivityLabel}" Command="{Binding ToggleLiveActivityCommand}" />
+            <Example.Code>
+                var start = DateTimeOffset.Now.AddMinutes(42);
+
+                var activity = await _liveActivities.StartAsync("sample", new LiveActivityLayout
+                {
+                    LockScreen = W.HStack(10,
+                        W.Text("Product demo · Room 4B").Headline().Bold(),
+                        W.Spacer(),
+                        W.Timer(start).Title().Bold()),
+                    CompactLeading = W.Icon("fish", WidgetColor.Green),
+                    CompactTrailing = W.Timer(start).Caption().Bold(),
+                    Minimal = W.Icon("fish", WidgetColor.Green),
+                });
+
+                await activity.EndAsync();
+            </Example.Code>
+        </Example>
+
+    </SampleLayout>
+
+</SpinePage>
