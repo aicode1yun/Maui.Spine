@@ -55,15 +55,19 @@
         </Example>
 
         <Example Title="On a header action"
-                 Summary="A page action carries its haptic: Save at the top right plays Success when tapped.">
+                 Summary="A page action carries its haptic: the checkmark at the top right plays Success when tapped.">
             <Label Text="{Binding Saved}" FontSize="15" />
             <Example.Code>
-                [PageAction("Save", Haptic = Haptic.Success)]
+                [PageAction("Save", Role = PageActionRole.Confirm, Haptic = Haptic.Success)]
                 [RelayCommand]
                 private Task SaveAsync() { ... }
 
                 // or
-                PageActions.Add(new PageAction("Save", SaveCommand) { Haptic = Haptic.Success });
+                PageActions.Add(new PageAction("Save", SaveCommand)
+                {
+                    Role = PageActionRole.Confirm,
+                    Haptic = Haptic.Success,
+                });
             </Example.Code>
         </Example>
 

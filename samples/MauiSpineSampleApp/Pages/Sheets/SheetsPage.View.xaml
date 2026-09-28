@@ -58,15 +58,15 @@
             </Example.Code>
         </Example>
 
-        <Example Title="Save and Cancel in the header"
-                 Summary="An editing sheet's Save and Cancel are page actions: in the sheet's header bar next to the title, in the same place at every height.">
+        <Example Title="Confirm and cancel in the header"
+                 Summary="An editing sheet confirms with a checkmark and cancels with an X, as page actions in the sheet's header bar, in the same place at every height. The role picks the icon; the text is what a screen reader says.">
             <Button Text="Edit notifications" Command="{Binding ShowEditSheetCommand}" />
             <Example.Code>
-                [PageAction("Cancel", Placement = PageActionPlacement.Primary)]
+                [PageAction("Cancel", Role = PageActionRole.Cancel)]
                 [RelayCommand]
                 private Task Cancel() =&gt; _navigation.CloseAsync();
 
-                [PageAction("Save")]
+                [PageAction("Save", Role = PageActionRole.Confirm)]
                 [RelayCommand]
                 private Task Save() =&gt; _navigation.CloseAsync();
             </Example.Code>

@@ -306,6 +306,8 @@ internal sealed class PageActionView : ContentView
             IsVisible = false,
         };
         string? _currentSvg;
+        // A confirm action leads the screen: tinted glass on iOS 26, a filled accent circle elsewhere
+        bool _prominent;
 
         public Face(PageActionView owner)
         {
@@ -421,6 +423,7 @@ internal sealed class PageActionView : ContentView
             Haptics.SetOnTap(_textButton, action.Haptic);
 
             _currentSvg = hasSvg ? action.Svg : null;
+            ApplyProminence(action.Role == PageActionRole.Confirm);
 
             // The icon is not the glass button's image: a glass configuration that has held an
             // image draws later titles in the label colour, not the accent.
@@ -456,7 +459,7 @@ internal sealed class PageActionView : ContentView
                 return;
 
             var dark = Application.Current?.RequestedTheme == AppTheme.Dark;
-            var tint = _owner.Foreground ?? (dark ? Colors.White : Colors.Black);
+            var tint = _prominent ? OnAccent() : _owner.Foreground ?? (dark ? Colors.White : Colors.Black);
             _morphIcon.Source = SvgBitmapLoader.LoadFromEmbedded(resource, 24, 24, tint);
         }
 
@@ -464,8 +467,81 @@ internal sealed class PageActionView : ContentView
         public void ApplyIconWidth()
         {
             _imageButton.RemoveBinding(VisualElement.WidthRequestProperty);
-            _imageButton.WidthRequest = _owner._glass ? _owner.HeightRequest : _owner.IconWidth;
+            _imageButton.WidthRequest = _owner._glass ? _owner.HeightRequest : _prominent ? FilledSize : _owner.IconWidth;
         }
+
+        const double FilledSize = 40;
+
+        /// <summary>
+        /// The prominent look of a confirm: the glass tinted with the accent (iOS 26's prominent bar button), or
+        /// without glass a filled accent circle; the glyph or text in the colour that reads on the accent.
+        /// </summary>
+        void ApplyProminence(bool prominent)
+        {
+            if (prominent == _prominent)
+                return;
+
+            _prominent = prominent;
+            if (_owner._glass)
+            {
+                var style = prominent ? GlassStyle.Prominent : GlassStyle.Regular;
+                Glass.SetStyle(_imageButton, style);
+                Glass.SetStyle(_textButton, style);
+            }
+            else
+            {
+                // Material 3's filled icon button: a 40-point circle inside the slot, clear of the sheet's edge
+                if (prominent)
+                {
+                    _imageButton.RemoveBinding(VisualElement.HeightRequestProperty);
+                    _imageButton.RemoveBinding(ImageButton.PaddingProperty);
+                    _imageButton.HeightRequest = FilledSize;
+                    _imageButton.Padding = new Thickness(0);
+                    _imageButton.Margin = new Thickness(6, 0);
+                }
+                else
+                {
+                    _imageButton.Margin = new Thickness(0);
+                    _imageButton.SetBinding(VisualElement.HeightRequestProperty, new Binding(nameof(HeightRequest), source: _owner));
+                    _imageButton.SetBinding(ImageButton.PaddingProperty, new Binding(nameof(Padding), source: _owner));
+                }
+                _imageButton.CornerRadius = prominent ? (int)(FilledSize / 2)
+                    : DeviceInfo.Platform == DevicePlatform.Android ? 24 : 0;
+                _textButton.CornerRadius = prominent ? (int)Math.Round(_owner.HeightRequest / 2) : -1;
+                if (!prominent)
+                    _imageButton.ApplyCommonVisualStates(_owner.HideDisabled);
+            }
+            ApplyIconWidth();
+            ApplyForeground();
+        }
+
+        // The common states set the background, and a state's value outranks the fill set on the button,
+        // so a filled button gets states of its own: the fill, lighter while pressed, dimmed when disabled
+        void ApplyFilledStates(Color fill)
+        {
+            var group = new VisualStateGroup { Name = "CommonStates" };
+            void Add(string name, Color background, double opacity)
+            {
+                var state = new VisualState { Name = name };
+                state.Setters.Add(new Setter { Property = VisualElement.BackgroundColorProperty, Value = background });
+                state.Setters.Add(new Setter { Property = VisualElement.OpacityProperty, Value = opacity });
+                group.States.Add(state);
+            }
+            Add("Normal", fill, 1);
+            Add("PointerOver", fill, 1);
+            Add("Pressed", fill.WithAlpha(0.75f), 1);
+            Add("Disabled", fill, _owner.HideDisabled ? 0 : 0.4);
+            VisualStateManager.SetVisualStateGroups(_imageButton, [group]);
+        }
+
+        static bool IsDark => Application.Current?.RequestedTheme == AppTheme.Dark
+            || (Application.Current?.RequestedTheme != AppTheme.Light
+                && Application.Current?.PlatformAppTheme == AppTheme.Dark);
+
+        static Color Accent() => SpineTheme.GetAccent(IsDark ? AppTheme.Dark : AppTheme.Light)
+            ?? Color.FromArgb(IsDark ? "#0A84FF" : "#007AFF");
+
+        static Color OnAccent() => SpineAccent.TextOn(Accent());
 
         /// <summary>Holds the face at its current size while it fades out.</summary>
         public void Freeze()
@@ -474,26 +550,31 @@ internal sealed class PageActionView : ContentView
                 WidthRequest = Width;
         }
 
-        public void ApplyHideDisabled() => _imageButton.ApplyCommonVisualStates(_owner.HideDisabled);
+        public void ApplyHideDisabled()
+        {
+            if (!_prominent || _owner._glass)
+                _imageButton.ApplyCommonVisualStates(_owner.HideDisabled);
+        }
 
         public void ApplyForeground()
         {
-            if (_owner.Foreground is { } foreground)
-            {
+            // Read again on every theme or accent change, so the prominent fill follows the accent
+            var fill = _prominent ? Accent() : Colors.Transparent;
+            _imageButton.BackgroundColor = fill;
+            _textButton.BackgroundColor = fill;
+            if (_prominent && !_owner._glass)
+                ApplyFilledStates(fill);
+
+            if (_prominent)
+                _textButton.TextColor = OnAccent();
+            else if (_owner.Foreground is { } foreground)
                 _textButton.TextColor = foreground;
-            }
             else
-            {
-                var isDark = Application.Current?.RequestedTheme == AppTheme.Dark
-                    || (Application.Current?.RequestedTheme != AppTheme.Light
-                        && Application.Current?.PlatformAppTheme == AppTheme.Dark);
-                _textButton.TextColor = SpineTheme.GetAccent(isDark ? AppTheme.Dark : AppTheme.Light)
-                    ?? Color.FromArgb(isDark ? "#0A84FF" : "#007AFF");
-            }
+                _textButton.TextColor = Accent();
 
             if (_imageButton.Behaviors.OfType<SvgImageSourceBehavior>().FirstOrDefault() is { } svg)
             {
-                svg.TintColor = _owner.Foreground;
+                svg.TintColor = _prominent ? OnAccent() : _owner.Foreground;
                 svg.UpdateImage();
             }
 
@@ -533,6 +614,7 @@ internal sealed class PageActionView : ContentView
             _badgeLabel.Text = action.Badge ?? string.Empty;
             SemanticProperties.SetDescription(_imageButton, action.Description);
             SemanticProperties.SetDescription(_textButton, action.Description);
+            ApplyProminence(action.Role == PageActionRole.Confirm);
 
             MenuButton.SetItems(_imageButton, action.Menu);
             MenuButton.SetItems(_textButton, action.Menu);
@@ -551,11 +633,14 @@ internal sealed class PageActionView : ContentView
                         Svg = action.Svg!,
                         LightTintColor = Colors.Black,
                         DarkTintColor = Colors.White,
-                        TintColor = _owner.Foreground,
+                        TintColor = _prominent ? OnAccent() : _owner.Foreground,
                     };
-                    // A 24-point glyph in the 44-point glass circle, the size a UIBarButtonItem uses.
+                    // A 24-point glyph in the 44-point glass circle, the size a UIBarButtonItem uses; the same
+                    // in the 40-point filled circle
                     if (_owner._glass)
                         behavior.Padding = new Thickness(10);
+                    else if (_prominent)
+                        behavior.Padding = new Thickness(8);
                     _imageButton.Behaviors.Add(behavior);
                     _currentSvg = action.Svg;
                 }

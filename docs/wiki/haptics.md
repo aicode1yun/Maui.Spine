@@ -54,11 +54,11 @@ On iOS, Spine prepares the generator as soon as the finger lands, so the haptic 
 ## On a header action
 
 ```csharp
-[PageAction("Save", Haptic = Haptic.Success)]
+[PageAction("Save", Role = PageActionRole.Confirm, Haptic = Haptic.Success)]
 [RelayCommand]
 private Task SaveAsync() { ... }
 
-PageActions.Add(new PageAction("Save", SaveCommand) { Haptic = Haptic.Success });
+PageActions.Add(new PageAction("Save", SaveCommand) { Role = PageActionRole.Confirm, Haptic = Haptic.Success });
 ```
 
 `PageAction.Haptic` is observable, so you can change it while the page is showing.
