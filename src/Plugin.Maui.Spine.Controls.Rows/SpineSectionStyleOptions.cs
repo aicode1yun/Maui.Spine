@@ -10,7 +10,7 @@ namespace Plugin.Maui.Spine.Controls;
 /// <remarks>
 /// The defaults follow each platform's settings screen. iOS: a filled group with continuous
 /// 26-point corners (10 before iOS 26), hairline separators from the text to 16 points before the
-/// edge, a grey footnote header and footer; the page behind should be
+/// edge, a bold 17-point grey header (13 points before iOS 26) and a 13-point footer; the page behind should be
 /// <see cref="SpineSection.PageBackgroundLight"/> / <see cref="SpineSection.PageBackgroundDark"/>.
 /// Android: no group and no separators, a header in the accent colour, as in Android's settings.
 /// Windows: a card with hairline separators.
@@ -24,8 +24,9 @@ public class SpineSectionStyleOptions : SpineStyleOptions<SpineSectionStyleOptio
     /// <summary>Font of the header and the footer. <see langword="null"/> = the app's default font.</summary>
     public string? FontFamily { get; set; }
 
-    public double HeaderFontSize { get; set; } = IsAndroid ? 14 : 13;
-    public FontAttributes HeaderFontAttributes { get; set; } = IsAndroid ? FontAttributes.Bold : FontAttributes.None;
+    // iOS 26 Settings: the header as large as a row's title, bold, in the secondary label colour.
+    public double HeaderFontSize { get; set; } = IsAndroid ? 14 : IsModernApple ? 17 : 13;
+    public FontAttributes HeaderFontAttributes { get; set; } = IsAndroid || IsModernApple ? FontAttributes.Bold : FontAttributes.None;
     public double FooterFontSize { get; set; } = IsAndroid ? 14 : 13;
 
     /// <summary>Corner radius of the group.</summary>

@@ -12,7 +12,7 @@ public sealed class SampleLayout : ScrollView
         nameof(Packages), typeof(string), typeof(SampleLayout), null,
         propertyChanged: (b, _, n) => ((SampleLayout)b)._packages.Packages = (string?)n);
 
-    private readonly VerticalStackLayout _stack = new() { Padding = new Thickness(20, 8, 20, 24), Spacing = 36 };
+    private readonly VerticalStackLayout _stack = new() { Padding = new Thickness(HeaderBarConstants.PageMargin, 8, HeaderBarConstants.PageMargin, 24), Spacing = 36 };
     private readonly PackageChips _packages = new();
 
     public SampleLayout()

@@ -35,7 +35,7 @@
                 </VisualStateGroup>
             </VisualStateManager.VisualStateGroups>
 
-            <VerticalStackLayout Padding="20,8,20,0" Spacing="12">
+            <VerticalStackLayout Margin="{x:Static HeaderBarConstants.PagePadding}" Padding="0,8,0,0" Spacing="12">
                 <ExampleCodeSwitch />
                 <PackageChips Packages="Plugin.Maui.Spine.Controls.DataGrid" />
                 <Example Title="{StaticResource GridTitle}"

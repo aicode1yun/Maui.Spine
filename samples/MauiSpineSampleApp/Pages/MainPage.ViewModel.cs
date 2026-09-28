@@ -7,7 +7,7 @@ public partial class MainPageViewModel(INavigationService _navigation) : SampleV
 {
 
     // The collapsed hero header keeps room for the theme button, which sits where the header bar's
-    // buttons sit on every other page: the status-bar inset down, 10 points in from the edge.
+    // buttons sit on every other page: the status-bar inset down, the page margin in from the edge.
     // The collapsed hero: a bar below the status bar with the title and the theme button centred on one line.
     private const double CompactBar = 36;
 
@@ -18,11 +18,11 @@ public partial class MainPageViewModel(INavigationService _navigation) : SampleV
 
     public Thickness GearMargin => DeviceInfo.Platform == DevicePlatform.WinUI
         ? new Thickness(0, 0, 144, 0)
-        : new Thickness(0, SystemBarInsets.Top + (CompactBar - 44) / 2, 10 + SystemBarInsets.Right, 0);
+        : new Thickness(0, SystemBarInsets.Top + (CompactBar - 44) / 2, HeaderBarConstants.PageMargin + SystemBarInsets.Right, 0);
 
     // The photo runs edge to edge; the title and the rows keep clear of the Dynamic Island and the
     // rounded corners in landscape.
-    public Thickness TitleMargin => new(10 + SystemBarInsets.Left, -4, 10, -4);
+    public Thickness TitleMargin => new(HeaderBarConstants.PageMargin + SystemBarInsets.Left, -4, HeaderBarConstants.PageMargin, -4);
 
     public Thickness ListMargin => new(SystemBarInsets.Left, 0, SystemBarInsets.Right, 0);
 

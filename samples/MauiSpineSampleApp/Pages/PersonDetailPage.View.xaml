@@ -5,7 +5,7 @@
     x:TypeArguments="PersonDetailPageViewModel"
     x:DataType="PersonDetailPageViewModel">
 
-    <VerticalStackLayout Padding="20" Spacing="12">
+    <VerticalStackLayout Margin="{x:Static HeaderBarConstants.PagePadding}" Padding="0,20" Spacing="12">
 
         <Label Text="Name" FontAttributes="Bold" />
         <Label Text="{Binding Name}" FontSize="16" />

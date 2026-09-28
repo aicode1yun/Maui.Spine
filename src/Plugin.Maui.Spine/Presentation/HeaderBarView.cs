@@ -254,19 +254,28 @@ internal class HeaderBarView : Microsoft.Maui.Controls.ContentView
 
         // Before the first layout there is no frame yet. An icon action has a known width, so
         // seed with that rather than let the title start full-width and jump on the next pass.
-        return Presentation is NavigationPresentation.Sheet
-            ? HeaderBarConstants.SheetSideMargin + HeaderBarConstants.SheetButtonWidth
-            : HeaderBarConstants.RegionSideMargin + HeaderBarConstants.RegionButtonWidth;
+        return SideMargin + IconButtonWidth;
     }
 
     void UpdateActionWidth(PageActionView pageActionView)
     {
         pageActionView.WidthRequest = string.IsNullOrEmpty(pageActionView?.Action?.Svg)
             ? HeaderBarConstants.Auto // Allow to size to text content
-            : Presentation is NavigationPresentation.Sheet
-                ? HeaderBarConstants.SheetButtonWidth // Fixed size for icon-only actions in sheet presentation
-                : HeaderBarConstants.RegionButtonWidth; // Slightly larger fixed size for icon-only actions in region presentation to accommodate potential caption buttons on Windows desktop
+            : IconButtonWidth;
     }
+
+    // Glass buttons are 44-point circles whose edge lines up with the page's content, as a
+    // UINavigationBar's do; without glass the older, platform-specific slots stay.
+    double SideMargin => PageActionView.UseGlassHeaderActions
+        ? HeaderBarConstants.PageMargin
+        : Presentation is NavigationPresentation.Sheet ? HeaderBarConstants.SheetSideMargin : HeaderBarConstants.RegionSideMargin;
+
+    double IconButtonWidth => PageActionView.UseGlassHeaderActions
+        ? HeaderBarConstants.Height
+        : Presentation is NavigationPresentation.Sheet
+            ? HeaderBarConstants.SheetButtonWidth
+            // Slightly larger for region pages, to accommodate caption buttons on Windows desktop.
+            : HeaderBarConstants.RegionButtonWidth;
 
     void UpdatePresentationSizes()
     {
@@ -277,12 +286,12 @@ internal class HeaderBarView : Microsoft.Maui.Controls.ContentView
 
         if (Presentation is NavigationPresentation.Sheet)
         {
-            buttonGrid.ColumnDefinitions[0].Width = HeaderBarConstants.SheetSideMargin;
-            buttonGrid.ColumnDefinitions[^1].Width = HeaderBarConstants.SheetSideMargin;
+            buttonGrid.ColumnDefinitions[0].Width = SideMargin;
+            buttonGrid.ColumnDefinitions[^1].Width = SideMargin;
         }
         else
         {
-            buttonGrid.ColumnDefinitions[0].Width = HeaderBarConstants.RegionSideMargin;
+            buttonGrid.ColumnDefinitions[0].Width = SideMargin;
 
             if(IsWindowsDesktop())
             {
@@ -291,7 +300,7 @@ internal class HeaderBarView : Microsoft.Maui.Controls.ContentView
             }
             else
             {
-                buttonGrid.ColumnDefinitions[^1].Width = HeaderBarConstants.RegionSideMargin;
+                buttonGrid.ColumnDefinitions[^1].Width = SideMargin;
             }
         }
 

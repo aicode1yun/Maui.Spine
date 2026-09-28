@@ -13,9 +13,9 @@
                 <Image Source="spine_hero2.png" Aspect="AspectFill" HeightRequest="260" />
 
                 <!-- Only shown while the page has a large title; Spine measures it to fade the bar's title in. -->
-                <HeaderBarLargeTitle IsVisible="{Binding LargeTitle}" Margin="16,8,16,0" />
+                <HeaderBarLargeTitle IsVisible="{Binding LargeTitle}" />
 
-                <VerticalStackLayout Padding="20,8,20,20" Spacing="12">
+                <VerticalStackLayout Margin="{x:Static HeaderBarConstants.PagePadding}" Padding="0,8,0,20" Spacing="12">
                     <ExampleCodeSwitch />
                     <PackageChips Packages="Plugin.Maui.Spine" />
 
