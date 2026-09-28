@@ -58,7 +58,7 @@
     </SpinePage.Resources>
 
     <ScrollView>
-        <VerticalStackLayout Padding="20,4,20,20" Spacing="22"
+        <VerticalStackLayout Margin="{x:Static HeaderBarConstants.PagePadding}" Padding="0,4,0,20" Spacing="22"
                              BindableLayout.ItemsSource="{Binding Options}"
                              BindableLayout.ItemTemplateSelector="{StaticResource OptionTemplate}" />
     </ScrollView>

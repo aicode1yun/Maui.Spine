@@ -18,11 +18,36 @@ public static class HeaderBarConstants
     public const uint FadeOutDuration = 90;
 
     /// <summary>
-    /// Where a <see cref="Core.NavigableAttribute.LargeTitle"/> page puts its large title, as the
-    /// first thing in its scroll content: side margins, and nothing above (the scroll inset already
-    /// starts it under the bar).
+    /// The side margin a page's content lines up with, the same as the header bar's outermost
+    /// buttons: UIKit's system layout margin on iOS and Mac Catalyst (16 points on iPhones narrower
+    /// than 414 points, 20 on the Plus and Pro Max and on iPad), 16 dp on Android (Material 3), 16
+    /// on Windows. Spine does not pad page content itself, since photos, maps and lists often run
+    /// edge to edge; give the content <see cref="PagePadding"/>.
     /// </summary>
-    public static readonly Thickness LargeTitleMargin = new(LargeTitleSideMargin, 0, LargeTitleSideMargin, 0);
+    public static double PageMargin { get; } = ComputePageMargin();
+
+    /// <summary>
+    /// <see cref="PageMargin"/> on the left and right, for a page's content:
+    /// <c>Padding="{x:Static HeaderBarConstants.PagePadding}"</c>.
+    /// </summary>
+    public static Thickness PagePadding { get; } = new(PageMargin, 0);
+
+    static double ComputePageMargin()
+    {
+#if IOS || MACCATALYST
+        var bounds = UIKit.UIScreen.MainScreen.Bounds;
+        return Math.Min(bounds.Width, bounds.Height) >= 414 ? 20 : 16;
+#else
+        return 16;
+#endif
+    }
+
+    /// <summary>
+    /// Where a <see cref="Core.NavigableAttribute.LargeTitle"/> page puts its large title, as the
+    /// first thing in its scroll content: the <see cref="PageMargin"/> on either side, and nothing
+    /// above (the scroll inset already starts it under the bar).
+    /// </summary>
+    public static Thickness LargeTitleMargin { get; } = new(PageMargin, 0, PageMargin, 0);
 
     /// <summary>
     /// Scroll distance over which the header bar's title fades in, ending at the collapse distance
@@ -70,7 +95,7 @@ public static class HeaderBarConstants
     public const FontAttributes LargeTitleFontAttributes = FontAttributes.None;
     /// <summary>Height of the large title's row.</summary>
     public const double LargeTitleHeight = 56;
-    /// <summary>Left and right margin of the large title.</summary>
+    /// <summary>Left and right margin of the large title; the laid-out value is <see cref="PageMargin"/>.</summary>
     public const double LargeTitleSideMargin = 16;
 
 #elif IOS || MACCATALYST
@@ -108,7 +133,7 @@ public static class HeaderBarConstants
     public const FontAttributes LargeTitleFontAttributes = FontAttributes.Bold;
     /// <summary>Height of the large title's row.</summary>
     public const double LargeTitleHeight = 52;
-    /// <summary>Left and right margin of the large title.</summary>
+    /// <summary>Left and right margin of the large title; the laid-out value is <see cref="PageMargin"/>.</summary>
     public const double LargeTitleSideMargin = 16;
 
 #else
@@ -143,7 +168,7 @@ public static class HeaderBarConstants
     public const FontAttributes LargeTitleFontAttributes = FontAttributes.Bold;
     /// <summary>Height of the large title's row.</summary>
     public const double LargeTitleHeight = 48;
-    /// <summary>Left and right margin of the large title.</summary>
+    /// <summary>Left and right margin of the large title; the laid-out value is <see cref="PageMargin"/>.</summary>
     public const double LargeTitleSideMargin = 16;
 
 #endif

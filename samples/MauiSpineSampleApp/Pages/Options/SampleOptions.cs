@@ -13,22 +13,40 @@ public sealed partial class Choice(string label, string description, Action choo
     [ObservableProperty]
     public partial bool IsSelected { get; set; }
 
+    internal ChoiceGroup? Group { get; set; }
+
+    // The chip moves first, so a choice whose action does not reselect its group still shows as picked.
     [RelayCommand]
-    private void Choose() => choose();
+    private void Choose()
+    {
+        Group?.Select(this);
+        choose();
+    }
 }
 
 /// <summary>One setting with a few values, shown as chips; the choice's action changes the page.</summary>
-public sealed partial class ChoiceGroup(string name, IReadOnlyList<Choice> choices) : ObservableObject
+public sealed partial class ChoiceGroup : ObservableObject
 {
-    public string Name { get; } = name;
+    public ChoiceGroup(string name, IReadOnlyList<Choice> choices)
+    {
+        Name = name;
+        Choices = choices;
 
-    public IReadOnlyList<Choice> Choices { get; } = choices;
+        foreach (var choice in choices)
+            choice.Group = this;
+    }
+
+    public string Name { get; }
+
+    public IReadOnlyList<Choice> Choices { get; }
 
     [ObservableProperty]
     public partial Choice? Selected { get; private set; }
 
     [ObservableProperty]
     public partial bool IsVisible { get; set; } = true;
+
+    public void Select(Choice choice) => Select(Choices.ToList().IndexOf(choice));
 
     /// <summary>Selects the choice at <paramref name="index"/>; -1 selects none.</summary>
     public void Select(int index)

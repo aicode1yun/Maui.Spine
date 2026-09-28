@@ -10,7 +10,7 @@
     <Grid>
         <CollectionView ItemsSource="{Binding Rows}" SafeArea.ScrollInset="{Binding Edges}">
             <CollectionView.Header>
-                <VerticalStackLayout Padding="20,8,20,20" Spacing="12">
+                <VerticalStackLayout Margin="{x:Static HeaderBarConstants.PagePadding}" Padding="0,8,0,20" Spacing="12">
                     <ExampleCodeSwitch />
                     <PackageChips Packages="Plugin.Maui.Spine" />
 
@@ -42,7 +42,7 @@
             </CollectionView.Header>
             <CollectionView.ItemTemplate>
                 <DataTemplate x:DataType="x:String">
-                    <Grid Padding="20,14" ColumnDefinitions="*,Auto">
+                    <Grid Margin="{x:Static HeaderBarConstants.PagePadding}" Padding="0,14" ColumnDefinitions="*,Auto">
                         <Label Text="{Binding .}" VerticalOptions="Center" />
                         <Label Grid.Column="1" Text="›" TextColor="Gray" VerticalOptions="Center" />
                     </Grid>

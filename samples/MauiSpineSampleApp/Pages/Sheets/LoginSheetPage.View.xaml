@@ -6,7 +6,7 @@
     x:DataType="LoginSheetPageViewModel">
 
     <ScrollView>
-        <VerticalStackLayout Padding="20,0,20,16" Spacing="12">
+        <VerticalStackLayout Margin="{x:Static HeaderBarConstants.PagePadding}" Padding="0,0,0,16" Spacing="12">
             <Label Text="Log in is this sheet's own primary action, so it sits in the Footer: at the bottom of the visible sheet at every detent, following the sheet while you drag it."
                    FontSize="14" />
 
@@ -22,7 +22,9 @@
     </ScrollView>
 
     <SpinePage.Footer>
-        <Button Text="Log in" Command="{Binding LogInCommand}" Margin="20,12" />
+        <ContentView Padding="{x:Static HeaderBarConstants.PagePadding}">
+            <Button Text="Log in" Command="{Binding LogInCommand}" Margin="0,12" />
+        </ContentView>
     </SpinePage.Footer>
 
 </SpinePage>
