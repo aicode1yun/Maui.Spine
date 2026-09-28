@@ -250,7 +250,10 @@ public sealed partial class BarcodeScannerPageViewModel : ViewModelBase, IReceiv
         Hint = _prompt;
         // Spine's own close button trails while the header has no other action, and moves to the leading
         // slot when the torch takes the trailing one
-        _torch = new PageAction(null, ToggleTorchCommand) { Svg = "torch.svg", Description = ScannerStrings.Get("Torch"), IsVisible = false };
+        _torch = new PageAction(null, ToggleTorchCommand)
+        {
+            Svg = "torch.svg", Description = ScannerStrings.Get("Torch"), Haptic = Haptic.Light, IsVisible = false,
+        };
         PageActions.Add(_torch);
         UpdateActions();
     }
@@ -344,7 +347,7 @@ public sealed partial class BarcodeScannerPageViewModel : ViewModelBase, IReceiv
 
     private void UpdateActions() => _torch.IsVisible = Options.ShowTorch && IsTorchAvailable;
 
-    partial void OnIsTorchOnChanged(bool value) => _torch.Svg = value ? "torch.fill.svg" : "torch.svg";
+    partial void OnIsTorchOnChanged(bool value) => _torch.IsSelected = value;
 
     [RelayCommand]
     private void ToggleTorch() => IsTorchOn = !IsTorchOn;

@@ -171,7 +171,7 @@ The view asks for the camera permission the first time it shows.
 `BarcodeScannerPage` is a sheet that scans until it reads one code and returns it; closing it returns no value.
 By default:
 - it opens at half height and can be pulled to full screen;
-- the camera fills the sheet under a transparent header, with Spine's close button and, when the device has one, a torch;
+- the camera fills the sheet under a transparent header, with Spine's close button and, when the device has one, a torch that turns white while it is on and taps with a light haptic;
 - **aim corners** in the accent colour pulse once a second where to point the camera: square for 2D codes and light grids, wide when only linear codes are read;
 - on a hit, the frame stops, the code is redrawn as accent dots in the perspective it was found in and **bursts towards the user** while the frame dims to half, with the success haptic and a short sound; the sheet closes when that has finished, about half a second later.
 

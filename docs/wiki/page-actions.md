@@ -83,6 +83,7 @@ void OnEditingChanged(bool editing) => FilterAction.IsVisible = !editing;
 | `Svg` | `string?` | `null` | SVG resource name from `Resources/Images`; changing it cross-fades |
 | `Badge` | `string?` | `null` | Short text in a small pill over the button, e.g. `"3"`; `null` hides it |
 | `IsEnabled` | `bool` | `true` | Whether the button responds to taps |
+| `IsSelected` | `bool` | `false` | Whether a toggle the button stands for is on; see below |
 | `IsVisible` | `bool` | `true` | Whether the button is shown; the next visible action in the slot takes over |
 | `Command` | `ICommand` | — | Command executed when the button is tapped (fixed at creation) |
 | `CommandParameter` | `object?` | `null` | Optional parameter forwarded to the command |
@@ -93,6 +94,14 @@ void OnEditingChanged(bool editing) => FilterAction.IsVisible = !editing;
 ## An action that opens a menu
 
 `new PageAction(null, menu) { Svg = "more.svg" }` opens a native menu instead of running a command: sections, a picker with checkmarks, submenus, toggles and destructive rows, from one `MenuItems` declaration. See [Menu buttons](menus.md).
+
+## A toggle that is on
+
+`IsSelected = true` marks a button whose toggle is on, such as a torch or a filter. The button is filled with the header bar's foreground colour, white under a light-on-dark header and the label colour otherwise, and its glyph or text is drawn in the colour that reads on that fill. On iOS 26 with glass header actions it is glass tinted with that colour, the way a confirm is tinted with the accent. The command still decides what a tap does; set `IsSelected` from the state it changes:
+
+```csharp
+partial void OnIsTorchOnChanged(bool value) => _torch.IsSelected = value;
+```
 
 ## A haptic on tap
 
