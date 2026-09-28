@@ -72,6 +72,19 @@
             </Example.Code>
         </Example>
 
+        <Example Title="An action that shows up later"
+                 Summary="A sheet can show a page action once it has something for it, like a torch once the camera runs. The X moves to the leading side to make room, whenever the action appears.">
+            <Button Text="Open a photo" Command="{Binding ShowLateActionCommand}" />
+            <Example.Code>
+                [PageAction(Svg = "share.svg", IsVisible = false)]
+                [RelayCommand]
+                private void Share() { … }
+
+                // Once there is something to share
+                share.IsVisible = true;
+            </Example.Code>
+        </Example>
+
         <Example Title="A primary action at the bottom"
                  Summary="A sheet's own action (Log in, Continue, Pay) goes in the footer. It stays at the bottom of the visible sheet and follows it as you drag.">
             <Button Text="Log in" Command="{Binding ShowLoginSheetCommand}" />

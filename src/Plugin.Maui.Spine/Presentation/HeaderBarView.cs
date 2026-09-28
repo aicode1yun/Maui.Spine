@@ -463,7 +463,9 @@ internal class HeaderBarView : Microsoft.Maui.Controls.ContentView
         var version = _visibilityVersions[target] = _visibilityVersions.GetValueOrDefault(target) + 1;
         var duration = PageActionView.TransitionDuration;
         var scale = scales ? PageActionView.TransitionScale : 1;
-        target.AbortAnimation("Visibility");
+        // A hide still fading out would otherwise run on under a show that sets opacity and scale
+        // directly (the glass path), and leave the action visible but transparent (#421).
+        target.CancelAnimations();
 
         if (show)
         {

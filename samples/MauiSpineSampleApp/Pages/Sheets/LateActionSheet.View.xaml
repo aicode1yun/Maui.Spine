@@ -1,0 +1,14 @@
+<SpinePage
+    xmlns="http://schemas.microsoft.com/dotnet/maui/global"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    x:Class="MauiSpineSampleApp.Pages.Sheets.LateActionSheet"
+    x:TypeArguments="LateActionSheetViewModel"
+    x:DataType="LateActionSheetViewModel">
+
+    <VerticalStackLayout Margin="{x:Static HeaderBarConstants.PagePadding}" Spacing="8">
+        <Label Text="The share action is hidden until the photo has loaded. When it shows, the X moves to the leading side to make room for it."
+               FontSize="14" />
+        <Label Text="{Binding Status}" FontSize="14" />
+    </VerticalStackLayout>
+
+</SpinePage>

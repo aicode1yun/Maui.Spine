@@ -8,4 +8,5 @@ public partial class SheetsPageViewModel(INavigationService _navigation) : Sampl
     [RelayCommand] private async Task ShowBlurred() => await _navigation.NavigateToAsync<SimpleBottomSheetPage>();
     [RelayCommand] private async Task ShowEditSheet() => await _navigation.NavigateToAsync<EditSheetPage>();
     [RelayCommand] private async Task ShowLoginSheet() => await _navigation.NavigateToAsync<LoginSheetPage>();
+    [RelayCommand] private async Task ShowLateAction() => await _navigation.NavigateToAsync<LateActionSheet>();
 }
