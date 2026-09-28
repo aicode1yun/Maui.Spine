@@ -2,7 +2,7 @@
 
 **GitHub:** https://github.com/jonatansoderberg/Maui.Spine/issues/411
 **Branch:** issue/411-header-bar-actions-animated-transitions-that-feel
-**Status:** In Progress
+**Status:** Completed
 
 ## Plan
 

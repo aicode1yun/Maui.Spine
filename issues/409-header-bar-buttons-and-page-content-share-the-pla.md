@@ -2,7 +2,7 @@
 
 **GitHub:** https://github.com/jonatansoderberg/Maui.Spine/issues/409
 **Branch:** issue/409-header-bar-buttons-and-page-content-share-the-pla
-**Status:** In Progress
+**Status:** Completed
 
 ## Plan
 
