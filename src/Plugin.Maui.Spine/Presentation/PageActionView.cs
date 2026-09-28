@@ -9,6 +9,11 @@ namespace Plugin.Maui.Spine.Presentation;
 /// another (Back by Cancel, Filter by Bell) the new face fades and grows in while the old one fades
 /// and shrinks out, at the same time, as a navigation bar's items do.
 /// </summary>
+/// <remarks>
+/// With Liquid Glass and <see cref="SpineOptions.ApplePlatformOptions.MorphHeaderActions"/> there is one
+/// glass button for icons and text alike, and a replacement changes it inside a UIKit spring
+/// animation, so the glass itself morphs from a circle to a capsule.
+/// </remarks>
 internal sealed class PageActionView : ContentView
 {
     public static readonly BindableProperty ActionProperty = BindableProperty.Create(
@@ -63,12 +68,15 @@ internal sealed class PageActionView : ContentView
     }
 
     readonly bool _glass;
+    readonly bool _morph;
     Face _front;
     Face _back;
 
     public PageActionView()
     {
         _glass = UseGlassHeaderActions;
+        _morph = _glass && OperatingSystem.IsIOSVersionAtLeast(26)
+            && IPlatformApplication.Current?.Services.GetService<SpineOptions>()?.Apple.MorphHeaderActions == true;
         _front = new Face(this);
         _back = new Face(this) { Opacity = 0, IsVisible = false, InputTransparent = true };
 
@@ -134,6 +142,8 @@ internal sealed class PageActionView : ContentView
         // a change the user sees; anything else crosses over.
         if (sameGlyph || view.Opacity == 0 || !view.IsVisible)
             view._front.Apply((PageAction?)newValue);
+        else if (view._morph)
+            view.Morph((PageAction?)newValue);
         else
             _ = view.SwapAsync((PageAction?)newValue);
     }
@@ -142,6 +152,9 @@ internal sealed class PageActionView : ContentView
     {
         switch (e.PropertyName)
         {
+            case nameof(PageAction.Svg) when _morph:
+                Morph(Action);
+                break;
             case nameof(PageAction.Svg):
                 _ = SwapAsync(Action);
                 break;
@@ -154,6 +167,49 @@ internal sealed class PageActionView : ContentView
                 break;
         }
     }
+
+    /// <summary>
+    /// Changes the one glass button to <paramref name="action"/> and lays the bar out again inside a
+    /// spring animation: UIKit animates the new frame and the button's content, and the glass
+    /// reshapes with it.
+    /// </summary>
+    void Morph(PageAction? action)
+    {
+#if IOS || MACCATALYST
+        if (Window?.Handler?.PlatformView is UIKit.UIWindow window)
+        {
+            var reduced = ReducedMotion.IsOn;
+            var face = _front;
+            var version = ++_morphVersion;
+
+            // The old title or icon fades first; revealing the new one while the glass grows would
+            // show it clipped by the capsule.
+            _ = GlassAppearance.FadeContentAsync(face, show: false, 90).ContinueWith(_ =>
+            {
+                if (version != _morphVersion)
+                    return;
+
+                // The new content goes in at once and invisible; the new size is laid out inside
+                // the spring below, so the glass grows or shrinks to it.
+                UIKit.UIView.PerformWithoutAnimation(() => face.Apply(action));
+                GlassAppearance.SetContentAlpha(face, 0);
+                ((IView)this).InvalidateMeasure();
+
+                UIKit.UIView.AnimateNotify(
+                    reduced ? 0.2 : 0.45, 0, reduced ? 1f : 0.82f, 0,
+                    UIKit.UIViewAnimationOptions.BeginFromCurrentState | UIKit.UIViewAnimationOptions.AllowUserInteraction,
+                    window.LayoutIfNeeded,
+                    null);
+
+                _ = GlassAppearance.FadeContentAsync(face, show: true, reduced ? 120u : 220u, delay: reduced ? 0 : 0.12);
+            }, TaskScheduler.FromCurrentSynchronizationContext());
+            return;
+        }
+#endif
+        _front.Apply(action);
+    }
+
+    int _morphVersion;
 
     /// <summary>Crosses from what the front face shows to <paramref name="action"/> on the other face.</summary>
     async Task SwapAsync(PageAction? action)
@@ -182,6 +238,30 @@ internal sealed class PageActionView : ContentView
 
         var duration = TransitionDuration;
         var shrink = TransitionScale;
+
+#if IOS || MACCATALYST
+        // Glass turns flat grey when its alpha fades: materialize and dissolve it instead.
+        if (_glass && GlassAppearance.Applies(this))
+        {
+            incoming.Opacity = 1;
+            outgoing.Opacity = 1;
+
+            await Task.WhenAll(
+                GlassAppearance.AnimateAsync(incoming, show: true, duration),
+                incoming.ScaleToAsync(1, duration, TransitionEasing),
+                GlassAppearance.AnimateAsync(outgoing, show: false, duration * 7 / 10),
+                outgoing.ScaleToAsync(shrink, duration * 7 / 10, TransitionEasing));
+
+            if (ReferenceEquals(_back, outgoing))
+            {
+                outgoing.IsVisible = false;
+                outgoing.Scale = 1;
+                outgoing.Apply(null);
+            }
+            return;
+        }
+#endif
+
         var tcs = new TaskCompletionSource();
 
         new Animation
@@ -262,7 +342,10 @@ internal sealed class PageActionView : ContentView
             if (owner._glass)
             {
                 // Compact zeroed the padding; the capsule needs some room around the text, and it
-                // sits centred in the 44-point row rather than filling it.
+                // sits centred in the 44-point row rather than filling it. The capsule is the
+                // button's edge, so it lines up with the page margin like an icon's circle; the
+                // plain text button's inset would push it 12 points further in.
+                _textButton.Margin = new Thickness(0);
                 _textButton.Padding = new Thickness(14, 8);
                 _textButton.VerticalOptions = LayoutOptions.Center;
                 Glass.SetStyle(_textButton, GlassStyle.Regular);
@@ -309,6 +392,58 @@ internal sealed class PageActionView : ContentView
             ApplyForeground();
         }
 
+        /// <summary>
+        /// The one glass button draws icons too: an icon action is a circle as tall as the row with
+        /// the SVG as its image, a text action a capsule around its text.
+        /// </summary>
+        void ApplyMorphing(PageAction action, bool hasSvg)
+        {
+            _imageButton.IsVisible = false;
+            _textButton.IsVisible = true;
+            _textButton.IsEnabled = action.IsEnabled;
+            _textButton.Opacity = action.IsEnabled ? 1 : 0.4;
+
+            _badgeLabel.Text = action.Badge ?? string.Empty;
+            _badge.IsVisible = !string.IsNullOrEmpty(action.Badge);
+            SemanticProperties.SetDescription(_textButton, action.Description ?? (hasSvg ? null : action.Text));
+            MenuButton.SetItems(_textButton, action.Menu);
+            MenuButton.SetShowsSelection(_textButton, action.MenuShowsSelection);
+
+            _currentSvg = hasSvg ? action.Svg : null;
+
+            if (hasSvg)
+            {
+                _textButton.Text = string.Empty;
+                _textButton.Padding = new Thickness(0);
+                _textButton.WidthRequest = _owner.HeightRequest;
+                _textButton.HeightRequest = _owner.HeightRequest;
+                ApplyMorphingImage();
+            }
+            else
+            {
+                _textButton.ImageSource = null;
+                _textButton.Padding = new Thickness(14, 8);
+                _textButton.WidthRequest = -1;
+                _textButton.HeightRequest = -1;
+                _textButton.Text = action.Text ?? string.Empty;
+            }
+
+            _textButton.Command = action.Command;
+            _textButton.CommandParameter = action.CommandParameter;
+        }
+
+        // A 24-point glyph, the size a UIBarButtonItem uses, tinted like the icon buttons.
+        void ApplyMorphingImage()
+        {
+            var names = IPlatformApplication.Current?.Services.GetService<ResourceNameCache>();
+            if (_currentSvg is not { } svg || names?.Resolve(svg) is not { } resource)
+                return;
+
+            var dark = Application.Current?.RequestedTheme == AppTheme.Dark;
+            var tint = _owner.Foreground ?? (dark ? Colors.White : Colors.Black);
+            _textButton.ImageSource = SvgBitmapLoader.LoadFromEmbedded(resource, 24, 24, tint);
+        }
+
         /// <summary>A glass icon is a circle as tall as the row; otherwise it fills the slot the bar gives it.</summary>
         public void ApplyIconWidth()
         {
@@ -345,6 +480,9 @@ internal sealed class PageActionView : ContentView
                 svg.TintColor = _owner.Foreground;
                 svg.UpdateImage();
             }
+
+            if (_owner._morph && _textButton.ImageSource is not null)
+                ApplyMorphingImage();
         }
 
         public void Apply(PageAction? action)
@@ -361,6 +499,12 @@ internal sealed class PageActionView : ContentView
             }
 
             var hasSvg = !string.IsNullOrWhiteSpace(action.Svg);
+
+            if (_owner._morph)
+            {
+                ApplyMorphing(action, hasSvg);
+                return;
+            }
 
             _imageButton.IsVisible = hasSvg;
             _textButton.IsVisible = !hasSvg;

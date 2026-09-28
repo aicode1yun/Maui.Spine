@@ -6,7 +6,9 @@
 
 ## Plan
 
-Path 1 of the issue, in Spine's own header bar on every platform: overlapping swaps, a small scale on show and hide, per-platform timing, Reduce Motion respected. The native glass morph (UIKit animating the glass view's frame) is left for later.
+Path 1 of the issue, in Spine's own header bar on every platform: overlapping swaps, a small scale on show and hide, per-platform timing, Reduce Motion respected.
+
+Path 2, on iOS 26 with glass: one glass button whose content and frame change inside a UIKit spring, so the glass morphs between circle and capsule.
 
 ## Open Questions
 
@@ -17,10 +19,16 @@ Path 1 of the issue, in Spine's own header bar on every platform: overlapping sw
 - Show / hide (`HeaderBarView.AnimateVisibility`): fade plus scale, cancelling a running animation instead of racing it.
 - Timings: 300 ms on Apple, 150 ms on Android (Material 3 fade-through), 200 ms on Windows, `CubicOut`; under Reduce Motion a 150 ms fade without scaling.
 
+- Path 2 (`SpineOptions.Apple.MorphHeaderActions`, default on with glass): a single glass `Button` draws icons (the SVG as its image, a 44 pt circle) and text (a capsule). A replacement fades the old content out (90 ms), puts the new content in invisibly, lays the bar out inside a 0.45 s spring (damping 0.82) so UIKit morphs the glass, and fades the new content in. Off: path 1.
+- Liquid Glass is never faded through its alpha, which draws a flat grey stand-in (what showed dark grey on the device): `GlassAppearance` materializes and dissolves the glass effect and fades only the title and image. Used for show, hide, path 1's swap and path 2's content.
+- An action on an arriving page waits (up to ~300 ms) for UIKit to build its glass before it materializes, instead of showing grey for its first frames.
+- Glass text capsules drop the plain text button's 12 pt inset, so they line up with the page margin like the icon circles.
+
 Verified in the iOS 26.4 simulator from screen recordings: Back ↔ Cancel crosses over without a gap, Filter hidden lets Bell take its place, and it comes back. Android built only.
 
 ## Decisions
 
-- The glass shape itself does not morph from circle to capsule: each face has its own glass, so the two crossfade. A real morph needs UIKit to animate one glass view's frame; that is the later step.
+- Path 1's glass shape does not morph (each face has its own glass); path 2 does, and is the default with glass. Path 1 stays for other platforms, glass off, and `MorphHeaderActions = false`.
+- `GlassAppearance` finds the glass (`UIVisualEffectView`) and the content (`UILabel`, `UIImageView` outside it) in the button's native hierarchy: UIButton's glass configuration exposes neither.
 - Stacking by `ZIndex` rather than re-adding the incoming face to the grid, which would re-create its native view and its glass.
 - `HeaderBarConstants.FadeInDuration` / `FadeOutDuration` are no longer used by the bar but stay: they are public.

@@ -450,12 +450,16 @@ internal class HeaderBarView : Microsoft.Maui.Controls.ContentView
         UpdatePresentationSizes();
     }
 
-    // A navigation bar item fades and grows in, and fades and shrinks out.
+    readonly Dictionary<View, int> _visibilityVersions = [];
+
+    // A navigation bar item fades and grows in, and fades and shrinks out. Liquid Glass cannot fade
+    // through its alpha (it turns flat grey), so glass materializes and dissolves instead.
     async Task AnimateVisibility(View? target, bool show)
     {
         if (target is null)
             return;
 
+        var version = _visibilityVersions[target] = _visibilityVersions.GetValueOrDefault(target) + 1;
         var duration = PageActionView.TransitionDuration;
         var scale = PageActionView.TransitionScale;
         target.AbortAnimation("Visibility");
@@ -467,20 +471,70 @@ internal class HeaderBarView : Microsoft.Maui.Controls.ContentView
 
             target.IsVisible = true;
             PublishActionSlots();
+
+#if IOS || MACCATALYST
+            if (GlassAppearance.Applies(target))
+            {
+                target.Opacity = 1;
+                await Task.WhenAll(
+                    GlassAppearance.AnimateAsync(target, show: true, duration),
+                    target.ScaleToAsync(1, duration, PageActionView.TransitionEasing));
+                return;
+            }
+
+            // Glass UIKit has not built yet (the page is still arriving) draws a flat grey stand-in
+            // for its first frames. Keep the action hidden until the glass exists, then let it
+            // materialize like any other.
+            if (PageActionView.UseGlassHeaderActions)
+            {
+                for (var wait = 0; wait < 20 && !GlassAppearance.Applies(target); wait++)
+                    await Task.Delay(16);
+
+                if (_visibilityVersions[target] != version)
+                    return;
+
+                target.Opacity = 1;
+                if (GlassAppearance.Applies(target))
+                {
+                    await Task.WhenAll(
+                        GlassAppearance.AnimateAsync(target, show: true, duration),
+                        target.ScaleToAsync(1, duration, PageActionView.TransitionEasing));
+                }
+                else
+                {
+                    target.Scale = 1;
+                }
+                return;
+            }
+#endif
             await Task.WhenAll(
                 target.FadeToAsync(1, duration, PageActionView.TransitionEasing),
                 target.ScaleToAsync(1, duration, PageActionView.TransitionEasing));
         }
         else
         {
-            await Task.WhenAll(
-                target.FadeToAsync(0, duration * 7 / 10, PageActionView.TransitionEasing),
-                target.ScaleToAsync(scale, duration * 7 / 10, PageActionView.TransitionEasing));
+            var outDuration = duration * 7 / 10;
 
-            // Shown again while it faded out: leave it.
-            if (target.Opacity > 0)
+#if IOS || MACCATALYST
+            if (GlassAppearance.Applies(target))
+            {
+                await Task.WhenAll(
+                    GlassAppearance.AnimateAsync(target, show: false, outDuration),
+                    target.ScaleToAsync(scale, outDuration, PageActionView.TransitionEasing));
+            }
+            else
+#endif
+            {
+                await Task.WhenAll(
+                    target.FadeToAsync(0, outDuration, PageActionView.TransitionEasing),
+                    target.ScaleToAsync(scale, outDuration, PageActionView.TransitionEasing));
+            }
+
+            // Shown again while it went away: leave it.
+            if (_visibilityVersions[target] != version)
                 return;
 
+            target.Opacity = 0;
             target.IsVisible = false;
             target.Scale = 1;
             PublishActionSlots();

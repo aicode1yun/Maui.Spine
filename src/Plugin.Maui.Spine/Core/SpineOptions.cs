@@ -337,6 +337,14 @@ public sealed class SpineOptions
         /// no effect on earlier versions or other platforms.
         /// </summary>
         public bool GlassHeaderActions { get; set; } = true;
+
+        /// <summary>
+        /// With <see cref="GlassHeaderActions"/>, lets UIKit morph a header action's glass when the
+        /// action is replaced (Back into Cancel, an icon into a text capsule): one glass button whose
+        /// content and size change inside a spring animation, as a <c>UINavigationBar</c>'s items do.
+        /// <see langword="false"/> crossfades two buttons instead. Default <see langword="true"/>.
+        /// </summary>
+        public bool MorphHeaderActions { get; set; } = true;
     }
 
     /// <summary>Options that apply on iOS and Mac Catalyst.</summary>
