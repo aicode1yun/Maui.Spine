@@ -90,6 +90,7 @@ public class SpineSection : ContentView
     public SpineSection()
     {
         _group = new Border { StrokeThickness = 0, Padding = 0, Content = _stack };
+        _group.SizeChanged += (_, _) => ApplyShape();
         Content = new VerticalStackLayout { Children = { _header, _group, _footer } };
 
         _rows.CollectionChanged += OnRowsChanged;
@@ -165,12 +166,27 @@ public class SpineSection : ContentView
         _footer.IsVisible = !string.IsNullOrEmpty(Footer);
     }
 
+    // A group lower than twice the radius, such as one short row, is a capsule as in iOS Settings;
+    // a larger radius would make the arcs overlap.
+    void ApplyShape()
+    {
+        var radius = SpineSectionStyleOptions.Resolve(StyleOptions).CornerRadius;
+
+        if (_group.Height > 0)
+            radius = Math.Min(radius, _group.Height / 2);
+
+        if (_group.StrokeShape is RoundRectangle { CornerRadius: var current } && current == new CornerRadius(radius))
+            return;
+
+        _group.StrokeShape = new RoundRectangle { CornerRadius = radius };
+    }
+
     void Repaint()
     {
         var style = SpineSectionStyleOptions.Resolve(StyleOptions);
 
         _group.BackgroundColor = style.BackgroundColor;
-        _group.StrokeShape = new RoundRectangle { CornerRadius = style.CornerRadius };
+        ApplyShape();
 
         _header.TextColor = style.HeaderColor;
         _header.FontSize = style.HeaderFontSize;
