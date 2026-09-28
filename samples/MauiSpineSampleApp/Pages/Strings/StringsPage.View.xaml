@@ -5,45 +5,70 @@
     x:TypeArguments="StringsPageViewModel"
     x:DataType="StringsPageViewModel">
 
-    <ScrollView>
-        <VerticalStackLayout Padding="20,16" Spacing="10">
-            <PackageChips Packages="Plugin.Maui.Spine, Plugin.Maui.Spine.Common" />
+    <SampleLayout Packages="Plugin.Maui.Spine, Plugin.Maui.Spine.Common">
 
-            <Label Text="{String Strings.Intro}" FontSize="14" />
+        <Example Title="Text in the user's language"
+                 Summary="Keep the app's text in one XML file per language and bind labels to its keys, with values filled in. Switch the language in the options: every label follows at once, and the choice is kept for the next launch."
+                 OptionsCommand="{Binding ShowLanguageOptionsCommand}">
+            <Label Text="{String Strings.Greeting, Args={Binding UserName}, Arg1={Binding Now}}" FontSize="17" />
+            <Example.Code>
+                &lt;!-- strings.xml, strings.sv.xml: embedded --&gt;
+                &lt;strings culture="sv"&gt;
+                  &lt;s key="Strings.Greeting"&gt;Hej {0}, klockan är {1:HH:mm}.&lt;/s&gt;
+                &lt;/strings&gt;
 
-            <Label Text="{String Strings.Language}" FontAttributes="Bold" Margin="0,8,0,0" />
-            <HorizontalStackLayout Spacing="8"
-                                   RadioButtonGroup.GroupName="Language"
-                                   RadioButtonGroup.SelectedValue="{Binding SelectedLanguage}">
-                <RadioButton Content="English" Value="en" />
-                <RadioButton Content="Svenska" Value="sv" />
-            </HorizontalStackLayout>
+                &lt;Label Text="{String Strings.Greeting,
+                    Args={Binding UserName}, Arg1={Binding Now}}" /&gt;
 
-            <Label Text="Format arguments" FontAttributes="Bold" Margin="0,8,0,0" />
-            <Label Text="{String Strings.Greeting, Args={Binding UserName}, Arg1={Binding Now}}" FontSize="16" />
+                // Every {String} updates; stored for the next launch
+                _strings.Culture = CultureInfo.GetCultureInfo("sv");
+            </Example.Code>
+        </Example>
 
-            <Label Text="Plural: key.one, key.zero, key.other" FontAttributes="Bold" Margin="0,8,0,0" />
-            <Label Text="{String Strings.Apples, Count={Binding Apples}}" FontSize="16" />
-            <HorizontalStackLayout Spacing="8">
-                <Button Text="{String Strings.More}" Command="{Binding MoreCommand}" />
-                <Button Text="{String Strings.Fewer}" Command="{Binding FewerCommand}" />
-            </HorizontalStackLayout>
+        <Example Title="Plurals without if statements"
+                 Summary="Give a key a form for one, for none and for the rest. Bind the count and the right sentence is picked, in every language.">
+            <VerticalStackLayout Spacing="10">
+                <Label Text="{String Strings.Apples, Count={Binding Apples}}" FontSize="17" />
+                <HorizontalStackLayout Spacing="8">
+                    <Button Text="{String Strings.More}" Command="{Binding MoreCommand}" />
+                    <Button Text="{String Strings.Fewer}" Command="{Binding FewerCommand}" />
+                </HorizontalStackLayout>
+            </VerticalStackLayout>
+            <Example.Code>
+                &lt;s key="Strings.Apples.one"&gt;{0} apple in the basket&lt;/s&gt;
+                &lt;s key="Strings.Apples.zero"&gt;The basket is empty&lt;/s&gt;
+                &lt;s key="Strings.Apples.other"&gt;{0} apples in the basket&lt;/s&gt;
 
-            <Label Text="From C# through ISpineStrings" FontAttributes="Bold" Margin="0,8,0,0" />
-            <Label Text="{Binding FromCode}" FontSize="16" />
+                &lt;Label Text="{String Strings.Apples,
+                    Count={Binding Apples}}" /&gt;
+            </Example.Code>
+        </Example>
 
-            <Label Text="Overriding a package key" FontAttributes="Bold" Margin="0,8,0,0" />
-            <Label Text="{String Strings.OverrideNote}" FontSize="14" />
-            <Label Text="{String Spine.Header.Back}" FontSize="16" />
+        <Example Title="The same text from C#"
+                 Summary="View models and services read the same store. A key that is missing shows as the key itself, so a gap is easy to spot instead of a blank.">
+            <VerticalStackLayout Spacing="6">
+                <Label Text="{Binding FromCode}" FontSize="17" />
+                <Label Text="{Binding Missing}" FontSize="17" />
+            </VerticalStackLayout>
+            <Example.Code>
+                // Inject ISpineStrings, or use SpineStrings.Current
+                var apples = _strings.Get("Strings.Apples", count);
+                var hello = _strings.Get("Strings.Greeting", name, now);
 
-            <Label Text="A missing key shows as the key" FontAttributes="Bold" Margin="0,8,0,0" />
-            <Label Text="{Binding Missing}" FontSize="16" />
+                // A missing key returns the key: "Strings.NoSuchKey"
+                var missing = _strings["Strings.NoSuchKey"];
+            </Example.Code>
+        </Example>
 
-            <Border StrokeThickness="0" BackgroundColor="#22808080" Padding="10,8" StrokeShape="RoundRectangle 8" Margin="0,8,0,0">
-                <Label FontSize="11" FontFamily="{OnPlatform iOS=Menlo, MacCatalyst=Menlo, Android=monospace, WinUI=Consolas}"
-                       Text="&lt;!-- Resources/Strings/strings.sv.xml, embedded --&gt;&#10;&lt;strings culture=&quot;sv&quot;&gt;&#10;  &lt;s key=&quot;Strings.Greeting&quot;&gt;Hej {0}, klockan är {1:HH:mm}.&lt;/s&gt;&#10;  &lt;s key=&quot;Strings.Apples.one&quot;&gt;{0} äpple i korgen&lt;/s&gt;&#10;  &lt;s key=&quot;Strings.Apples.other&quot;&gt;{0} äpplen i korgen&lt;/s&gt;&#10;  &lt;s key=&quot;Spine.Header.Back&quot;&gt;Hem&lt;/s&gt;   &lt;!-- overrides Spine --&gt;&#10;&lt;/strings&gt;&#10;&#10;&lt;Label Text=&quot;{String Strings.Greeting, Args={Binding UserName}}&quot; /&gt;&#10;&lt;Label Text=&quot;{String Strings.Apples, Count={Binding Apples}}&quot; /&gt;&#10;&#10;_strings.Get(&quot;Strings.Apples&quot;, count);&#10;_strings.Culture = CultureInfo.GetCultureInfo(&quot;sv&quot;);   // stored" />
-            </Border>
-        </VerticalStackLayout>
-    </ScrollView>
+        <Example Title="Reword Spine's own text"
+                 Summary="Spine's controls read their text from the same store, under keys that start with Spine. Define one of those keys in your file to reword or translate it: here the back button's screen-reader label says Home.">
+            <Label Text="{String Spine.Header.Back}" FontSize="17" />
+            <Example.Code>
+                &lt;!-- strings.xml: the app's value wins --&gt;
+                &lt;s key="Spine.Header.Back"&gt;Home&lt;/s&gt;
+            </Example.Code>
+        </Example>
+
+    </SampleLayout>
 
 </SpinePage>

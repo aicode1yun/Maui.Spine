@@ -1,14 +1,11 @@
 using Plugin.Maui.Spine.Common;
 using Plugin.Maui.Spine.Widgets;
 
-namespace MauiSpineSampleApp.Pages.Settings;
+namespace MauiSpineSampleApp.Pages.Widgets;
 
-public partial class SettingsPageViewModel(IWidgetService _widgets, ILiveActivityService _liveActivities, IThemeService _theme) : ViewModelBase
+public partial class WidgetsPageViewModel(IWidgetService _widgets, ILiveActivityService _liveActivities) : SampleViewModel
 {
     private const string ActivityKind = "sample";
-
-    [ObservableProperty]
-    public partial string? UserName { get; set; }
 
     [ObservableProperty]
     public partial string LiveActivityLabel { get; set; } = "Start live activity";
@@ -23,32 +20,14 @@ public partial class SettingsPageViewModel(IWidgetService _widgets, ILiveActivit
     }
 
     [ObservableProperty]
-    public partial string SelectedThemeName { get; set; } = ThemeToName(_theme.Current);
-
-    partial void OnSelectedThemeNameChanged(string value) => _theme.Current = NameToTheme(value);
-
-    private static string ThemeToName(AppTheme theme) => theme switch
-    {
-        AppTheme.Light => "Light",
-        AppTheme.Dark => "Dark",
-        _ => "Auto"
-    };
-
-    private static AppTheme NameToTheme(string name) => name switch
-    {
-        "Light" => AppTheme.Light,
-        "Dark" => AppTheme.Dark,
-        _ => AppTheme.Unspecified
-    };
+    public partial string Refreshed { get; set; } = "Not refreshed yet";
 
     [RelayCommand]
-    private void Change()
+    private async Task RefreshWidgets()
     {
-        UserName = DateTime.Now.ToString(); 
+        await _widgets.RefreshAllAsync();
+        Refreshed = $"Refreshed at {DateTime.Now:HH:mm:ss}";
     }
-
-    [RelayCommand]
-    private Task RefreshWidgets() => _widgets.RefreshAllAsync();
 
     // Demo of the Live Activity API: one countdown in the Dynamic Island, ended by the same button.
     [RelayCommand]

@@ -5,65 +5,124 @@
     x:TypeArguments="SvgIconsPageViewModel"
     x:DataType="SvgIconsPageViewModel">
 
-    <CollectionView ItemsSource="{Binding Icons}" Margin="12,0">
-        <CollectionView.ItemsLayout>
-            <GridItemsLayout Orientation="Vertical" Span="4" VerticalItemSpacing="12" />
-        </CollectionView.ItemsLayout>
-        <CollectionView.Header>
-            <VerticalStackLayout Padding="8,16,8,8" Spacing="10">
-                <PackageChips Packages="Plugin.Maui.Spine.Svg, Plugin.Maui.Spine.Svg.Icons" />
-                <Label Text="SvgImageSource.Svg renders an embedded SVG at the view's size and screen scale, tinted for the theme. The icons below ship with Plugin.Maui.Spine.Svg.Icons; an app's own SVGs work the same way."
-                       FontSize="14" />
+    <SampleLayout Packages="Plugin.Maui.Spine.Svg, Plugin.Maui.Spine.Svg.Icons">
 
-                <Label Text="ImageButton, enabled and disabled" FontAttributes="Bold" Margin="0,8,0,0" />
-                <HorizontalStackLayout Spacing="16" HorizontalOptions="Center">
-                    <ImageButton Padding="5" CornerRadius="50" SvgImageSource.Svg="fish.svg" WidthRequest="80" HeightRequest="80" Style="{StaticResource SvgImageButtonStyle}" />
-                    <ImageButton Padding="5" CornerRadius="50" SvgImageSource.Svg="fish.svg" WidthRequest="80" HeightRequest="80" Style="{StaticResource SvgImageButtonStyle}" IsEnabled="False" />
-                </HorizontalStackLayout>
+        <Example Title="Sharp icons at any size"
+                 Summary="Point an Image or ImageButton at an SVG embedded in the app. It is drawn at the view's size and the screen's scale, so one file stays sharp from small to large, and its colour follows light and dark.">
+            <Grid ColumnDefinitions="*,*,*,*" RowDefinitions="Auto,Auto" RowSpacing="4">
+                <Image SvgImageSource.Svg="fish.svg" WidthRequest="24" HeightRequest="24" VerticalOptions="Center" />
+                <Image Grid.Column="1" SvgImageSource.Svg="fish.svg" WidthRequest="48" HeightRequest="48" VerticalOptions="Center" />
+                <Image Grid.Column="2" SvgImageSource.Svg="fish.svg" WidthRequest="80" HeightRequest="80" VerticalOptions="Center" />
+                <ImageButton Grid.Column="3" Style="{StaticResource SvgImageButtonStyle}" SvgImageSource.Svg="fish.svg" SvgImageSource.Padding="10"
+                             WidthRequest="64" HeightRequest="64" CornerRadius="32" BackgroundColor="#22808080" VerticalOptions="Center" />
+                <Label Grid.Row="1" Text="24" FontSize="12" TextColor="Gray" HorizontalTextAlignment="Center" />
+                <Label Grid.Row="1" Grid.Column="1" Text="48" FontSize="12" TextColor="Gray" HorizontalTextAlignment="Center" />
+                <Label Grid.Row="1" Grid.Column="2" Text="80" FontSize="12" TextColor="Gray" HorizontalTextAlignment="Center" />
+                <Label Grid.Row="1" Grid.Column="3" Text="ImageButton" FontSize="12" TextColor="Gray" HorizontalTextAlignment="Center" />
+            </Grid>
+            <Example.Code>
+                &lt;!-- .csproj: the app's own SVGs --&gt;
+                &lt;EmbeddedResource Include="Resources\Svg\*.svg" /&gt;
 
-                <Label Text="Tint and the SVG's own colours" FontAttributes="Bold" Margin="0,8,0,0" />
-                <Label Text="Parts drawn with currentColor take the tint; every other colour in the SVG stays, like the sun and the lightning. Left: the theme's tint. Right: TintColor set to Primary."
-                       FontSize="14" />
-                <HorizontalStackLayout Spacing="16" HorizontalOptions="Center">
+                &lt;Image SvgImageSource.Svg="fish.svg"
+                       WidthRequest="48" HeightRequest="48" /&gt;
+
+                &lt;ImageButton SvgImageSource.Svg="settings.svg"
+                             SvgImageSource.Padding="10"
+                             Command="{Binding OpenSettingsCommand}" /&gt;
+            </Example.Code>
+        </Example>
+
+        <Example Title="Tint the outline, keep the colours"
+                 Summary="Only the parts of an SVG drawn with currentColor take the tint. The sun stays yellow while the outline follows the theme, or takes the colour you give it.">
+            <Grid ColumnDefinitions="*,*" RowDefinitions="Auto,Auto" RowSpacing="4">
+                <HorizontalStackLayout Spacing="8" HorizontalOptions="Center">
                     <Image SvgImageSource.Svg="Weather2.svg" WidthRequest="64" HeightRequest="64" SvgImageSource.Padding="2" />
                     <Image SvgImageSource.Svg="Weather22.svg" WidthRequest="64" HeightRequest="64" SvgImageSource.Padding="2" />
-                    <Image SvgImageSource.Svg="Weather2.svg" WidthRequest="64" HeightRequest="64" SvgImageSource.Padding="2" SvgImageSource.TintColor="{StaticResource Primary}" />
-                    <Image SvgImageSource.Svg="Weather22.svg" WidthRequest="64" HeightRequest="64" SvgImageSource.Padding="2" SvgImageSource.TintColor="{StaticResource Primary}" />
                 </HorizontalStackLayout>
-
-                <Label Text="Dark tones for the SVG's own colours" FontAttributes="Bold" Margin="0,8,0,0" />
-                <Label Text="The crest is drawn for a light background. In dark mode, AdjustColorsForDark (right) flips dark ink to light, lifts the navy and mutes the colours; the red takes the exact tone MauiProgram maps it to. Left: the colours as drawn."
-                       FontSize="14" />
-                <HorizontalStackLayout Spacing="32" HorizontalOptions="Center">
-                    <Image SvgImageSource.Svg="Crest.svg" WidthRequest="80" HeightRequest="80" SvgImageSource.Padding="2" />
-                    <Image SvgImageSource.Svg="Crest.svg" WidthRequest="80" HeightRequest="80" SvgImageSource.Padding="2" SvgImageSource.AdjustColorsForDark="True" />
+                <HorizontalStackLayout Grid.Column="1" Spacing="8" HorizontalOptions="Center">
+                    <Image SvgImageSource.Svg="Weather2.svg" WidthRequest="64" HeightRequest="64" SvgImageSource.Padding="2" SvgImageSource.TintColor="{DynamicResource Accent}" />
+                    <Image SvgImageSource.Svg="Weather22.svg" WidthRequest="64" HeightRequest="64" SvgImageSource.Padding="2" SvgImageSource.TintColor="{DynamicResource Accent}" />
                 </HorizontalStackLayout>
+                <Label Grid.Row="1" Text="The theme's tint" FontSize="12" TextColor="Gray" HorizontalTextAlignment="Center" />
+                <Label Grid.Row="1" Grid.Column="1" Text="TintColor: the accent" FontSize="12" TextColor="Gray" HorizontalTextAlignment="Center" />
+            </Grid>
+            <Example.Code>
+                &lt;!-- In the SVG --&gt;
+                &lt;path stroke="currentColor" … /&gt;  &lt;!-- tinted --&gt;
+                &lt;path fill="#fcff00" … /&gt;         &lt;!-- stays --&gt;
 
-                <Label Text="Line width" FontAttributes="Bold" Margin="0,8,0,0" />
-                <Label Text="SvgImageSource.LineWidthScale multiplies every stroke: thicker lines for a small icon, thinner for a large one."
-                       FontSize="14" />
-                <Grid ColumnDefinitions="*,*,*,*" RowDefinitions="Auto,Auto" ColumnSpacing="8">
-                    <Image Grid.Column="0" SvgImageSource.Svg="Settings.svg" WidthRequest="24" HeightRequest="24" SvgImageSource.Padding="0" VerticalOptions="Center" />
-                    <Image Grid.Column="1" SvgImageSource.Svg="Settings.svg" WidthRequest="24" HeightRequest="24" SvgImageSource.Padding="0" VerticalOptions="Center" SvgImageSource.LineWidthScale="1.5" />
-                    <Image Grid.Column="2" SvgImageSource.Svg="Settings.svg" WidthRequest="80" HeightRequest="80" SvgImageSource.Padding="0" />
-                    <Image Grid.Column="3" SvgImageSource.Svg="Settings.svg" WidthRequest="80" HeightRequest="80" SvgImageSource.Padding="0" SvgImageSource.LineWidthScale="0.6" />
-                    <Label Grid.Row="1" Grid.Column="0" Text="24, ×1" FontSize="10" TextColor="Gray" HorizontalTextAlignment="Center" />
-                    <Label Grid.Row="1" Grid.Column="1" Text="24, ×1.5" FontSize="10" TextColor="Gray" HorizontalTextAlignment="Center" />
-                    <Label Grid.Row="1" Grid.Column="2" Text="80, ×1" FontSize="10" TextColor="Gray" HorizontalTextAlignment="Center" />
-                    <Label Grid.Row="1" Grid.Column="3" Text="80, ×0.6" FontSize="10" TextColor="Gray" HorizontalTextAlignment="Center" />
-                </Grid>
+                &lt;!-- Black in light mode, white in dark --&gt;
+                &lt;Image SvgImageSource.Svg="weather2.svg" /&gt;
 
-                <Label Text="Image, every icon in the set (SpineIcons.All)" FontAttributes="Bold" Margin="0,8,0,0" />
+                &lt;Image SvgImageSource.Svg="weather2.svg"
+                       SvgImageSource.TintColor="{DynamicResource Accent}" /&gt;
+            </Example.Code>
+        </Example>
+
+        <Example Title="Dark tones for colourful artwork"
+                 Summary="A logo drawn for a light background glares in dark mode. AdjustColorsForDark flips dark ink to light, lifts dark colours and mutes the rest, or uses the exact tone you map a colour to. Switch to dark with the palette button to compare.">
+            <Grid ColumnDefinitions="*,*" RowDefinitions="Auto,Auto" RowSpacing="4">
+                <Image SvgImageSource.Svg="Crest.svg" WidthRequest="80" HeightRequest="80" SvgImageSource.Padding="2" />
+                <Image Grid.Column="1" SvgImageSource.Svg="Crest.svg" WidthRequest="80" HeightRequest="80" SvgImageSource.Padding="2" SvgImageSource.AdjustColorsForDark="True" />
+                <Label Grid.Row="1" Text="As drawn" FontSize="12" TextColor="Gray" HorizontalTextAlignment="Center" />
+                <Label Grid.Row="1" Grid.Column="1" Text="AdjustColorsForDark" FontSize="12" TextColor="Gray" HorizontalTextAlignment="Center" />
+            </Grid>
+            <Example.Code>
+                &lt;Image SvgImageSource.Svg="crest.svg"
+                       SvgImageSource.AdjustColorsForDark="True" /&gt;
+
+                // MauiProgram: an exact dark tone for the red
+                builder.UseEmbeddedSvgImages(options =&gt;
+                    options.DarkColors[Color.FromArgb("#D32F2F")] =
+                        Color.FromArgb("#C0605C"));
+            </Example.Code>
+        </Example>
+
+        <Example Title="Line weight to suit the size"
+                 Summary="Strokes scale with the icon, so a small icon looks faint and a large one heavy. LineWidthScale thickens the lines of a small icon and thins those of a large one.">
+            <Grid ColumnDefinitions="*,*,*,*" RowDefinitions="Auto,Auto" ColumnSpacing="8" RowSpacing="4">
+                <Image SvgImageSource.Svg="Settings.svg" WidthRequest="24" HeightRequest="24" SvgImageSource.Padding="0" VerticalOptions="Center" />
+                <Image Grid.Column="1" SvgImageSource.Svg="Settings.svg" WidthRequest="24" HeightRequest="24" SvgImageSource.Padding="0" VerticalOptions="Center" SvgImageSource.LineWidthScale="1.5" />
+                <Image Grid.Column="2" SvgImageSource.Svg="Settings.svg" WidthRequest="80" HeightRequest="80" SvgImageSource.Padding="0" />
+                <Image Grid.Column="3" SvgImageSource.Svg="Settings.svg" WidthRequest="80" HeightRequest="80" SvgImageSource.Padding="0" SvgImageSource.LineWidthScale="0.6" />
+                <Label Grid.Row="1" Text="24, ×1" FontSize="12" TextColor="Gray" HorizontalTextAlignment="Center" />
+                <Label Grid.Row="1" Grid.Column="1" Text="24, ×1.5" FontSize="12" TextColor="Gray" HorizontalTextAlignment="Center" />
+                <Label Grid.Row="1" Grid.Column="2" Text="80, ×1" FontSize="12" TextColor="Gray" HorizontalTextAlignment="Center" />
+                <Label Grid.Row="1" Grid.Column="3" Text="80, ×0.6" FontSize="12" TextColor="Gray" HorizontalTextAlignment="Center" />
+            </Grid>
+            <Example.Code>
+                &lt;Image SvgImageSource.Svg="settings.svg"
+                       WidthRequest="24" HeightRequest="24"
+                       SvgImageSource.LineWidthScale="1.5" /&gt;
+
+                // Or for every icon in the app
+                builder.UseSvgIcon(options =&gt;
+                    options.LineWidthScale = 1.4f);
+            </Example.Code>
+        </Example>
+
+        <Example Title="220 icons ready to use"
+                 Summary="Plugin.Maui.Spine.Svg.Icons adds a matching set of chevrons, actions, rooms, appliances, media controls and weather symbols. Reference the package and use them by name; nothing to register.">
+            <VerticalStackLayout Spacing="12">
+                <FlexLayout Wrap="Wrap" JustifyContent="SpaceAround" BindableLayout.ItemsSource="{Binding Preview}">
+                    <BindableLayout.ItemTemplate>
+                        <DataTemplate x:DataType="x:String">
+                            <Image SvgImageSource.Svg="{Binding .}" SvgImageSource.Padding="2" WidthRequest="36" HeightRequest="36" Margin="6" />
+                        </DataTemplate>
+                    </BindableLayout.ItemTemplate>
+                </FlexLayout>
+                <Button Text="{Binding BrowseText}" Command="{Binding BrowseCommand}" />
             </VerticalStackLayout>
-        </CollectionView.Header>
-        <CollectionView.ItemTemplate>
-            <DataTemplate x:DataType="x:String">
-                <VerticalStackLayout Spacing="2">
-                    <Image WidthRequest="40" HeightRequest="40" HorizontalOptions="Center" SvgImageSource.Svg="{Binding .}" SvgImageSource.Padding="2" />
-                    <Label Text="{Binding .}" FontSize="10" TextColor="Gray" HorizontalTextAlignment="Center" LineBreakMode="MiddleTruncation" />
-                </VerticalStackLayout>
-            </DataTemplate>
-        </CollectionView.ItemTemplate>
-    </CollectionView>
+            <Example.Code>
+                &lt;Image SvgImageSource.Svg="bell.svg" /&gt;
+
+                // A constant for every file, and all of them
+                SvgImageSource.SetSvg(image, SpineIcons.Bell);
+                IReadOnlyList&lt;string&gt; names = SpineIcons.All;
+            </Example.Code>
+        </Example>
+
+    </SampleLayout>
 
 </SpinePage>

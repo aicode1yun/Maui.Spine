@@ -1,14 +1,13 @@
 namespace MauiSpineSampleApp.Pages.Menus;
 
-public partial class MenusPageViewModel : ViewModelBase
+public partial class MenusPageViewModel : SampleViewModel
 {
     [ObservableProperty]
-    public partial string LastPick { get; set; } = "Nothing picked yet";
+    public partial string Sorted { get; set; } = "Sorted by name";
 
     [ObservableProperty]
     public partial string Summary { get; set; } = "";
 
-    // The header action: sections, a picker, a submenu with toggles, a destructive row.
     private readonly MenuPicker _filter;
     private readonly MenuAction _photos = new("Photos", "cam.svg") { IsChecked = true, KeepsMenuOpen = true };
     private readonly MenuAction _videos = new("Videos", "play.svg") { KeepsMenuOpen = true };
@@ -16,35 +15,14 @@ public partial class MenusPageViewModel : ViewModelBase
     // A pop-up button: the button text follows the picked row.
     public MenuItems SortMenu { get; }
 
-    // An icon button with plain actions.
+    // An icon button: sections, a picker, a submenu with toggles, a destructive row.
     public MenuItems MoreMenu { get; }
 
     public MenusPageViewModel()
     {
-        _filter = new MenuPicker(PickCommand)
-        {
-            new MenuAction("All items", "house.svg") { IsChecked = true },
-            new MenuAction("Favourites", "star.svg"),
-            new MenuAction("Edited", "edit.svg"),
-        };
-
-        PageActions.Add(new PageAction(null, new MenuItems
-        {
-            new MenuSection("Filter:") { _filter },
-            new MenuSection
-            {
-                new SubMenu("Media types", "image.svg") { _photos, _videos },
-                new SubMenu("View options")
-                {
-                    new MenuAction("Sort by date", "clock.svg", PickCommand),
-                    new MenuAction("Reset", "refresh.svg", PickCommand) { IsDestructive = true },
-                },
-            },
-        }) { Svg = "more.svg" });
-
         SortMenu =
         [
-            new MenuPicker(PickCommand)
+            new MenuPicker(SortCommand)
             {
                 new MenuAction("Name") { IsChecked = true },
                 new MenuAction("Date"),
@@ -52,11 +30,21 @@ public partial class MenusPageViewModel : ViewModelBase
             },
         ];
 
+        _filter = new MenuPicker(FilterCommand)
+        {
+            new MenuAction("All items", "house.svg") { IsChecked = true },
+            new MenuAction("Favourites", "star.svg"),
+            new MenuAction("Edited", "edit.svg"),
+        };
+
         MoreMenu =
         [
-            new MenuAction("Refresh", "refresh.svg", PickCommand),
-            new MenuAction("Settings", "settings.svg", PickCommand),
-            new MenuSection { new MenuAction("Delete", "delete.svg", PickCommand) { IsDestructive = true } },
+            new MenuSection("Filter:") { _filter },
+            new MenuSection
+            {
+                new SubMenu("Media types", "image.svg") { _photos, _videos },
+                new MenuAction("Reset", "refresh.svg", ResetCommand) { IsDestructive = true },
+            },
         ];
 
         _photos.PropertyChanged += (_, _) => Summarize();
@@ -65,12 +53,23 @@ public partial class MenusPageViewModel : ViewModelBase
     }
 
     [RelayCommand]
-    private void Pick(object? parameter)
+    private void Sort(MenuAction action) => Sorted = $"Sorted by {action.Title.ToLowerInvariant()}";
+
+    [RelayCommand]
+    private void Filter() => Summarize();
+
+    [RelayCommand]
+    private void Reset()
     {
-        LastPick = parameter is MenuAction action ? $"Picked: {action.Title}" : $"Picked: {parameter}";
+        _filter.Selected = _filter.Items[0];
+        _photos.IsChecked = true;
+        _videos.IsChecked = false;
         Summarize();
     }
 
-    private void Summarize() =>
-        Summary = $"Filter: {_filter.Selected?.Title}; media: {string.Join(", ", new[] { _photos, _videos }.Where(a => a.IsChecked).Select(a => a.Title))}";
+    private void Summarize()
+    {
+        var media = new[] { _photos, _videos }.Where(a => a.IsChecked).Select(a => a.Title.ToLowerInvariant()).ToList();
+        Summary = $"Showing {_filter.Selected?.Title.ToLowerInvariant()}: {(media.Count > 0 ? string.Join(" and ", media) : "no media")}";
+    }
 }

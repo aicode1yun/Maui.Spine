@@ -1,6 +1,6 @@
 namespace MauiSpineSampleApp.Pages.Rows;
 
-public partial class RowsPageViewModel : ViewModelBase
+public partial class RowsPageViewModel : SampleViewModel
 {
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(WiFiState))]
@@ -15,7 +15,7 @@ public partial class RowsPageViewModel : ViewModelBase
     public partial string Theme { get; set; } = "System";
 
     [ObservableProperty]
-    public partial string LastTap { get; set; } = "Nothing tapped yet";
+    public partial string LastTap { get; set; } = "Tap a row.";
 
     [ObservableProperty]
     public partial int CardTaps { get; set; }
@@ -25,6 +25,10 @@ public partial class RowsPageViewModel : ViewModelBase
     public partial bool CanOpen { get; set; } = true;
 
     private static readonly string[] Themes = ["System", "Light", "Dark"];
+
+    [RelayCommand]
+    private Task ShowRowOptions() => ShowOptionsAsync("Rows",
+        new ToggleOption("Rows can open", "Follows CanExecute of the rows' command: off, Account and Privacy give no press feedback and take no taps.", () => CanOpen, value => CanOpen = value));
 
     [RelayCommand(CanExecute = nameof(CanOpen))]
     private void Open(string what) => LastTap = $"Opened {what} at {DateTime.Now:HH:mm:ss}";
@@ -37,9 +41,5 @@ public partial class RowsPageViewModel : ViewModelBase
     }
 
     [RelayCommand]
-    private void TapCard()
-    {
-        CardTaps++;
-        LastTap = $"Card tapped {CardTaps} time{(CardTaps == 1 ? "" : "s")}";
-    }
+    private void TapCard() => CardTaps++;
 }

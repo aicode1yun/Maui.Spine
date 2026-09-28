@@ -1,6 +1,6 @@
 namespace MauiSpineSampleApp.Pages.Results;
 
-public partial class ResultsPageViewModel(INavigationService _navigation) : ViewModelBase
+public partial class ResultsPageViewModel(INavigationService _navigation) : SampleViewModel
 {
     [ObservableProperty]
     public partial string SheetResult { get; set; } = "No result yet";
@@ -19,7 +19,7 @@ public partial class ResultsPageViewModel(INavigationService _navigation) : View
         SheetResult = result switch
         {
             { IsSuccess: true, Value: { } value } => $"Result: {value.Message}",
-            { IsSuccess: true } => "Result: (null)",
+            { IsSuccess: true } => "Result: null, a success without a value",
             _ => "Canceled",
         };
     }

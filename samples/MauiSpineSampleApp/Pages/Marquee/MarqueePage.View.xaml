@@ -5,26 +5,53 @@
     x:TypeArguments="MarqueePageViewModel"
     x:DataType="MarqueePageViewModel">
 
-    <VerticalStackLayout Padding="20,16" Spacing="10">
-            <PackageChips Packages="Plugin.Maui.Spine.Controls.AnimatedLabel" />
-        <Label Text="AnimatedLabel scrolls text that does not fit, with a fade at the edges, and stays still when it does."
-               FontSize="14" />
+    <SampleLayout Packages="Plugin.Maui.Spine.Controls.AnimatedLabel">
 
-        <Label Text="Fits: no scrolling" FontAttributes="Bold" Margin="0,8,0,0" />
-        <Border Padding="10,6" BackgroundColor="#1DB954" StrokeShape="RoundRectangle 8">
-            <AnimatedLabel Text="Now Playing" FontSize="15" FontAttributes="Bold" TextColor="White" />
-        </Border>
+        <Example Title="Long text scrolls, short text stays"
+                 Summary="One line for a title that may not fit, like a song or an address. Text that fits stays still; text that is too wide glides side to side, with soft edges."
+                 OptionsCommand="{Binding ShowScrollOptionsCommand}">
+            <VerticalStackLayout Spacing="10">
+                <Border Padding="10,6" BackgroundColor="#1DB954" StrokeShape="RoundRectangle 8">
+                    <AnimatedLabel Text="Now Playing" FontSize="15" FontAttributes="Bold" TextColor="White" />
+                </Border>
+                <Border Padding="10,6" BackgroundColor="#282828" StrokeShape="RoundRectangle 8">
+                    <AnimatedLabel Text="The Weeknd — Blinding Lights (Extended Radio Mix) · After Hours · Republic Records"
+                                   FontSize="14" TextColor="White"
+                                   ScrollSpeedDpPerSecond="{Binding ScrollSpeed}"
+                                   PauseAtEndsMs="{Binding PauseAtEnds}"
+                                   FadeEdgeWidthDp="{Binding FadeEdgeWidth}" />
+                </Border>
+            </VerticalStackLayout>
+            <Example.Code>
+                &lt;AnimatedLabel Text="{Binding Title}"
+                               FontSize="14"
+                               TextColor="White" /&gt;
 
-        <Label Text="Too wide: scrolls side to side" FontAttributes="Bold" Margin="0,8,0,0" />
-        <Border Padding="10,6" BackgroundColor="#282828" StrokeShape="RoundRectangle 8">
-            <AnimatedLabel Text="The Weeknd — Blinding Lights (Extended Radio Mix) · After Hours · Republic Records" FontSize="14" TextColor="White" />
-        </Border>
+                // Optional, shown with their defaults
+                ScrollSpeedDpPerSecond="38"
+                PauseAtEndsMs="2000"
+                FadeEdgeWidthDp="8"
+            </Example.Code>
+        </Example>
 
-        <Label Text="Text that changes: fades, keeps its position" FontAttributes="Bold" Margin="0,8,0,0" />
-        <Border Padding="10,6" BackgroundColor="#282828" StrokeShape="RoundRectangle 8">
-            <AnimatedLabel Text="{Binding DynamicText}" ResetOnTextUpdate="False" EnableFadeOnTextChange="True" FontSize="14" TextColor="White" />
-        </Border>
-        <Button Text="Change the text" Command="{Binding ChangeDynamicTextCommand}" />
-    </VerticalStackLayout>
+        <Example Title="New text without a jump"
+                 Summary="When the text changes, the label fades to the new line, and it can keep scrolling from where it was instead of starting over."
+                 OptionsCommand="{Binding ShowChangeOptionsCommand}">
+            <VerticalStackLayout Spacing="10">
+                <Border Padding="10,6" BackgroundColor="#282828" StrokeShape="RoundRectangle 8">
+                    <AnimatedLabel Text="{Binding DynamicText}" FontSize="14" TextColor="White"
+                                   EnableFadeOnTextChange="{Binding FadeOnChange}"
+                                   ResetOnTextUpdate="{Binding RestartOnChange}" />
+                </Border>
+                <Button Text="Change the text" Command="{Binding ChangeDynamicTextCommand}" />
+            </VerticalStackLayout>
+            <Example.Code>
+                &lt;AnimatedLabel Text="{Binding NowPlaying}"
+                               EnableFadeOnTextChange="True"
+                               ResetOnTextUpdate="False" /&gt;
+            </Example.Code>
+        </Example>
+
+    </SampleLayout>
 
 </SpinePage>

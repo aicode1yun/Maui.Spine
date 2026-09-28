@@ -3,10 +3,23 @@ using Plugin.Maui.Spine.Common;
 
 namespace MauiSpineSampleApp.Pages.Strings;
 
-public partial class StringsPageViewModel(ISpineStrings _strings) : ViewModelBase
+public partial class StringsPageViewModel : SampleViewModel
 {
-    [ObservableProperty]
-    public partial string SelectedLanguage { get; set; } = _strings.Culture.TwoLetterISOLanguageName == "sv" ? "sv" : "en";
+    private readonly ISpineStrings _strings;
+    private readonly ChoiceGroup _language;
+
+    public StringsPageViewModel(ISpineStrings strings)
+    {
+        _strings = strings;
+
+        _language = new("Language",
+        [
+            new("English", "strings.xml, the neutral document: what any language without its own file gets.", () => PickLanguage("en")),
+            new("Svenska", "strings.sv.xml. A key it lacks falls back to strings.xml.", () => PickLanguage("sv")),
+        ]);
+
+        WhileVisible(() => _strings.Changed += OnStringsChanged, () => _strings.Changed -= OnStringsChanged);
+    }
 
     [ObservableProperty]
     public partial int Apples { get; set; } = 1;
@@ -17,27 +30,25 @@ public partial class StringsPageViewModel(ISpineStrings _strings) : ViewModelBas
     [ObservableProperty]
     public partial DateTime Now { get; set; } = DateTime.Now;
 
-    // The same text from C#: inject ISpineStrings, or read SpineStrings.Current where there is no DI.
     public string FromCode => _strings.Get("Strings.Apples", Apples);
 
-    [ObservableProperty]
-    public partial string Missing { get; set; } = "";
-
-    partial void OnSelectedLanguageChanged(string value) => _strings.Culture = CultureInfo.GetCultureInfo(value);
+    public string Missing => _strings["Strings.NoSuchKey"];
 
     partial void OnApplesChanged(int value) => OnPropertyChanged(nameof(FromCode));
 
-    public override Task OnAppearingAsync(NavigationDirection navigationDirection)
+    [RelayCommand]
+    private Task ShowLanguageOptions()
     {
-        _strings.Changed += OnStringsChanged;
-        Missing = _strings["Strings.NoSuchKey"];
-        return base.OnAppearingAsync(navigationDirection);
+        _language.Select(_strings.Culture.TwoLetterISOLanguageName == "sv" ? 1 : 0);
+        return ShowOptionsAsync("Language", _language);
     }
 
-    public override Task OnDisappearingAsync(NavigationDirection navigationDirection)
+    // The options sheet covers the page, which stops hearing Changed while it is hidden.
+    private void PickLanguage(string language)
     {
-        _strings.Changed -= OnStringsChanged;
-        return base.OnDisappearingAsync(navigationDirection);
+        _strings.Culture = CultureInfo.GetCultureInfo(language);
+        _language.Select(language == "sv" ? 1 : 0);
+        OnPropertyChanged(nameof(FromCode));
     }
 
     private void OnStringsChanged(object? sender, EventArgs e) => OnPropertyChanged(nameof(FromCode));

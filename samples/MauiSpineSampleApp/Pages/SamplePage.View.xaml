@@ -6,8 +6,7 @@
     x:DataType="SamplePageViewModel">
 
     <VerticalStackLayout Padding="24" Spacing="5">
-        <Label Text="Hello"/>
-        <Label Text="{Binding UserName}"/>
+        <Label Text="Drag the handle: this sheet stops at medium, at 75 % and at full screen. Next pushes a page inside the sheet." />
         <Button Text="Next" Command="{Binding NextCommand}" />
     </VerticalStackLayout>
     

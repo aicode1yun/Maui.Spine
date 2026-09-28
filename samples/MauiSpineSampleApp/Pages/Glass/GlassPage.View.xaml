@@ -5,68 +5,70 @@
     x:TypeArguments="GlassPageViewModel"
     x:DataType="GlassPageViewModel">
 
-    <!-- Glass refracts what is behind it, so the page is loud on purpose. -->
-    <Grid>
-        <Grid.Background>
-            <LinearGradientBrush EndPoint="1,1">
-                <GradientStop Color="#FF7A00" Offset="0" />
-                <GradientStop Color="#7B2CBF" Offset="0.5" />
-                <GradientStop Color="#00B4D8" Offset="1" />
-            </LinearGradientBrush>
-        </Grid.Background>
+    <SampleLayout Packages="Plugin.Maui.Spine, Plugin.Maui.Spine.Svg">
 
-        <ScrollView>
-            <VerticalStackLayout Padding="20,16,20,40" Spacing="14">
-            <PackageChips Packages="Plugin.Maui.Spine, Plugin.Maui.Spine.Svg" />
-
-                <Label Text="Glass.Style turns a Button or ImageButton into Liquid Glass on iOS 26. On every other platform, and on older iOS, the same markup renders the normal button."
-                       TextColor="White" FontSize="15" />
-
-                <Label Text="Button" TextColor="White" FontAttributes="Bold" Margin="0,8,0,0" />
-                <Button Text="No glass (the app's Button style)" Command="{Binding TapCommand}" CommandParameter="Plain" />
-                <Button Text="Regular" Glass.Style="Regular" Command="{Binding TapCommand}" CommandParameter="Regular" />
-                <Button Text="Prominent, tinted with BackgroundColor" Glass.Style="Prominent" Command="{Binding TapCommand}" CommandParameter="Prominent" />
-                <Button Text="Regular, label colours" Glass.Style="Regular"
-                        TextColor="{AppThemeBinding Light=Black, Dark=White}"
-                        Command="{Binding TapCommand}" CommandParameter="Label" />
-                <HorizontalStackLayout Spacing="12">
-                    <Button Text="Clear" Glass.Style="Clear" Command="{Binding TapCommand}" CommandParameter="Clear" />
-                    <Button Text="Prominent clear" Glass.Style="ProminentClear" Command="{Binding TapCommand}" CommandParameter="ProminentClear" />
-                    <Button Text="Save" Glass.Style="Prominent" IsEnabled="{Binding IsSaveEnabled}" Command="{Binding TapCommand}" CommandParameter="Save" />
-                </HorizontalStackLayout>
-                <Button Text="Toggle the Save button" Glass.Style="Regular" Command="{Binding ToggleSaveCommand}" />
-                <Button Text="Transient: glass only while pressed" Glass.Style="Transient" TextColor="White" Command="{Binding TapCommand}" CommandParameter="Transient" />
-
-                <Label Text="ImageButton with SvgImageSource" TextColor="White" FontAttributes="Bold" Margin="0,8,0,0" />
-                <HorizontalStackLayout Spacing="12">
-                    <ImageButton Style="{StaticResource SvgImageButtonStyle}" SvgImageSource.Svg="settings.svg" SvgImageSource.Padding="10"
-                                 Glass.Style="Regular" WidthRequest="44" HeightRequest="44"
-                                 Command="{Binding TapCommand}" CommandParameter="Settings" />
-                    <ImageButton Style="{StaticResource SvgImageButtonStyle}" SvgImageSource.Svg="plus.svg" SvgImageSource.Padding="10"
-                                 SvgImageSource.LightTintColor="White" SvgImageSource.DarkTintColor="White"
-                                 Glass.Style="Prominent" BackgroundColor="{DynamicResource Accent}" WidthRequest="44" HeightRequest="44"
-                                 Command="{Binding TapCommand}" CommandParameter="Plus" />
+        <!-- Glass refracts what is behind it, so both demos sit on a photo. -->
+        <Example Title="Buttons that float on glass"
+                 Summary="Set Glass.Style on an ordinary Button or ImageButton and iOS 26 draws it as Liquid Glass, letting the photo behind show through. Older iOS, Android and Windows draw the same markup as a normal button.">
+            <Border StrokeThickness="0" StrokeShape="RoundRectangle 20" HeightRequest="240">
+                <Grid>
+                    <Image Source="mountain.png" Aspect="AspectFill" />
                     <ImageButton Style="{StaticResource SvgImageButtonStyle}" SvgImageSource.Svg="chevronleft.svg" SvgImageSource.Padding="10"
-                                 SvgImageSource.LightTintColor="White" SvgImageSource.DarkTintColor="White"
-                                 Glass.Style="Clear" WidthRequest="44" HeightRequest="44"
-                                 Command="{Binding TapCommand}" CommandParameter="Back" />
-                    <ImageButton Style="{StaticResource SvgImageButtonStyle}" SvgImageSource.Svg="bell.svg" SvgImageSource.Padding="14"
-                                 Glass.Style="Regular" WidthRequest="56" HeightRequest="56"
-                                 Command="{Binding TapCommand}" CommandParameter="Bell" />
-                    <ImageButton Style="{StaticResource SvgImageButtonStyle}" SvgImageSource.Svg="fish.svg" SvgImageSource.Padding="10"
-                                 SvgImageSource.LightTintColor="White" SvgImageSource.DarkTintColor="White"
-                                 WidthRequest="44" HeightRequest="44"
-                                 Command="{Binding TapCommand}" CommandParameter="Fish (no glass)" />
-                    <ImageButton Style="{StaticResource SvgImageButtonStyle}" SvgImageSource.Svg="settings.svg" SvgImageSource.Padding="10"
-                                 SvgImageSource.LightTintColor="White" SvgImageSource.DarkTintColor="White"
-                                 Glass.Style="Transient" WidthRequest="44" HeightRequest="44"
-                                 Command="{Binding TapCommand}" CommandParameter="Transient gear" />
-                </HorizontalStackLayout>
+                                 Glass.Style="Regular" WidthRequest="44" HeightRequest="44"
+                                 HorizontalOptions="Start" VerticalOptions="Start" Margin="12" />
+                    <HorizontalStackLayout Spacing="8" HorizontalOptions="End" VerticalOptions="Start" Margin="12">
+                        <ImageButton Style="{StaticResource SvgImageButtonStyle}" SvgImageSource.Svg="share.svg" SvgImageSource.Padding="10"
+                                     Glass.Style="Regular" WidthRequest="44" HeightRequest="44" />
+                        <ImageButton Style="{StaticResource SvgImageButtonStyle}" SvgImageSource.Svg="heart.svg" SvgImageSource.Padding="10"
+                                     Glass.Style="Regular" WidthRequest="44" HeightRequest="44" />
+                    </HorizontalStackLayout>
+                    <Button Text="Directions" Glass.Style="Prominent" HorizontalOptions="Center" VerticalOptions="End" Margin="12,16" />
+                </Grid>
+            </Border>
+            <Example.Code>
+                &lt;Button Text="Directions" Glass.Style="Prominent"
+                        BackgroundColor="{DynamicResource Accent}" /&gt;
 
-                <Label Text="{Binding LastTap}" TextColor="White" FontSize="15" Margin="0,8,0,0" />
+                &lt;ImageButton SvgImageSource.Svg="share.svg"
+                             SvgImageSource.Padding="10"
+                             Glass.Style="Regular"
+                             WidthRequest="44" HeightRequest="44" /&gt;
+            </Example.Code>
+        </Example>
 
-            </VerticalStackLayout>
-        </ScrollView>
-    </Grid>
+        <Example Title="A style for each job"
+                 Summary="Regular for most floating controls, Prominent for the one action a screen leads with, Clear over busy photos and maps. Transient shows no glass until it is pressed."
+                 OptionsCommand="{Binding ShowStyleOptionsCommand}">
+            <Border StrokeThickness="0" StrokeShape="RoundRectangle 20" HeightRequest="220">
+                <Grid>
+                    <Image Source="mountain.png" Aspect="AspectFill" IsVisible="{Binding ShowPhoto}" />
+                    <Grid ColumnDefinitions="*,*" RowDefinitions="Auto,Auto,Auto" RowSpacing="12" ColumnSpacing="12"
+                          Padding="16" VerticalOptions="Center">
+                        <Button Text="Regular" Glass.Style="Regular" IsEnabled="{Binding ButtonsEnabled}"
+                                TextColor="{AppThemeBinding Light=Black, Dark=White}" />
+                        <Button Grid.Column="1" Text="Prominent" Glass.Style="Prominent" IsEnabled="{Binding ButtonsEnabled}" />
+                        <Button Grid.Row="1" Text="Clear" Glass.Style="Clear" IsEnabled="{Binding ButtonsEnabled}"
+                                TextColor="{AppThemeBinding Light=Black, Dark=White}" />
+                        <Button Grid.Row="1" Grid.Column="1" Text="Prominent clear" Glass.Style="ProminentClear" IsEnabled="{Binding ButtonsEnabled}" />
+                        <Button Grid.Row="2" Grid.ColumnSpan="2" Text="Transient" Glass.Style="Transient" IsEnabled="{Binding ButtonsEnabled}"
+                                TextColor="{AppThemeBinding Light=Black, Dark=White}" HorizontalOptions="Center" />
+                    </Grid>
+                </Grid>
+            </Border>
+            <Example.Code>
+                // Regular         frosted, most floating controls
+                // Prominent       tinted with BackgroundColor
+                // Clear           nearly transparent, over photos
+                // ProminentClear  tinted and nearly transparent
+                // Transient       glass only while pressed
+
+                &lt;!-- A label colour: white is for filled buttons --&gt;
+                &lt;Button Text="Regular" Glass.Style="Regular"
+                        TextColor="{AppThemeBinding Light=Black,
+                                                    Dark=White}" /&gt;
+            </Example.Code>
+        </Example>
+
+    </SampleLayout>
 
 </SpinePage>

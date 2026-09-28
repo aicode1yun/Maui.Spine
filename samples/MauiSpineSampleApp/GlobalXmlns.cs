@@ -44,7 +44,7 @@
 
 [assembly: XmlnsDefinition(
     "http://schemas.microsoft.com/dotnet/maui/global",
-    "MauiSpineSampleApp.Pages.Settings")]
+    "MauiSpineSampleApp.Pages.Widgets")]
 
 [assembly: XmlnsDefinition(
     "http://schemas.microsoft.com/dotnet/maui/global",

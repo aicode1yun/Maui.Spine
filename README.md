@@ -220,16 +220,16 @@ The `samples/MauiSpineSampleApp` project demonstrates all of the above features:
 
 | Demo | Page |
 |---|---|
-| Region navigation | `MainPage` → `SettingsPage` |
+| Region navigation | `MainPage` → any sample page |
 | Bottom sheet with multiple detents | `MainPage` → `SamplePage` (medium + 75% + fullscreen) |
 | Singleton sheet with blur overlay | `MainPage` → `SimpleBottomSheetPage` |
 | Fullscreen sheet | `MainPage` → `FullscreenSheetPage` |
 | Compact (small) sheet | `MainPage` → `SmallSheetPage` |
 | Navigation parameter | `MainPage` → `PersonDetailPage` |
 | Navigation result | `MainPage` → `FullscreenSheetPage` (awaits `FullscreenSheetResult`) |
-| App shortcut → navigation | `ShortcutHandler` → `SettingsPage` |
+| App shortcut → navigation | `ShortcutHandler` → `ThemePage` |
 | Windows tray icon + close-to-background | `MauiProgram.cs` options |
-| Home-screen widget + Live Activity (iOS, Android) | `Widgets/SampleWidget.cs`, `SettingsPage` |
+| Home-screen widget + Live Activity (iOS, Android) | `Widgets/SampleWidget.cs`, `WidgetsPage` |
 | Liquid Glass buttons (iOS 26) | `MainPage` → `GlassPage` (second item in the list) |
 
 ### Push sample

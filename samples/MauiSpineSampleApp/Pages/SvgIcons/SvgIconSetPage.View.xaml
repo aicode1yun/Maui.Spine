@@ -1,0 +1,26 @@
+<SpinePage
+    xmlns="http://schemas.microsoft.com/dotnet/maui/global"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    x:Class="MauiSpineSampleApp.Pages.SvgIcons.SvgIconSetPage"
+    x:TypeArguments="SvgIconSetPageViewModel"
+    x:DataType="SvgIconSetPageViewModel">
+
+    <CollectionView ItemsSource="{Binding Icons}" Margin="12,0">
+        <CollectionView.ItemsLayout>
+            <GridItemsLayout Orientation="Vertical" Span="4" VerticalItemSpacing="12" />
+        </CollectionView.ItemsLayout>
+        <CollectionView.Header>
+            <Label Text="Every icon in Plugin.Maui.Spine.Svg.Icons, by the name you give SvgImageSource.Svg. Try them in dark mode from the palette button."
+                   FontSize="15" TextColor="Gray" Padding="8,8,8,16" />
+        </CollectionView.Header>
+        <CollectionView.ItemTemplate>
+            <DataTemplate x:DataType="x:String">
+                <VerticalStackLayout Spacing="2">
+                    <Image WidthRequest="40" HeightRequest="40" HorizontalOptions="Center" SvgImageSource.Svg="{Binding .}" SvgImageSource.Padding="2" />
+                    <Label Text="{Binding .}" FontSize="10" TextColor="Gray" HorizontalTextAlignment="Center" LineBreakMode="MiddleTruncation" />
+                </VerticalStackLayout>
+            </DataTemplate>
+        </CollectionView.ItemTemplate>
+    </CollectionView>
+
+</SpinePage>

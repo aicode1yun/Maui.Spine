@@ -5,77 +5,86 @@
     x:TypeArguments="ThemePageViewModel"
     x:DataType="ThemePageViewModel">
 
-    <ScrollView>
-        <VerticalStackLayout Padding="20,16" Spacing="10">
-            <PackageChips Packages="Plugin.Maui.Spine" />
+    <SampleLayout Packages="Plugin.Maui.Spine">
 
-            <Label Text="IThemeService.Current is the user's choice. Spine stores it and applies it at the next launch before the first page; the Android window background follows too."
-                   FontSize="14" />
+        <Example Title="Light, dark or the system"
+                 Summary="Let the user choose. Spine remembers the choice and applies it before the first page at the next launch, so the app never flashes the wrong theme. The palette button in the header does the same on every page."
+                 OptionsCommand="{Binding ShowThemeOptionsCommand}">
+            <Label Text="{Binding Effective}" FontSize="15" />
+            <Example.Code>
+                public class SettingsViewModel(IThemeService _theme)
+                {
+                    public void UseDark() =&gt; _theme.Current = AppTheme.Dark;
 
-            <HorizontalStackLayout Spacing="8"
-                                   RadioButtonGroup.GroupName="ThemeChoice"
-                                   RadioButtonGroup.SelectedValue="{Binding SelectedThemeName}">
-                <RadioButton Content="System" Value="System" />
-                <RadioButton Content="Light" Value="Light" />
-                <RadioButton Content="Dark" Value="Dark" />
-            </HorizontalStackLayout>
+                    // Unspecified follows the device
+                    public void UseSystem() =&gt; _theme.Current = AppTheme.Unspecified;
+                }
+            </Example.Code>
+        </Example>
 
-            <Label Text="{Binding Effective}" FontSize="14" />
+        <Example Title="An accent for the whole app"
+                 Summary="One colour, picked by the user, on every button, switch and slider. Spine stores it like the theme, keeps a light and a dark tone, and repaints at once."
+                 OptionsCommand="{Binding ShowAccentOptionsCommand}">
+            <VerticalStackLayout Spacing="10">
+                <Label Text="{Binding AccentName}" FontSize="15" />
+                <HorizontalStackLayout Spacing="12">
+                    <Button Text="Button" />
+                    <Switch IsToggled="True" VerticalOptions="Center" />
+                    <CheckBox IsChecked="True" VerticalOptions="Center" />
+                    <ActivityIndicator IsRunning="True" VerticalOptions="Center" />
+                </HorizontalStackLayout>
+                <Slider Value="0.6" />
+            </VerticalStackLayout>
+            <Example.Code>
+                // A light and a dark tone; stored, repaints at once
+                _theme.Accent = new SpineAccent(
+                    Color.FromArgb("#FF2D55"),
+                    Color.FromArgb("#FF375F"));
 
-            <Label Text="Accent" FontAttributes="Bold" Margin="0,12,0,0" />
-            <Label Text="IThemeService.Accent is the app-wide accent: a light and a dark colour, stored like the theme and applied before the first page. Spine writes it into Primary, PrimaryDark, Accent and OnAccent and repaints like a theme switch."
-                   FontSize="14" />
-            <FlexLayout Wrap="Wrap" JustifyContent="Start" BindableLayout.ItemsSource="{Binding Accents}">
-                <BindableLayout.ItemTemplate>
-                    <DataTemplate x:DataType="AccentSwatch">
-                        <Grid WidthRequest="48" HeightRequest="48" Margin="0,0,6,6"
-                              SemanticProperties.Description="{Binding Description}">
-                            <Grid.GestureRecognizers>
-                                <TapGestureRecognizer Command="{Binding SelectCommand}" />
-                            </Grid.GestureRecognizers>
-                            <Border StrokeShape="Ellipse" StrokeThickness="2.5" Stroke="{Binding Ring}" BackgroundColor="Transparent"
-                                    IsVisible="{Binding IsSelected}" InputTransparent="True" />
-                            <Border StrokeShape="Ellipse" StrokeThickness="0" BackgroundColor="{Binding Fill}"
-                                    WidthRequest="34" HeightRequest="34" HorizontalOptions="Center" VerticalOptions="Center" InputTransparent="True" />
-                        </Grid>
-                    </DataTemplate>
-                </BindableLayout.ItemTemplate>
-            </FlexLayout>
-            <Label Text="{Binding AccentName}" FontSize="14" />
-            <HorizontalStackLayout Spacing="12">
-                <Button Text="Button" />
-                <Switch IsToggled="True" VerticalOptions="Center" />
-                <CheckBox IsChecked="True" VerticalOptions="Center" />
-                <ActivityIndicator IsRunning="True" VerticalOptions="Center" />
-            </HorizontalStackLayout>
-            <Slider Value="0.6" />
-            <Border StrokeThickness="0" BackgroundColor="#22808080" Padding="10,8" StrokeShape="RoundRectangle 8">
-                <Label FontSize="11" FontFamily="{OnPlatform iOS=Menlo, MacCatalyst=Menlo, Android=monospace, WinUI=Consolas}"
-                       Text="// Light and dark; stored, repaints at once&#10;_theme.Accent = new SpineAccent(&#10;    Color.FromArgb(&quot;#FF2D55&quot;),&#10;    Color.FromArgb(&quot;#FF375F&quot;));&#10;&#10;// Back to Primary / PrimaryDark&#10;_theme.Accent = null;&#10;&#10;&lt;Button BackgroundColor=&quot;{DynamicResource Accent}&quot;&#10;        TextColor=&quot;{DynamicResource OnAccent}&quot; /&gt;&#10;&#10;// Code-drawn controls, inside SpineTheme.Track&#10;var accent = SpineTheme.GetAccent(AppTheme.Dark);" />
-            </Border>
+                // Back to the app's Primary and PrimaryDark
+                _theme.Accent = null;
 
-            <Label Text="Token dictionaries" FontAttributes="Bold" Margin="0,12,0,0" />
-            <Label Text="options.Theme.UseTokens&lt;LightTokens, DarkTokens&gt;() merges one dictionary and copies the right set into it on every change. {DynamicResource} re-resolves; {StaticResource} would not."
-                   FontSize="14" />
+                &lt;Button BackgroundColor="{DynamicResource Accent}"
+                        TextColor="{DynamicResource OnAccent}" /&gt;
+            </Example.Code>
+        </Example>
+
+        <Example Title="Colours that follow the theme"
+                 Summary="Name a colour once and give it a light and a dark value. Spine swaps the set on every change, and everything that uses the name updates.">
             <Border StrokeThickness="1" Stroke="{DynamicResource CardOutline}" BackgroundColor="{DynamicResource CardBackground}"
                     Padding="14,12" StrokeShape="RoundRectangle 12">
                 <VerticalStackLayout Spacing="4">
                     <Label Text="A card on CardBackground" TextColor="{DynamicResource CardText}" FontAttributes="Bold" />
-                    <Label Text="Text on CardText, outline on CardOutline, accent below on Accent." TextColor="{DynamicResource CardText}" FontSize="13" />
+                    <Label Text="Text on CardText, outline on CardOutline, the bar below on Accent." TextColor="{DynamicResource CardText}" FontSize="14" />
                     <BoxView Color="{DynamicResource Accent}" HeightRequest="6" CornerRadius="3" Margin="0,6,0,0" />
                 </VerticalStackLayout>
             </Border>
+            <Example.Code>
+                .UseSpine(options =&gt;
+                    options.Theme.UseTokens&lt;LightTokens, DarkTokens&gt;())
 
-            <Label Text="Repaint hook" FontAttributes="Bold" Margin="0,12,0,0" />
-            <Label Text="A control that colours itself in code calls SpineTheme.Track(this, Paint). It repaints on every change while attached, and once on re-attach if it missed one."
-                   FontSize="14" />
+                &lt;!-- LightTokens.xaml; DarkTokens.xaml has the same keys --&gt;
+                &lt;Color x:Key="CardBackground"&gt;#FFFFFF&lt;/Color&gt;
+
+                &lt;!-- DynamicResource re-reads the key; StaticResource would not --&gt;
+                &lt;Border BackgroundColor="{DynamicResource CardBackground}" /&gt;
+            </Example.Code>
+        </Example>
+
+        <Example Title="Repaint what you draw in code"
+                 Summary="A control that sets its colours in code (a Skia canvas, a chart) does not see theme bindings. Track tells it when to paint again, and forgets it when the view goes away.">
             <TokenSwatch />
+            <Example.Code>
+                public MyChart()
+                {
+                    Paint();
+                    SpineTheme.Track(this, Paint);
+                }
 
-            <Border StrokeThickness="0" BackgroundColor="#22808080" Padding="10,8" StrokeShape="RoundRectangle 8" Margin="0,8,0,0">
-                <Label FontSize="11" FontFamily="{OnPlatform iOS=Menlo, MacCatalyst=Menlo, Android=monospace, WinUI=Consolas}"
-                       Text=".UseSpine(options =&gt;&#10;    options.Theme.UseTokens&lt;LightTokens, DarkTokens&gt;())&#10;&#10;_theme.Current = AppTheme.Dark;          // stored, applied at once&#10;&#10;public MySkiaControl()&#10;{&#10;    SpineTheme.Track(this, InvalidateSurface);&#10;}&#10;&#10;options.Tabs.Style = new SpineTabBarStyle&#10;{&#10;    SelectedColorKey = &quot;Accent&quot;,         // re-read on every change&#10;};" />
-            </Border>
-        </VerticalStackLayout>
-    </ScrollView>
+                void Paint() =&gt; _line.Color = SpineTheme.GetAccent(Application.Current!.RequestedTheme);
+            </Example.Code>
+        </Example>
+
+    </SampleLayout>
 
 </SpinePage>

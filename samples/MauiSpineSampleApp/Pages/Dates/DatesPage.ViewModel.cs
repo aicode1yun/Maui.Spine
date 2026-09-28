@@ -1,23 +1,11 @@
 using System.Globalization;
-using MauiSpineSampleApp.Pages.Theme;
 using Plugin.Maui.Spine.Controls;
 using Plugin.Maui.Spine.Common;
 
 namespace MauiSpineSampleApp.Pages.Dates;
 
-public partial class DatesPageViewModel(IThemeService _theme, ISpineStrings _strings) : ViewModelBase
+public partial class DatesPageViewModel(ISpineStrings _strings) : SampleViewModel
 {
-    // Both repaint the calendar while it is on screen, through SpineTheme.Track.
-    [ObservableProperty]
-    public partial string ThemeName { get; set; } = ThemePageViewModel.ThemeToName(_theme.Current);
-
-    [ObservableProperty]
-    public partial string Language { get; set; } = _strings.Culture.TwoLetterISOLanguageName == "sv" ? "sv" : "en";
-
-    partial void OnThemeNameChanged(string value) => _theme.Current = ThemePageViewModel.NameToTheme(value);
-
-    partial void OnLanguageChanged(string value) => _strings.Culture = CultureInfo.GetCultureInfo(value);
-
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(SelectedText))]
     public partial DateTime SelectedDate { get; set; } = DateTime.Today;
@@ -36,17 +24,11 @@ public partial class DatesPageViewModel(IThemeService _theme, ISpineStrings _str
     public partial bool ShowSelectedDate { get; set; } = true;
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(FirstDayOfWeek))]
-    public partial string FirstDay { get; set; } = nameof(DayOfWeek.Monday);
+    public partial DayOfWeek FirstDayOfWeek { get; set; } = DayOfWeek.Monday;
 
-    public DayOfWeek FirstDayOfWeek => Enum.Parse<DayOfWeek>(FirstDay);
-
-    /// <summary>"App" follows SpineStrings (the Strings page's language switch); the rest pin a culture.</summary>
+    /// <summary>Null follows SpineStrings.Culture, the app's language.</summary>
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(Culture))]
-    public partial string CultureName { get; set; } = "App";
-
-    public CultureInfo? Culture => CultureName == "App" ? null : CultureInfo.GetCultureInfo(CultureName);
+    public partial CultureInfo? Culture { get; set; }
 
     public string SelectedText => SelectedDate == DateTime.MinValue ? "No selection" : $"Selected: {SelectedDate:yyyy-MM-dd}";
 
@@ -55,6 +37,25 @@ public partial class DatesPageViewModel(IThemeService _theme, ISpineStrings _str
     [RelayCommand] private void GoToToday() => SelectedDate = DateTime.Today;
 
     [RelayCommand] private void ClearSelection() => SelectedDate = DateTime.MinValue;
+
+    [RelayCommand]
+    private Task ShowCalendarOptions() => ShowOptionsAsync("Calendar",
+        new ToggleOption("Week numbers", "ISO 8601 week numbers down the side.", () => ShowWeekNumbers, v => ShowWeekNumbers = v),
+        new ToggleOption("Days of other months", "The neighbouring months' days, dimmed, in the first and last rows.", () => ShowTrailingDays, v => ShowTrailingDays = v),
+        new ToggleOption("Show the selection", "Off, a tap still sets SelectedDate, but no selection is drawn.", () => ShowSelectedDate, v => ShowSelectedDate = v),
+        Choices("First day of the week", FirstDayOfWeek, v => FirstDayOfWeek = v,
+            ("Monday", "Most of Europe, and ISO 8601.", DayOfWeek.Monday),
+            ("Sunday", "The US, Canada and Japan.", DayOfWeek.Sunday),
+            ("Saturday", "Much of the Middle East.", DayOfWeek.Saturday)),
+        Choices("Language", _strings.Culture.TwoLetterISOLanguageName == "sv" ? "sv" : "en", v => _strings.Culture = CultureInfo.GetCultureInfo(v),
+            ("English", "The whole app in English. A calendar without a Culture of its own follows at once.", "en"),
+            ("Svenska", "The whole app in Swedish, the calendar's month and day names too.", "sv")),
+        Choices<string?>("Culture", Culture?.Name, v => Culture = v is null ? null : CultureInfo.GetCultureInfo(v),
+            ("App", "No Culture of its own: the names follow the app's language above.", null),
+            ("en-US", "Pinned to US English, whatever the app's language.", "en-US"),
+            ("sv-SE", "Pinned to Swedish.", "sv-SE"),
+            ("de-DE", "Pinned to German.", "de-DE"),
+            ("fi-FI", "Pinned to Finnish.", "fi-FI")));
 
     // ── Marked days ─────────────────────────────────────────────────────────────
 
@@ -66,16 +67,36 @@ public partial class DatesPageViewModel(IThemeService _theme, ISpineStrings _str
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(CalendarStyle))]
-    public partial string MarkStyleName { get; set; } = nameof(CalendarMarkStyle.Fill);
+    public partial CalendarMarkStyle MarkStyle { get; set; } = CalendarMarkStyle.Fill;
 
     // Null keeps the defaults; a StyleOptions change rebuilds the calendar.
     public CalendarStyleOptions? CalendarStyle =>
-        MarkStyleName == nameof(CalendarMarkStyle.Dot) ? new CalendarStyleOptions { MarkStyle = CalendarMarkStyle.Dot } : null;
+        MarkStyle == CalendarMarkStyle.Dot ? new CalendarStyleOptions { MarkStyle = CalendarMarkStyle.Dot } : null;
 
     [ObservableProperty]
     public partial string MarkQueryText { get; set; } = "The service has not been asked yet.";
 
     [RelayCommand] private void ChangeEvents() => Events.Reshuffle();
+
+    [RelayCommand]
+    private Task ShowMarkOptions() => ShowOptionsAsync("Marked days",
+        new ToggleOption("Marks", "Off, the calendar has no MarkSource.", () => ShowMarks, v => ShowMarks = v),
+        Choices("Style", MarkStyle, v => MarkStyle = v,
+            ("Fill", "A soft accent circle behind the number.", CalendarMarkStyle.Fill),
+            ("Dot", "A small dot under the number, which stays visible on today and the selected day.", CalendarMarkStyle.Dot)));
+
+    // Choosing sets the page's property at once, so the calendar changes behind the sheet.
+    private static ChoiceGroup Choices<T>(string name, T current, Action<T> set, params (string Label, string Description, T Value)[] items)
+    {
+        ChoiceGroup group = null!;
+        group = new ChoiceGroup(name, [.. items.Select((item, i) => new Choice(item.Label, item.Description, () =>
+        {
+            set(item.Value);
+            group.Select(i);
+        }))]);
+        group.Select(Array.FindIndex(items, item => EqualityComparer<T>.Default.Equals(item.Value, current)));
+        return group;
+    }
 
     // The service lives as long as this view model, so the counter needs no unsubscribing.
     private FakeEventService Events => field ??= new FakeEventService((first, last, count) =>
