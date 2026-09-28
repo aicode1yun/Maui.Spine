@@ -4,7 +4,7 @@ Three pieces for list rows and tappable cards:
 
 - **`Tap.Command`** (core, `Plugin.Maui.Spine`): an attached command on any view, with the platform's own press feedback.
 - **`Semantic.Merge`** (core): a layout that reads as one element to VoiceOver, TalkBack and Narrator.
-- **`SpineRow`** (package `Plugin.Maui.Spine.Controls.Rows`): a settings or key/value row built on both.
+- **`SpineRow`** and **`SpineSection`** (package `Plugin.Maui.Spine.Controls.Rows`): a settings or key/value row built on both, and the group that makes rows look like the platform's own Settings.
 
 ## Setup
 
@@ -21,7 +21,7 @@ XAML namespaces: `Tap` and `Semantic` are in `Plugin.Maui.Spine.Extensions` (ass
 
 ## SpineRow
 
-`[icon] [title / detail] [value] [accessory] [chevron]`; everything but the title is optional.
+`[icon] [title / detail] [value] [accessory] [check] [chevron]`; everything but the title is optional.
 
 ```xml
 <!-- A navigation row: a command shows the chevron -->
@@ -37,33 +37,80 @@ XAML namespaces: `Tap` and `Semantic` are in `Plugin.Maui.Spine.Extensions` (ass
 
 <!-- Key/value: a title and a value, nothing else -->
 <SpineRow Title="Version" Value="1.0 (1)" />
+
+<!-- An icon on a coloured square, as in iOS Settings (a circle on Android) -->
+<SpineRow Icon="wireless.svg" IconBackground="#007AFF" Title="Wi-Fi" Value="Home"
+          Command="{Binding WiFiCommand}" />
+
+<!-- One choice of a list: a check mark instead of a chevron -->
+<SpineRow Title="Name" IsSelected="{Binding ByName}" Command="{Binding SortCommand}" CommandParameter="Name" />
 ```
 
 | Property | |
 |---|---|
 | `Icon` | Short name of an embedded SVG, tinted with the accent (`SpineTheme.GetAccent`) |
+| `IconBackground` | A fill behind the icon, which turns white: a 30-point rounded square on iOS and Windows, a 40 dp circle on Android |
 | `Title`, `Detail` | Two lines; the detail is smaller and secondary |
 | `DetailMarquee` | Draws the detail with `AnimatedLabel`: text that does not fit scrolls instead of truncating |
-| `Value` | Secondary text at the end: the current choice, or the value of a key/value row |
+| `Value` | Secondary text: the current choice, or the value of a key/value row |
+| `ValuePlacement` | `Auto` (default) = under the title on Android (a preference's summary), at the end elsewhere; `Trailing`, `Below` |
+| `IsSelected` | `null` (default) = not a choice; `true` shows a check mark in the accent colour, `false` leaves its place empty |
 | `Accessory` | Any view at the end: a `Switch`, a button, a badge |
-| `ShowChevron` | `null` (default) = shown when the row has a `Command` and no `Accessory` |
+| `ShowChevron` | `null` (default) = shown when the row has a `Command`, no `Accessory` and no `IsSelected`; never on Android |
 | `Command`, `CommandParameter` | Run on a tap anywhere on the row (through `Tap.Command`) |
 | `StyleOptions` | `SpineRowStyleOptions`: fonts, sizes, padding, colours |
 
 A row whose accessory is a `Switch` and that has no `Command` toggles the switch when tapped, which is also what a screen reader's activation does. `IsEnabled="False"` dims the row and takes away its press and command.
 
-The chevron is the header bar's back glyph (`HeaderBarConstants.BackGlyph`) turned around, so both arrows in an app are the same shape; in a right-to-left layout it points left.
+The chevron is the header bar's back glyph (`HeaderBarConstants.BackGlyph`) turned around, so both arrows in an app are the same shape, drawn with a heavier stroke like the system's `chevron.forward` (`GlyphLineWidthScale`); in a right-to-left layout it points left.
 
-The row has no background and no separator: put rows in whatever card or list the app draws (a `Border` with a `VerticalStackLayout`, a `CollectionView` template).
+The defaults follow the platform, so the same markup reads as native on both: on Android the value moves under the title and there is no chevron, as in Android's own settings. `ValuePlacement="Trailing"` and `ShowChevron="True"` keep the iOS layout on Android.
+
+The row has no background and no separator of its own: group rows in a `SpineSection`, or in whatever card or list the app draws.
+
+## SpineSection
+
+A group of rows with an optional header and footer, drawn the way the platform's Settings are:
+
+- **iOS and Mac Catalyst**: a filled group with 26-point corners (10 before iOS 26), no outline, hairline separators from the row's text (after its icon) to 16 points before the group's edge, grey header and footer text.
+- **Android**: no group and no separators (Material 3 lists use spacing), a header in the accent colour.
+- **Windows**: a card with hairline separators.
+
+```xml
+<SpinePage BackgroundColor="{AppThemeBinding Light={x:Static SpineSection.PageBackgroundLight},
+                                             Dark={x:Static SpineSection.PageBackgroundDark}}">
+    <ScrollView>
+        <VerticalStackLayout Padding="20,8" Spacing="24">
+            <SpineSection Header="Connections" Footer="Wi-Fi turns on again tomorrow.">
+                <SpineRow Icon="wireless.svg" IconBackground="#007AFF" Title="Wi-Fi" Value="Home"
+                          Command="{Binding WiFiCommand}" />
+                <SpineRow Icon="bell.svg" IconBackground="#FF3B30" Title="Notifications">
+                    <SpineRow.Accessory>
+                        <Switch IsToggled="{Binding Notify}" />
+                    </SpineRow.Accessory>
+                </SpineRow>
+            </SpineSection>
+        </VerticalStackLayout>
+    </ScrollView>
+</SpinePage>
+```
+
+The section puts a separator between visible rows, never after the last; a row that hides takes its separator with it. Rows can be any view: a separator before a view that is not a `SpineRow` starts at the row padding.
+
+On iOS the groups belong on `systemGroupedBackground`, which the section cannot paint: `SpineSection.PageBackgroundLight` and `PageBackgroundDark` are that colour on Apple and transparent elsewhere, so the binding above is safe on every platform.
+
+`SpineSectionStyleOptions` (app-wide key `DefaultSpineSectionStyleOptions`) sets the corner radius, `ShowSeparators`, `SeparatorTrailingInset`, the group, separator, header and footer colours and fonts.
+
+Not yet: hiding the separators next to a pressed row, as UIKit does.
 
 ### Styling
 
-Sizes default to each platform's list rows (44-point rows and 17-point titles on iOS, 56 dp and 16 on Android, 40 and 14 on Windows). Colours follow the theme: title in the label colour, detail and value in the secondary label colour, chevron in the tertiary one, icon in the accent. Override on one row or app-wide; colours left unset stay themed (see [Theming](theming.md) for the style-options chain):
+Sizes default to each platform's list rows: 52-point rows on iOS 26 as in Settings (44 before) with 17-point titles; the Material 3 list item on Android, 56 dp for one line and 72 dp for two, 16 sp titles and 24 dp icons; 40 and 14 on Windows. Colours follow the theme: title in the label colour, detail and value in the secondary label colour, chevron in the tertiary one, icon in the accent. Override on one row or app-wide; colours left unset stay themed (see [Theming](theming.md) for the style-options chain):
 
 ```xml
 <!-- App.xaml -->
 <SpineRowStyleOptions x:Key="DefaultSpineRowStyleOptions" FontFamily="OpenSans-Regular"
-                      IconColor="Transparent" MinimumHeight="52" />
+                      IconColor="Transparent" MinimumHeight="48" />
 
 <SpineRow Title="Danger zone">
     <SpineRow.StyleOptions>
@@ -125,4 +172,4 @@ A merged layout is one element: its children leave the accessibility tree and th
 
 ## Sample
 
-`samples/MauiSpineSampleApp/Pages/Rows` shows settings rows (icons, detail, value, switches, chevrons, a disabled row, a marquee detail), a switch that turns the rows' `CanExecute` off, key/value rows, a card with `Tap.Command` and a merged custom row. The sample's main list (`ContextItem`) is built on `Tap.Command` and `Semantic.Merge`.
+`samples/MauiSpineSampleApp/Pages/Rows` shows two `SpineSection`s of settings rows (badge icons, detail, value, switches, chevrons, a disabled row, a marquee detail) on the grouped background, a pick-one list, key/value rows, a card with `Tap.Command` and a merged custom row. Its options switch the badges off, move the value, and turn the rows' `CanExecute` off. The sample's main list (`ContextItem`) is built on `Tap.Command` and `Semantic.Merge`.
