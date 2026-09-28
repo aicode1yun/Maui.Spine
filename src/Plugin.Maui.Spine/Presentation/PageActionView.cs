@@ -179,11 +179,14 @@ internal sealed class PageActionView : ContentView
     void Morph(PageAction? action)
     {
 #if IOS || MACCATALYST
-        // The header bar's own view: laying out only it keeps the animation to the actions, not
-        // the page and its title arriving at the same time.
-        if (BarView() is { } bar)
+        if (Window?.Handler?.PlatformView is UIKit.UIWindow window)
         {
             var reduced = ReducedMotion.IsOn;
+
+            // MAUI measures and arranges in the window's layout pass, so that is the pass to run
+            // inside the spring. Whatever else is pending (a page arriving, its title) is laid out
+            // first, without animation, so only this action's change is animated.
+            UIKit.UIView.PerformWithoutAnimation(window.LayoutIfNeeded);
 
             // Everything starts at once, so this action moves together with the other one and
             // with the page: the new content goes in invisible and fades in while the glass
@@ -195,7 +198,7 @@ internal sealed class PageActionView : ContentView
             UIKit.UIView.AnimateNotify(
                 reduced ? 0.2 : 0.45, 0, reduced ? 1f : 0.82f, 0,
                 UIKit.UIViewAnimationOptions.BeginFromCurrentState | UIKit.UIViewAnimationOptions.AllowUserInteraction,
-                bar.LayoutIfNeeded,
+                window.LayoutIfNeeded,
                 null);
 
             // The glass starts moving at once; the content follows a beat later, when the
@@ -206,19 +209,6 @@ internal sealed class PageActionView : ContentView
 #endif
         _front.Apply(action);
     }
-
-#if IOS || MACCATALYST
-    UIKit.UIView? BarView()
-    {
-        for (Element? parent = Parent; parent is not null; parent = parent.Parent)
-        {
-            if (parent is HeaderBarView { Handler.PlatformView: UIKit.UIView view })
-                return view;
-        }
-
-        return Handler?.PlatformView as UIKit.UIView;
-    }
-#endif
 
     /// <summary>Crosses from what the front face shows to <paramref name="action"/> on the other face.</summary>
     async Task SwapAsync(PageAction? action)
@@ -305,6 +295,16 @@ internal sealed class PageActionView : ContentView
         readonly ImageButton _imageButton;
         readonly Border _badge;
         readonly Label _badgeLabel;
+        // The icon of a morphing action, drawn over its glass circle; taps go to the button under it.
+        readonly Image _morphIcon = new()
+        {
+            WidthRequest = 24,
+            HeightRequest = 24,
+            HorizontalOptions = LayoutOptions.Center,
+            VerticalOptions = LayoutOptions.Center,
+            InputTransparent = true,
+            IsVisible = false,
+        };
         string? _currentSvg;
 
         public Face(PageActionView owner)
@@ -396,14 +396,15 @@ internal sealed class PageActionView : ContentView
 
             Children.Add(_textButton);
             Children.Add(_imageButton);
+            Children.Add(_morphIcon);
             Children.Add(_badge);
 
             ApplyForeground();
         }
 
         /// <summary>
-        /// The one glass button draws icons too: an icon action is a circle as tall as the row with
-        /// the SVG as its image, a text action a capsule around its text.
+        /// The one glass button draws icons too: an icon action is an empty circle as tall as the
+        /// row with the SVG drawn over it, a text action a capsule around its text.
         /// </summary>
         void ApplyMorphing(PageAction action, bool hasSvg)
         {
@@ -420,9 +421,15 @@ internal sealed class PageActionView : ContentView
 
             _currentSvg = hasSvg ? action.Svg : null;
 
+            // The icon is not the glass button's image: a glass configuration that has held an
+            // image draws later titles in the label colour, not the accent.
+            _morphIcon.IsVisible = hasSvg;
+
             if (hasSvg)
             {
-                _textButton.Text = string.Empty;
+                // Not an empty title: a glass button whose title goes empty draws its next one in
+                // the label colour rather than the accent.
+                _textButton.Text = "\u200B";
                 _textButton.Padding = new Thickness(0);
                 _textButton.WidthRequest = _owner.HeightRequest;
                 _textButton.HeightRequest = _owner.HeightRequest;
@@ -430,7 +437,6 @@ internal sealed class PageActionView : ContentView
             }
             else
             {
-                _textButton.ImageSource = null;
                 _textButton.Padding = new Thickness(14, 8);
                 _textButton.WidthRequest = -1;
                 _textButton.HeightRequest = -1;
@@ -450,7 +456,7 @@ internal sealed class PageActionView : ContentView
 
             var dark = Application.Current?.RequestedTheme == AppTheme.Dark;
             var tint = _owner.Foreground ?? (dark ? Colors.White : Colors.Black);
-            _textButton.ImageSource = SvgBitmapLoader.LoadFromEmbedded(resource, 24, 24, tint);
+            _morphIcon.Source = SvgBitmapLoader.LoadFromEmbedded(resource, 24, 24, tint);
         }
 
         /// <summary>A glass icon is a circle as tall as the row; otherwise it fills the slot the bar gives it.</summary>
@@ -490,7 +496,7 @@ internal sealed class PageActionView : ContentView
                 svg.UpdateImage();
             }
 
-            if (_owner._morph && _textButton.ImageSource is not null)
+            if (_owner._morph && _morphIcon.IsVisible)
                 ApplyMorphingImage();
         }
 

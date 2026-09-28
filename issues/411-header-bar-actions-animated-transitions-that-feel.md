@@ -28,7 +28,8 @@ Path 2, on iOS 26 with glass: one glass button whose content and frame change in
 
 - Removal is quicker than arrival (`RemovalDuration`, half of `TransitionDuration`), and the whole bar fades without scaling when a page hides it.
 - Going back, the header switches to the returning page at the start of the transition (`NavigationRegionViewModel.HeaderRegionViewModel`), as a navigation bar does; the leaving page's actions used to stay about 250 ms over the page underneath, until the transition had finished.
-- The morph lays out only the header bar inside its spring, not the window, so the arriving page and its title are not pulled into the animation.
+- The morph flushes any pending layout without animation first, then runs the window's layout pass inside the spring, so only this action's change is animated. (Laying out only the header bar left each button at its previous size on the device: MAUI measures in the window's pass.)
+- The morphing button never holds an image and never gets an empty title: the icon is an `Image` drawn over the glass circle, and icon mode keeps a zero-width title. A glass configuration whose title went empty drew the next title (Cancel, the second time) in the label colour instead of the accent.
 - A centred title that has not been measured yet keeps the room between the actions instead of a zero-width frame it would grow out of.
 
 Verified in the iOS 26.4 simulator from screen recordings: Back ↔ Cancel crosses over without a gap, Filter hidden lets Bell take its place, and it comes back. Android built only.
