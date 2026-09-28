@@ -90,6 +90,8 @@ You can also specify:
 - A percentage string: `"75%"`
 - An absolute pixel string: `"300px"`
 
+`options.Haptics.SheetDetent = Haptic.Selection` plays a haptic when the user drags a sheet to another detent (iOS and Android); a sheet that springs back, or moves from code, stays silent. See [Haptics](haptics.md#tabs-and-sheets).
+
 ### Examples
 
 ```csharp
@@ -210,6 +212,8 @@ public override async Task<bool> OnCloseRequestedAsync()
 ```
 
 Return `false` to prevent dismissal; `true` to allow it.
+
+With `options.Haptics.DismissBlocked = Haptic.Warning`, a guard that refuses at once (`Task.FromResult(false)`) plays a warning haptic on iOS and Android. A guard that awaits a prompt, like the one above, plays nothing. See [Haptics](haptics.md#tabs-and-sheets).
 
 ---
 

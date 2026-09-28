@@ -6,7 +6,7 @@ namespace Plugin.Maui.Spine.Extensions;
 /// Makes any view a tap target: the whole view runs <see cref="CommandProperty"/>, shows the
 /// platform's press feedback (a highlight on iOS and Mac Catalyst, a ripple on Android, hover and
 /// pressed fills on Windows) and reads as a button to a screen reader when its semantics are merged
-/// (<see cref="Semantic.MergeProperty"/>).
+/// (<see cref="Semantic.MergeProperty"/>). <see cref="Haptics.OnTapProperty"/> adds a haptic to the tap.
 /// </summary>
 /// <remarks>
 /// Controls inside the view keep their own touches: a switch in a tappable row toggles, it does not
@@ -159,6 +159,7 @@ internal sealed partial class TapState : IDisposable
         if (!CanExecute)
             return;
 
+        Haptics.Play(Haptics.GetOnTap(_view));
         _command!.Execute(Tap.GetCommandParameter(_view));
     }
 

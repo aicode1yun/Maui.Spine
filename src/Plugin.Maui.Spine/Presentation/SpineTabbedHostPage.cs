@@ -1,6 +1,7 @@
 using AsyncAwaitBestPractices;
 using Microsoft.Maui.Controls.PlatformConfiguration.AndroidSpecific;
 using Plugin.Maui.Spine.Core;
+using Plugin.Maui.Spine.Extensions;
 using Plugin.Maui.Spine.Services;
 using Plugin.Maui.Spine.Svg;
 using AndroidPlatform = Microsoft.Maui.Controls.PlatformConfiguration.Android;
@@ -44,6 +45,7 @@ public partial class SpineTabbedHostPage : TabbedPage, ISpineHost, IDisposable
     private readonly List<TabSlot> _slots = new();
     private readonly IServiceProvider _services;
     private readonly SpineOptions _options;
+    private bool _switchingInCode;
     private readonly BottomSheetCoordinator _sheets;
     private readonly TabBadgeService _badges;
     private readonly IThemeService _theme;
@@ -165,7 +167,17 @@ public partial class SpineTabbedHostPage : TabbedPage, ISpineHost, IDisposable
         return MainThread.InvokeOnMainThreadAsync(() =>
         {
             if (!ReferenceEquals(CurrentPage, slot.Page))
-                CurrentPage = slot.Page;
+            {
+                _switchingInCode = true;
+                try
+                {
+                    CurrentPage = slot.Page;
+                }
+                finally
+                {
+                    _switchingInCode = false;
+                }
+            }
             else
                 return EnsureRealizedAsync(slot);
 
@@ -219,6 +231,9 @@ public partial class SpineTabbedHostPage : TabbedPage, ISpineHost, IDisposable
 
         var previous = _activeSlot;
         _activeSlot = slot;
+
+        if (!_switchingInCode)
+            Haptics.Play(_options.Haptics.TabSwitch);
 
         if (previous.Realized)
             previous.RegionViewModel.InvokeOnDisappearing();

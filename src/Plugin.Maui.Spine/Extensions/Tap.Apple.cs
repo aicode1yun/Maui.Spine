@@ -68,6 +68,8 @@ internal sealed partial class TapState
 
     void BeginPress()
     {
+        Haptics.Prepare(Haptics.GetOnTap(View));
+
         var id = ++_pressId;
         DispatchQueue.MainQueue.DispatchAfter(new DispatchTime(DispatchTime.Now, TimeSpan.FromSeconds(HighlightDelay)), () =>
         {

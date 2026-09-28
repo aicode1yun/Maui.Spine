@@ -43,6 +43,7 @@ internal static class PageActionDiscovery
             action.Svg = attribute.Svg;
             action.Badge = attribute.Badge;
             action.IsVisible = attribute.IsVisible;
+            action.Haptic = attribute.Haptic;
 
             viewModel.PageActions.Add(action);
         }

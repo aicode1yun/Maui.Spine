@@ -1,3 +1,5 @@
+using Plugin.Maui.Spine.Extensions;
+
 namespace Plugin.Maui.Spine.Core;
 
 /// <summary>
@@ -51,6 +53,9 @@ public sealed class PageActionAttribute : Attribute
 
     /// <summary>Initial <see cref="PageAction.IsVisible"/>. Defaults to <see langword="true"/>.</summary>
     public bool IsVisible { get; init; } = true;
+
+    /// <summary>Initial <see cref="PageAction.Haptic"/>: the haptic a tap plays. Defaults to <see cref="Haptic.None"/>.</summary>
+    public Haptic Haptic { get; init; }
 
     /// <summary>
     /// Name of the command property on the view model, when it does not follow the

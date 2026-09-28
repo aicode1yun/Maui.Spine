@@ -171,7 +171,9 @@ Put `[PageAction]` on a `[RelayCommand]` method (or an `ICommand` property); Spi
 
 Hand-made actions still work (`PageActions.Add(new PageAction("Save", SaveCommand) { Svg = … })`, best from the constructor). The header shows the first visible action per slot (`Primary` left, `Secondary` right). `Svg` is a short file name of an embedded SVG (the app's own or `Plugin.Maui.Spine.Svg.Icons`). On iOS 26 the header bar's buttons are Liquid Glass by default (`options.Apple.GlassHeaderActions = false` turns it off).
 
-`PageAction` is observable: set `Text`, `Svg`, `Badge` ("3", "•"), `IsEnabled` or `IsVisible` on the instance while the page shows and the header follows. Find a declared one with `PageActions.First(a => a.Command == FilterCommand)`. Adding or removing from `PageActions` at runtime also updates the header.
+A tap can play a haptic: `[PageAction("Save", Haptic = Haptic.Success)]` (see docs/wiki/haptics.md).
+
+`PageAction` is observable: set `Text`, `Svg`, `Badge` ("3", "•"), `IsEnabled`, `IsVisible` or `Haptic` on the instance while the page shows and the header follows. Find a declared one with `PageActions.First(a => a.Command == FilterCommand)`. Adding or removing from `PageActions` at runtime also updates the header.
 
 ## Binding to the page from a template
 
