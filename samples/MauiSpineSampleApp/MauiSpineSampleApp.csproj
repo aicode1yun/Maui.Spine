@@ -105,6 +105,15 @@
       <DependentUpon>GlassPage.cs</DependentUpon>
     </Compile>
 
+    <MauiXaml Update="Pages\Haptics\HapticsPage.View.xaml">
+      <DependentUpon>HapticsPage.cs</DependentUpon>
+      <Generator>MSBuild:Compile</Generator>
+    </MauiXaml>
+
+    <Compile Include="Pages\Haptics\HapticsPage.ViewModel.cs">
+      <DependentUpon>HapticsPage.cs</DependentUpon>
+    </Compile>
+
     <MauiXaml Update="Pages\Theme\ThemePage.View.xaml">
       <DependentUpon>ThemePage.cs</DependentUpon>
       <Generator>MSBuild:Compile</Generator>

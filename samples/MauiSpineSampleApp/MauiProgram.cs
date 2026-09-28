@@ -28,6 +28,8 @@ public static class MauiProgram
                 options.Theme.UseTokens<LightTokens, DarkTokens>();
                 options.RegionDefaults.IsTitleBarVisible = false;
                 options.RegionDefaults.IsHeaderBarVisible = true;
+                options.Haptics.TabSwitch = Haptic.Selection;
+                options.Haptics.SheetDetent = Haptic.Selection;
                 // Pages run to the bottom of the screen; their scroll view keeps the last row clear of the home indicator.
                 options.RegionDefaults.SafeAreaEdges = Plugin.Maui.Spine.Core.SafeAreaEdges.Top | Plugin.Maui.Spine.Core.SafeAreaEdges.Left | Plugin.Maui.Spine.Core.SafeAreaEdges.Right;
                 options.RegionDefaults.ScrollInset = Plugin.Maui.Spine.Core.SafeAreaEdges.Bottom;

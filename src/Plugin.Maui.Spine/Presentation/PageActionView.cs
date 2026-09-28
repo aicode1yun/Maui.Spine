@@ -418,6 +418,7 @@ internal sealed class PageActionView : ContentView
             SemanticProperties.SetDescription(_textButton, action.Description ?? (hasSvg ? null : action.Text));
             MenuButton.SetItems(_textButton, action.Menu);
             MenuButton.SetShowsSelection(_textButton, action.MenuShowsSelection);
+            Haptics.SetOnTap(_textButton, action.Haptic);
 
             _currentSvg = hasSvg ? action.Svg : null;
 
@@ -536,6 +537,8 @@ internal sealed class PageActionView : ContentView
             MenuButton.SetItems(_imageButton, action.Menu);
             MenuButton.SetItems(_textButton, action.Menu);
             MenuButton.SetShowsSelection(_textButton, action.MenuShowsSelection);
+            Haptics.SetOnTap(_imageButton, action.Haptic);
+            Haptics.SetOnTap(_textButton, action.Haptic);
             _badge.IsVisible = !string.IsNullOrEmpty(action.Badge);
 
             if (hasSvg)

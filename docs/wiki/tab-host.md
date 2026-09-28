@@ -66,6 +66,8 @@ The `x:TypeArguments` of your `SpineApplication` stays the single source of trut
 })
 ```
 
+`options.Haptics.TabSwitch = Haptic.Selection` plays a haptic when the user switches tabs; a switch from navigation code stays silent. Off by default, like the native bars. See [Haptics](haptics.md#tabs-and-sheets).
+
 ---
 
 ## Navigation semantics

@@ -372,6 +372,11 @@ internal static class BottomSheetPageExtensions
         public void DidAttemptToDismiss(UIPresentationController presentationController)
             => HandleDismissAttemptAsync().SafeFireAndForget();
 
+        // UIKit calls this only when the user drags the sheet to another detent.
+        [Export("sheetPresentationControllerDidChangeSelectedDetentIdentifier:")]
+        public void DidChangeSelectedDetentIdentifier(UISheetPresentationController sheetPresentationController)
+            => Haptics.Play(Haptics.Options.Haptics.SheetDetent);
+
         private async Task HandleDismissAttemptAsync()
         {
             // In-sheet back navigation takes priority over sheet dismissal.

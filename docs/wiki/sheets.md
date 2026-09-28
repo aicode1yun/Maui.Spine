@@ -90,6 +90,8 @@ You can also specify:
 - A percentage string: `"75%"`
 - An absolute pixel string: `"300px"`
 
+`options.Haptics.SheetDetent = Haptic.Selection` plays a haptic when the user drags a sheet to another detent (iOS and Android); a sheet that springs back, or moves from code, stays silent. See [Haptics](haptics.md#tabs-and-sheets).
+
 ### Examples
 
 ```csharp

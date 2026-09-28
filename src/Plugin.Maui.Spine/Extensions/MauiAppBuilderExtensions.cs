@@ -39,6 +39,7 @@ public static partial class SpineExtensions
     {
         var options = new SpineOptions();
         configure?.Invoke(options);
+        Haptics.Options = options;
 
         ConfigurePlatform(builder, options);
         ConfigureHandlers(builder);

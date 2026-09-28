@@ -1,5 +1,6 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Plugin.Maui.Spine.Extensions;
 using System.Windows.Input;
 
 namespace Plugin.Maui.Spine.Core;
@@ -108,6 +109,10 @@ public sealed partial class PageAction : ObservableObject
     /// <see langword="null"/> when constructed with a plain <see cref="ICommand"/>.
     /// </summary>
     public IAsyncRelayCommand? AsyncCommand { get; }
+
+    /// <summary>The haptic a tap on the button plays. See <see cref="Haptics"/>.</summary>
+    [ObservableProperty]
+    public partial Haptic Haptic { get; set; }
 
     /// <summary>Optional parameter forwarded to <see cref="Command"/> when it is executed.</summary>
     [ObservableProperty]

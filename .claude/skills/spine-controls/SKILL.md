@@ -153,6 +153,10 @@ Put `Skeleton.IsActive` on a layout (it throws on other views). For a list's fir
 <Border Tap.Command="{Binding OpenCommand}" Tap.CommandParameter="{Binding .}" Semantic.Merge="True">...</Border>
 ```
 
+## Haptics (`Plugin.Maui.Spine`)
+
+`Haptics.Success()`, `Warning()`, `Error()`, `Selection()`, `Impact(HapticImpact.Light|Medium|Heavy|Soft|Rigid)` or `Haptics.Play(Haptic.X)`, from any thread; the platform's own generators, so the system haptics setting applies; Mac Catalyst and Windows play nothing. `Haptics.OnTap="Selection"` on a `Button`, `ImageButton`, `SpineRow` or any view with `Tap.Command` plays before the command (ignored on other views). `PageAction.Haptic` / `[PageAction(Haptic = …)]` for header actions. `options.Haptics.TabSwitch` and `options.Haptics.SheetDetent` (off by default) for user tab switches and sheet drags. Android: `options.Android.HapticEngine = AndroidHapticEngine.Vibrator` for composed patterns (needs `android.permission.VIBRATE`, falls back to the view engine with a logcat warning). Semantic, not decorative: Success after a save, Error on a failure, Selection when a choice changes. Verify Android with `adb shell dumpsys vibrator_manager`; the simulator and emulators do not vibrate. See docs/wiki/haptics.md.
+
 ## Menu buttons (`Plugin.Maui.Spine`)
 
 `MenuButton.Items` on a `Button` or `ImageButton` (and `PageAction.Menu` for header actions) opens the platform's menu: `MenuItems` of `MenuAction` (Title, Svg, Command, IsChecked, IsEnabled, IsDestructive, KeepsMenuOpen), `MenuSection`, `SubMenu`, `MenuPicker` (single selection, `Selected`, a command run with the pick). A menu button has no Command. `MenuButton.ShowsSelection` makes the button text follow the pick. See docs/wiki/menus.md.
@@ -165,6 +169,7 @@ A control never hard-codes words. It reads `SpineStrings.Current["Spine.Calendar
 
 - SVG: https://github.com/jonatansoderberg/Maui.Spine/blob/master/docs/wiki/svg.md
 - Glass buttons: https://github.com/jonatansoderberg/Maui.Spine/blob/master/docs/wiki/glass-buttons.md
+- Haptics: https://github.com/jonatansoderberg/Maui.Spine/blob/master/docs/wiki/haptics.md
 - HeroCollectionView: https://github.com/jonatansoderberg/Maui.Spine/blob/master/docs/wiki/hero-collection-view.md
 - AnimatedLabel: https://github.com/jonatansoderberg/Maui.Spine/blob/master/docs/wiki/animated-label.md
 - Calendar: https://github.com/jonatansoderberg/Maui.Spine/blob/master/docs/wiki/calendar.md

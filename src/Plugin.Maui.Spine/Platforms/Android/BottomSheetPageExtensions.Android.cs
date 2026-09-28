@@ -147,6 +147,7 @@ internal static class BottomSheetPageExtensions
             behavior.Hideable      = true;
 
             var lastSettledState = BottomSheetBehavior.StateHalfExpanded;
+            var dragged = false;
 
             if (sortedDetents.Count == 1)
             {
@@ -222,10 +223,19 @@ internal static class BottomSheetPageExtensions
             behavior.AddBottomSheetCallback(new SheetStateCallback(
                 onStateChanged: (_, state) =>
                 {
-                    if (state == BottomSheetBehavior.StateExpanded
+                    if (state == BottomSheetBehavior.StateDragging)
+                    {
+                        dragged = true;
+                    }
+                    else if (state == BottomSheetBehavior.StateExpanded
                         || state == BottomSheetBehavior.StateHalfExpanded
                         || state == BottomSheetBehavior.StateCollapsed)
                     {
+                        // Only a drag the user let go of; a programmatic snap-back plays nothing.
+                        if (dragged && state != lastSettledState)
+                            Haptics.Play(Haptics.Options.Haptics.SheetDetent);
+
+                        dragged = false;
                         lastSettledState = state;
                     }
                 },
