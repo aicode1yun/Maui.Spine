@@ -98,5 +98,5 @@
 - **`IsLoading` includes `NotStarted`.** Between the page being bound and appearing there is nothing to show and a load about to start. A skeleton that turned on only once the load had started would flash the empty content first.
 - **A failed refresh keeps `Success`/`Empty`** and sets `Error`/`HasError`. `StateView` does not show it, because replacing a list the user is reading with an error for a failed refresh is worse than the stale list. The sample shows it in a line above the list.
 - **`Reset()` added** (not in the plan): when what is loaded changes (a filter, a search term), the old result must not stay on screen as "refreshing". The sample's switches use it.
-- **Sample delay for the skeleton is 4 s**, long enough to scroll down to the example and see it.
+- **Every sample load takes 3 s** (and the weather "timeout" says 3 s), long enough to scroll down to the skeleton and see it.
 

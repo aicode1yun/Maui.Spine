@@ -19,7 +19,7 @@ public partial class StatePageViewModel : SampleViewModel
         // Loaded when the page appears, cancelled when it is left. Nothing in OnAppearingAsync.
         Names = Load(async ct =>
         {
-            await Task.Delay(1500, ct);
+            await Task.Delay(3000, ct);
 
             if (Fail)
                 throw new HttpRequestException("503 Service Unavailable from /api/names");
@@ -27,10 +27,10 @@ public partial class StatePageViewModel : SampleViewModel
             return ReturnEmpty ? [] : (IReadOnlyList<string>)AllNames;
         }, isEmpty: names => names.Count == 0);
 
-        // Four empty rows until the real ones arrive, drawn as a skeleton. Slow enough to scroll down and see it.
+        // Four empty rows until the real ones arrive, drawn as a skeleton.
         People = Load(async ct =>
         {
-            await Task.Delay(4000, ct);
+            await Task.Delay(3000, ct);
 
             if (FailRefresh && People!.HasResult)
                 throw new HttpRequestException("The connection was lost");
@@ -40,10 +40,10 @@ public partial class StatePageViewModel : SampleViewModel
 
         Forecast = Load<string>(async ct =>
         {
-            await Task.Delay(1500, ct);
+            await Task.Delay(3000, ct);
 
             if (_forecastAttempts++ % 2 == 0)
-                throw new TimeoutException("The weather service did not answer in 10 s");
+                throw new TimeoutException("The weather service did not answer in 3 s");
 
             return "Sunny, 18 °C, light wind from the south-west";
         });
