@@ -36,11 +36,12 @@ internal static class PageActionDiscovery
                     $"[PageAction] on {viewModel.GetType().Name}: '{template.Command.Name}' is null when the page is prepared.");
 
             var attribute = template.Attribute;
+            // Svg before Role, so a role keeps an icon the attribute names; the attribute's placement already
+            // falls back to the role's slot
             var action = command is IAsyncRelayCommand asyncCommand
-                ? new PageAction(attribute.Text, asyncCommand) { Placement = attribute.Placement }
-                : new PageAction(attribute.Text, command) { Placement = attribute.Placement };
+                ? new PageAction(attribute.Text, asyncCommand) { Svg = attribute.Svg, Role = attribute.Role, Placement = attribute.Placement }
+                : new PageAction(attribute.Text, command) { Svg = attribute.Svg, Role = attribute.Role, Placement = attribute.Placement };
 
-            action.Svg = attribute.Svg;
             action.Badge = attribute.Badge;
             action.IsVisible = attribute.IsVisible;
             action.Haptic = attribute.Haptic;

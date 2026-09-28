@@ -23,10 +23,15 @@ public partial class MainPageViewModel(INavigationService _navigation) : ViewMod
     [RelayCommand]
     private async Task OpenSettings() => await _navigation.NavigateToAsync<SettingsPage>();
 
-    // Text button
-    [PageAction("Save")]
+    // A confirm: a checkmark, which a screen reader calls "Save"
+    [PageAction("Save", Role = PageActionRole.Confirm)]
     [RelayCommand]
     private async Task Save() { /* ... */ }
+
+    // Text button, for an action with no standard icon
+    [PageAction("Filter")]
+    [RelayCommand]
+    private void Filter() { /* ... */ }
 }
 ```
 
@@ -36,7 +41,8 @@ The command property is found by the toolkit's naming rule (`SaveAsync` and `Sav
 |---|---|---|
 | `Text` (constructor) | `null` | Label; leave it out for an icon-only button |
 | `Svg` | `null` | SVG resource name, e.g. `"settings.svg"` |
-| `Placement` | `Secondary` | `Primary` (left) or `Secondary` (right) |
+| `Role` | `None` | `Confirm` (checkmark) or `Cancel` (X); see [Roles](#roles-confirm-and-cancel) |
+| `Placement` | `Secondary` | `Primary` (left) or `Secondary` (right); `Primary` for a `Cancel` role |
 | `Order` | `0` | Order among the page's declared actions |
 | `Badge` | `null` | Initial badge text |
 | `IsVisible` | `true` | Initial visibility |
@@ -108,10 +114,31 @@ On iOS 26 and Mac Catalyst 26 the header bar renders its back button and page ac
 Each slot shows the **first visible** action with that placement. The back button occupies the `Primary` slot implicitly; an explicit `Primary` action replaces it for that page.
 
 ```csharp
-[PageAction("Cancel", Placement = PageActionPlacement.Primary)]
+[PageAction("Cancel", Role = PageActionRole.Cancel)]   // Primary by its role
 [RelayCommand]
 private async Task Cancel() => await _navigation.BackAsync();
 ```
+
+---
+
+## Roles: confirm and cancel
+
+Confirming and cancelling are the header actions every editing screen and sheet has, and the platforms
+draw them as icons: a **checkmark** to confirm and an **X** to cancel (the iOS 26 Human Interface
+Guidelines; Spine uses the same on Android). `Role` picks the icon, the slot and what a screen reader says:
+
+| Role | Icon | Slot | Screen reader |
+|---|---|---|---|
+| `Confirm` | `check.svg` (Spine's) | `Secondary` (right) | The action's text, or the localised `Spine.Header.Done` |
+| `Cancel` | `close.svg` (Spine's) | `Primary` (left) | The action's text, or the localised `Spine.Header.Cancel` |
+
+An explicit `Svg`, `Description` or `Placement` still wins. For a hand-made action:
+
+```csharp
+PageActions.Add(new PageAction("Save", SaveCommand) { Role = PageActionRole.Confirm });
+```
+
+Use a text button only for an action with no standard icon (Filter, Sort, a word the user must read).
 
 ---
 
@@ -132,7 +159,7 @@ private Task OpenSettings() { /* ... */ }
 A `[RelayCommand]` on an async method gives an `IAsyncRelayCommand`; the action exposes it as `AsyncCommand` so the UI can bind to its busy state:
 
 ```csharp
-[PageAction("Save")]
+[PageAction("Save", Role = PageActionRole.Confirm)]
 [RelayCommand]
 private async Task SaveAsync() => await _dataService.SaveAsync();
 ```

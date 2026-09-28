@@ -14,7 +14,7 @@ public partial class HapticsPageViewModel : SampleViewModel
     public partial string FollowText { get; set; } = "Follow";
 
     [ObservableProperty]
-    public partial string Saved { get; set; } = "Tap Save at the top right.";
+    public partial string Saved { get; set; } = "Tap the checkmark at the top right.";
 
     public HapticsPageViewModel()
     {
@@ -33,7 +33,7 @@ public partial class HapticsPageViewModel : SampleViewModel
     }
 
     // A success buzz on the header action, with no code in the command.
-    [PageAction("Save", Haptic = Haptic.Success)]
+    [PageAction("Save", Role = PageActionRole.Confirm, Haptic = Haptic.Success)]
     [RelayCommand]
     private void Save() => Saved = $"Saved at {DateTime.Now:HH:mm:ss}";
 

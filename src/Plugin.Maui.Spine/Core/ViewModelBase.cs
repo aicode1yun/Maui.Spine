@@ -18,7 +18,7 @@ namespace Plugin.Maui.Spine.Core;
 ///     [ObservableProperty]
 ///     private string? _greeting;
 ///
-///     [PageAction("Save")]
+///     [PageAction("Save", Role = PageActionRole.Confirm)]
 ///     [RelayCommand]
 ///     private Task SaveAsync() { ... }
 ///

@@ -12,7 +12,7 @@ public partial class OptionsSheetViewModel(INavigationService _navigation) : Vie
         return Task.CompletedTask;
     }
 
-    [PageAction("Done")]
+    [PageAction(Role = PageActionRole.Confirm)]
     [RelayCommand]
     private async Task Done() => await _navigation.CloseAsync();
 }

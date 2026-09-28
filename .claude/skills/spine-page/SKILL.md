@@ -49,7 +49,7 @@ public partial class SettingsPageViewModel(INavigationService _navigation) : Vie
 {
     [ObservableProperty] public partial string? Title { get; set; }
 
-    [PageAction("Save")]
+    [PageAction("Save", Role = PageActionRole.Confirm)]
     [RelayCommand] private async Task Save() => await _navigation.BackAsync();
 }
 ```
@@ -75,7 +75,7 @@ Useful attribute properties, all optional: `Lifetime` (`Transient` default; `Sin
 
 Sheets: `AllowedDetents = [SheetDetent.Compact | Medium | Expanded | FullScreen, "75%", "300px"]`, `InitialDetent`, `BackgroundPageOverlay = None | Dimmed | Blurred`. Override `OnCloseRequestedAsync` to guard dismissal; `OnDismissedAsync` runs when the user closes it without a result.
 
-Buttons in a sheet: Save, Cancel and Done are always page actions in the sheet's header bar (`[PageAction("Save")]`, `[PageAction("Cancel", Placement = PageActionPlacement.Primary)]`), never a button stack at the bottom. A sheet's own primary action (Log in, Continue, Pay) goes in `<SpinePage.Footer>`: outside the scrolling content, pinned to the bottom of the visible sheet at every detent and following it while dragged, with the page's `BindingContext`. Don't pad the top of a sheet page to clear the close button — Spine already starts the content below the handle and the header row.
+Buttons in a sheet: confirm and cancel are always page actions in the sheet's header bar, never a button stack at the bottom, and they are icons, not text: `[PageAction("Save", Role = PageActionRole.Confirm)]` draws a checkmark on the right, `[PageAction("Cancel", Role = PageActionRole.Cancel)]` an X on the left (iOS 26 HIG; the same on Android). The text is only what a screen reader says (default: localised Done/Cancel). A sheet with nothing to discard needs no Cancel — Spine's own X closes it. Text buttons are for actions with no standard icon. A sheet's own primary action (Log in, Continue, Pay) goes in `<SpinePage.Footer>`: outside the scrolling content, pinned to the bottom of the visible sheet at every detent and following it while dragged, with the page's `BindingContext`. Don't pad the top of a sheet page to clear the close button — Spine already starts the content below the handle and the header row.
 
 Tabs: `Order` is effectively required (assembly scan order is random; duplicates fail startup). At most five tabs. `SpineApplication`'s `x:TypeArguments` must be one of the tab pages and picks the initial tab. Re-selecting the active tab pops to root, then raises `OnTabReselectedAsync()` on the root's ViewModel. `ITabBadgeService.SetBadge<TPage>("3")` / `("")` for a dot / `(null)` to clear.
 
@@ -165,13 +165,14 @@ Put `[PageAction]` on a `[RelayCommand]` method (or an `ICommand` property); Spi
 
 ```csharp
 [PageAction(Svg = "settings.svg")] [RelayCommand] private Task OpenSettingsAsync() { … }   // icon
-[PageAction("Save")]               [RelayCommand] private Task SaveAsync() { … }           // text
-[PageAction("Cancel", Placement = PageActionPlacement.Primary)] [RelayCommand] private Task CancelAsync() { … } // replaces the back button
+[PageAction("Save", Role = PageActionRole.Confirm)] [RelayCommand] private Task SaveAsync() { … }   // checkmark, says "Save"
+[PageAction("Cancel", Role = PageActionRole.Cancel)] [RelayCommand] private Task CancelAsync() { … } // X on the left, replaces back/close
+[PageAction("Filter")]             [RelayCommand] private Task FilterAsync() { … }         // text: only when there is no standard icon
 ```
 
 Hand-made actions still work (`PageActions.Add(new PageAction("Save", SaveCommand) { Svg = … })`, best from the constructor). The header shows the first visible action per slot (`Primary` left, `Secondary` right). `Svg` is a short file name of an embedded SVG (the app's own or `Plugin.Maui.Spine.Svg.Icons`). On iOS 26 the header bar's buttons are Liquid Glass by default (`options.Apple.GlassHeaderActions = false` turns it off).
 
-A tap can play a haptic: `[PageAction("Save", Haptic = Haptic.Success)]` (see docs/wiki/haptics.md).
+A tap can play a haptic: `[PageAction("Save", Role = PageActionRole.Confirm, Haptic = Haptic.Success)]` (see docs/wiki/haptics.md).
 
 `PageAction` is observable: set `Text`, `Svg`, `Badge` ("3", "•"), `IsEnabled`, `IsVisible` or `Haptic` on the instance while the page shows and the header follows. Find a declared one with `PageActions.First(a => a.Command == FilterCommand)`. Adding or removing from `PageActions` at runtime also updates the header.
 

@@ -56,7 +56,7 @@ public partial class MainPageViewModel(INavigationService _navigation) : SampleV
     // One row per sample page. Add a page here when it gets a page of its own; the list shows them by title.
     private static IEnumerable<Item> SampleIndex =>
     [
-        new("Bottom sheets", "Native sheets: heights, dim or blur, a guard against closing, Save and Cancel, a footer action", "sheet.svg", "Plugin.Maui.Spine", n => n.NavigateToAsync<Sheets.SheetsPage>()),
+        new("Bottom sheets", "Native sheets: heights, dim or blur, a guard against closing, a checkmark and an X in the header, a footer action", "sheet.svg", "Plugin.Maui.Spine", n => n.NavigateToAsync<Sheets.SheetsPage>()),
         new("Parameters and results", "Hand a page typed data, and await what it returns", "return.svg", "Plugin.Maui.Spine", n => n.NavigateToAsync<Results.ResultsPage>()),
         new("Page binding", "{PageCommand} and {PageBinding}: reach the page's view model from inside a row template", "link.svg", "Plugin.Maui.Spine", n => n.NavigateToAsync<PageBinding.PageBindingPage>()),
         new("Header bar", "Layout, large title, background, foreground and status bar: try any combination and see the code for it", "headerbar.svg", "Plugin.Maui.Spine", n => n.NavigateToAsync<HeaderBar.HeaderBarPage>()),
