@@ -2,7 +2,7 @@
 
 **GitHub:** https://github.com/jonatansoderberg/Maui.Spine/issues/406
 **Branch:** issue/406-rows-spinesection-and-platform-defaults-that-match
-**Status:** In Progress
+**Status:** Completed
 
 ## Plan
 
