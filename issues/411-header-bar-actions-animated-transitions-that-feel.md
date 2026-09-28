@@ -21,7 +21,9 @@ Path 2, on iOS 26 with glass: one glass button whose content and frame change in
 
 - Path 2 (`SpineOptions.Apple.MorphHeaderActions`, default on with glass): a single glass `Button` draws icons (the SVG as its image, a 44 pt circle) and text (a capsule). A replacement fades the old content out (90 ms), puts the new content in invisibly, lays the bar out inside a 0.45 s spring (damping 0.82) so UIKit morphs the glass, and fades the new content in. Off: path 1.
 - Liquid Glass is never faded through its alpha, which draws a flat grey stand-in (what showed dark grey on the device): `GlassAppearance` materializes and dissolves the glass effect and fades only the title and image. Used for show, hide, path 1's swap and path 2's content.
-- An action on an arriving page waits (up to ~300 ms) for UIKit to build its glass before it materializes, instead of showing grey for its first frames.
+- An action on an arriving page waits one frame for UIKit to build its glass before it materializes, instead of showing grey for its first frames; both actions of a page start together (an earlier version waited up to 300 ms and pre-faded the morphing action for 90 ms, so the right action came, then the left).
+- The morph starts at once: new content in invisibly, the glass springs to its size, the content fades in from 0.1 s.
+- A centred title keeps its natural width in the middle of the bar (`TitleSlotLayout`), truncated only when it does not fit. It used to fill the room between the actions and fall back to the left when it did not fit, so it jumped when Back became Cancel, and animating its frame inside the spring made UIKit redraw it off centre.
 - Glass text capsules drop the plain text button's 12 pt inset, so they line up with the page margin like the icon circles.
 
 Verified in the iOS 26.4 simulator from screen recordings: Back ↔ Cancel crosses over without a gap, Filter hidden lets Bell take its place, and it comes back. Android built only.

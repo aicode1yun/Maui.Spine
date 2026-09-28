@@ -483,12 +483,13 @@ internal class HeaderBarView : Microsoft.Maui.Controls.ContentView
             }
 
             // Glass UIKit has not built yet (the page is still arriving) draws a flat grey stand-in
-            // for its first frames. Keep the action hidden until the glass exists, then let it
+            // for its first frames. Keep the action hidden for that frame, then let it
             // materialize like any other.
             if (PageActionView.UseGlassHeaderActions)
             {
-                for (var wait = 0; wait < 20 && !GlassAppearance.Applies(target); wait++)
-                    await Task.Delay(16);
+                // One frame: long enough for UIKit to build it, short enough that both actions
+                // of an arriving page start together.
+                await Task.Delay(16);
 
                 if (_visibilityVersions[target] != version)
                     return;

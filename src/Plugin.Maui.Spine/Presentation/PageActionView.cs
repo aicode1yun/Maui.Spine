@@ -179,37 +179,28 @@ internal sealed class PageActionView : ContentView
         if (Window?.Handler?.PlatformView is UIKit.UIWindow window)
         {
             var reduced = ReducedMotion.IsOn;
-            var face = _front;
-            var version = ++_morphVersion;
 
-            // The old title or icon fades first; revealing the new one while the glass grows would
-            // show it clipped by the capsule.
-            _ = GlassAppearance.FadeContentAsync(face, show: false, 90).ContinueWith(_ =>
-            {
-                if (version != _morphVersion)
-                    return;
+            // Everything starts at once, so this action moves together with the other one and
+            // with the page: the new content goes in invisible and fades in while the glass
+            // grows or shrinks to it inside the spring.
+            UIKit.UIView.PerformWithoutAnimation(() => _front.Apply(action));
+            GlassAppearance.SetContentAlpha(_front, 0);
+            ((IView)this).InvalidateMeasure();
 
-                // The new content goes in at once and invisible; the new size is laid out inside
-                // the spring below, so the glass grows or shrinks to it.
-                UIKit.UIView.PerformWithoutAnimation(() => face.Apply(action));
-                GlassAppearance.SetContentAlpha(face, 0);
-                ((IView)this).InvalidateMeasure();
+            UIKit.UIView.AnimateNotify(
+                reduced ? 0.2 : 0.45, 0, reduced ? 1f : 0.82f, 0,
+                UIKit.UIViewAnimationOptions.BeginFromCurrentState | UIKit.UIViewAnimationOptions.AllowUserInteraction,
+                window.LayoutIfNeeded,
+                null);
 
-                UIKit.UIView.AnimateNotify(
-                    reduced ? 0.2 : 0.45, 0, reduced ? 1f : 0.82f, 0,
-                    UIKit.UIViewAnimationOptions.BeginFromCurrentState | UIKit.UIViewAnimationOptions.AllowUserInteraction,
-                    window.LayoutIfNeeded,
-                    null);
-
-                _ = GlassAppearance.FadeContentAsync(face, show: true, reduced ? 120u : 220u, delay: reduced ? 0 : 0.12);
-            }, TaskScheduler.FromCurrentSynchronizationContext());
+            // The glass starts moving at once; the content follows a beat later, when the
+            // capsule is wide enough not to clip it.
+            _ = GlassAppearance.FadeContentAsync(_front, show: true, reduced ? 150u : 250u, delay: reduced ? 0 : 0.1);
             return;
         }
 #endif
         _front.Apply(action);
     }
-
-    int _morphVersion;
 
     /// <summary>Crosses from what the front face shows to <paramref name="action"/> on the other face.</summary>
     async Task SwapAsync(PageAction? action)

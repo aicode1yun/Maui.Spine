@@ -583,14 +583,21 @@ internal sealed class TitleSlotLayout : Layout, ILayoutManager
         var centredRoom = bounds.Width - (2 * mirrored);
         var isCentred = this[0] is Label { HorizontalTextAlignment: TextAlignment.Center };
 
-        var (left, width) = isCentred && _natural.Width <= centredRoom
-            ? (mirrored, centredRoom)
+        // A centred title stays put, as a navigation bar's does: it keeps its own width in the
+        // middle of the bar, so an action that grows or shrinks beside it (even inside an
+        // animation) does not change its frame, and it is truncated rather than pushed aside
+        // when it no longer fits.
+        var (left, width) = isCentred
+            ? CentredFrame(bounds.Width, Math.Min(_natural.Width, centredRoom))
             : (Slots.Left, bounds.Width - Slots.HorizontalThickness);
 
         child.Arrange(new Rect(bounds.X + left, bounds.Y, Math.Max(0, width), bounds.Height));
 
         return bounds.Size;
     }
+
+    static (double Left, double Width) CentredFrame(double barWidth, double width) =>
+        ((barWidth - width) / 2, width);
 }
 
 internal class TitleAlignmentToTextAlignmentConverter : IValueConverter
