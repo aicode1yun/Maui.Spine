@@ -2,7 +2,7 @@
 
 **GitHub:** https://github.com/jonatansoderberg/Maui.Spine/issues/303
 **Branch:** issue/303-feature-idea-haptics-vocabulary-success-warning-er
-**Status:** In Progress
+**Status:** Completed
 **Backlog:** P1 in #317
 
 ## Plan
