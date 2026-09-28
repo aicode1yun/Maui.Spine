@@ -1,6 +1,6 @@
 ---
 name: spine-setup
-description: Set up Plugin.Maui.Spine in a .NET MAUI app from NuGet — which packages to install, how to register them in MauiProgram, the SpineApplication root, project-file entries, platform minimums, and the iOS/Android setup that widgets and push need. Use when adding Spine to an app, upgrading it, or when a Spine build or startup fails. Invoke as /spine-setup.
+description: Set up Plugin.Maui.Spine in a .NET MAUI app from NuGet — which packages to install, how to register them in MauiProgram, the SpineApplication root, project-file entries, platform minimums, and the iOS/Android setup that widgets, push and the camera scanner need. Use when adding Spine to an app, upgrading it, or when a Spine build or startup fails. Invoke as /spine-setup.
 ---
 
 You are adding or configuring **Plugin.Maui.Spine** (a code-first navigation framework for .NET MAUI: regions, bottom sheets, tab host, header bar, widgets, push notifications) in the app the user is working on. The packages come from nuget.org; the source and the full documentation are at https://github.com/jonatansoderberg/Maui.Spine.
@@ -22,7 +22,10 @@ All Spine packages share one version. Reference every Spine package the app uses
 | The push backend, in an ASP.NET Core or Azure Functions project | `Plugin.Maui.Spine.Server` | `Plugin.Maui.Spine.Common` |
 | `HeroCollectionView` (collapsing hero header) | `Plugin.Maui.Spine.Controls.HeroCollectionView` | `Plugin.Maui.Spine.Svg` |
 | `AnimatedLabel` (marquee) | `Plugin.Maui.Spine.Controls.AnimatedLabel` | — |
+| QR codes and other barcodes on screen (`BarcodeView`, `Barcode.Encode`, SVG) | `Plugin.Maui.Spine.Barcodes` | — |
+| Scanning codes with the camera (`BarcodeScannerView`, the scan sheet) | `Plugin.Maui.Spine.Scanner` | the core and `Plugin.Maui.Spine.Barcodes` |
 | A domain or test project that builds widget trees without MAUI | `Plugin.Maui.Spine.Common` | — |
+| A server or test project that encodes barcodes or reads a light grid | `Plugin.Maui.Spine.Barcodes` (its `net10.0` build) | — |
 
 ```bash
 dotnet add package Plugin.Maui.Spine
@@ -32,11 +35,11 @@ dotnet add package Plugin.Maui.Spine.PushNotifications  # if notifications
 
 With central package management, add matching `<PackageVersion>` lines to `Directory.Packages.props` instead of versions in the csproj.
 
-The MAUI packages target `net10.0-android`, `net10.0-ios`, `net10.0-maccatalyst` and `net10.0-windows10.0.19041.0`; `Common`, `Server` and `Svg.Icons` target `net10.0`. The app needs .NET 10 and the `maui` workload.
+The MAUI packages target `net10.0-android`, `net10.0-ios`, `net10.0-maccatalyst` and `net10.0-windows10.0.19041.0`; `Common`, `Server` and `Svg.Icons` target `net10.0`; `Barcodes` targets `net10.0` as well as the MAUI frameworks. The app needs .NET 10 and the `maui` workload.
 
 ## 2. Register in `MauiProgram.cs`
 
-`UseSpine` registers every Spine package the app references — the SVG pipeline, Widgets, PushNotifications, AnimatedLabel, DataGrid; Calendar and HeroCollectionView need no registration at all. The list is generated at build time by `Plugin.Maui.Spine`'s build targets (no scanning at startup). Call a package's `UseXxx(o => …)` only to set its options; the order does not matter — every call configures the same options instance, before or after `UseSpine`.
+`UseSpine` registers every Spine package the app references — the SVG pipeline, Widgets, PushNotifications, AnimatedLabel, DataGrid, Scanner; Calendar, HeroCollectionView and Barcodes need no registration at all. The list is generated at build time by `Plugin.Maui.Spine`'s build targets (no scanning at startup). Call a package's `UseXxx(o => …)` only to set its options; the order does not matter — every call configures the same options instance, before or after `UseSpine`.
 
 ```csharp
 using Plugin.Maui.Spine.Extensions;
@@ -61,7 +64,7 @@ builder
 return builder.Build();
 ```
 
-Without `UseSpine` (a control package on its own) nothing is registered automatically: call `UseAnimatedLabel()`, `UseSpinePushNotifications(…)` or `UseEmbeddedSvgImages(…)` yourself. If a package seems unregistered under `UseSpine`, look for `obj/<config>/<tfm>/SpineModules.g.cs` in the app: it lists what the build found. Referencing Spine as projects instead of packages means importing `Plugin.Maui.Spine`'s `build/Plugin.Maui.Spine.targets` and the packages' `build/*.props` yourself (the repo's `samples/Directory.Build.targets` shows how).
+Without `UseSpine` (a control package on its own) nothing is registered automatically: call `UseAnimatedLabel()`, `UseSpinePushNotifications(…)`, `UseSpineScanner()` or `UseEmbeddedSvgImages(…)` yourself (without Spine the scanner view works, the scan sheet does not). If a package seems unregistered under `UseSpine`, look for `obj/<config>/<tfm>/SpineModules.g.cs` in the app: it lists what the build found. Referencing Spine as projects instead of packages means importing `Plugin.Maui.Spine`'s `build/Plugin.Maui.Spine.targets` and the packages' `build/*.props` yourself (the repo's `samples/Directory.Build.targets` shows how).
 
 `options.AddAssembly` is where Spine scans for `[NavigableRegion]`, `[NavigableSheet]`, `[NavigableTab]` and `[Widget]` classes and for embedded SVGs. Add every assembly that holds pages or widget providers.
 
@@ -114,7 +117,7 @@ global using Plugin.Maui.Spine.Core;
 [assembly: XmlnsDefinition("http://schemas.microsoft.com/dotnet/maui/global", "MyApp.Pages")]
 ```
 
-Add one line per page namespace (`MyApp.Pages.Settings`, …) and, when used, `"Plugin.Maui.Spine.Controls", AssemblyName = "Plugin.Maui.Spine.Controls.HeroCollectionView"` / `"…AnimatedLabel"`.
+Add one line per page namespace (`MyApp.Pages.Settings`, …) and, when used, `"Plugin.Maui.Spine.Controls", AssemblyName = "Plugin.Maui.Spine.Controls.HeroCollectionView"` / `"…AnimatedLabel"`, `"Plugin.Maui.Spine.Barcodes", AssemblyName = "Plugin.Maui.Spine.Barcodes"` (`BarcodeView`) and `"Plugin.Maui.Spine.Scanner", AssemblyName = "Plugin.Maui.Spine.Scanner"` (`BarcodeScannerView`).
 
 ## 5. Project-file entries for pages
 
@@ -150,7 +153,7 @@ Reference `Plugin.Maui.Spine.Svg.Icons` for a ready-made set instead; nothing el
 
 | | Value | Why |
 |---|---|---|
-| Android `SupportedOSPlatformVersion` | 21; **23 with `Plugin.Maui.Spine.PushNotifications`** | Firebase Messaging declares 23; the build says so if you forget |
+| Android `SupportedOSPlatformVersion` | 21; **23 with `Plugin.Maui.Spine.PushNotifications` or `Plugin.Maui.Spine.Scanner`** | Firebase Messaging and CameraX 1.6 declare 23; the build says so if you forget |
 | iOS / Mac Catalyst `SupportedOSPlatformVersion` | 15.0 (widgets need iOS 17 at runtime; the extension targets 17 by default) | |
 | Windows | 10.0.17763.0 minimum, `net10.0-windows10.0.19041.0` target | |
 
@@ -173,6 +176,15 @@ Reference `Plugin.Maui.Spine.Svg.Icons` for a ready-made set instead; nothing el
 ```
 
 The extension's bundle id is `$(ApplicationId).SpineWidgets` (override with `SpineWidgetsExtensionName`); device builds need an App ID and a profile for it too, with the App Group on both. The extension is compiled with `swiftc` during the iOS build, so iOS needs macOS with Xcode; Android needs nothing extra. Simulator builds sign ad hoc: the targets set `CodesignKey=-` themselves when none is configured.
+
+### Scanner
+
+`NSCameraUsageDescription` in `Platforms/iOS/Info.plist` and `Platforms/MacCatalyst/Info.plist`; without it the scanner view reports the missing key instead of scanning. A sandboxed Mac Catalyst app also needs `com.apple.security.device.camera` in its entitlements. On Android the package declares `android.permission.CAMERA` itself; only the API 23 minimum above is needed. Windows has no scanner.
+
+```xml
+<key>NSCameraUsageDescription</key>
+<string>Scans codes with the camera.</string>
+```
 
 ### Push notifications
 
@@ -219,4 +231,5 @@ Then run and check the log for Spine's startup warnings: a `[Widget]` kind with 
 - Packages and dependencies: https://github.com/jonatansoderberg/Maui.Spine/blob/master/docs/wiki/packages.md
 - Widgets setup: https://github.com/jonatansoderberg/Maui.Spine/blob/master/docs/wiki/widgets.md#setup
 - Push setup and platform requirements: https://github.com/jonatansoderberg/Maui.Spine/blob/master/docs/wiki/push-notifications.md
+- Scanner setup: https://github.com/jonatansoderberg/Maui.Spine/blob/master/docs/wiki/barcodes.md#setup
 - Sample apps: https://github.com/jonatansoderberg/Maui.Spine/tree/master/samples

@@ -1,0 +1,6 @@
+<Project>
+	<!-- UseSpine() calls UseSpineScanner() for the app; see Plugin.Maui.Spine.targets. -->
+	<ItemGroup>
+		<SpineModule Include="Plugin.Maui.Spine.Scanner" Register="Plugin.Maui.Spine.Scanner.ScannerExtensions.UseSpineScanner" />
+	</ItemGroup>
+</Project>

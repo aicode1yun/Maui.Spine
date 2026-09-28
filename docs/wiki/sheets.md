@@ -113,6 +113,32 @@ You can also specify:
     AllowedDetents = [SheetDetent.Medium, SheetDetent.FullScreen])]
 ```
 
+### Sizes chosen per navigation
+
+The attribute fixes a sheet's sizes when the app is built. When the caller should choose them, for example a
+picker that opens small for a few items and full screen for many, implement `ISheetDetentsProvider` on the
+sheet's view model. Spine asks it after the view model has received its navigation parameter, so the choice can
+come in with the parameter; `null` keeps the attribute's value.
+
+```csharp
+public partial class PickerSheetViewModel : ViewModelBase,
+    IReceivesNavigationParameter<PickerOptions>, ISheetDetentsProvider
+{
+    public IReadOnlyList<string>? AllowedDetents { get; private set; }
+    public string? InitialDetent => null;
+
+    public Task OnNavigationParameterAsync(PickerOptions options)
+    {
+        AllowedDetents = options.Items.Count > 5
+            ? [SheetDetent.FullScreen]
+            : [SheetDetent.Medium, SheetDetent.FullScreen];
+        return Task.CompletedTask;
+    }
+}
+```
+
+`Plugin.Maui.Spine.Scanner`'s scan sheet uses it for `BarcodeScanOptions.Detents`.
+
 ---
 
 ## Layout inside a sheet

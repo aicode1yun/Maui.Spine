@@ -1,0 +1,10 @@
+<strings>
+  <s key="Spine.Scanner.Title">Scan code</s>
+  <s key="Spine.Scanner.Prompt">Point the camera at the code</s>
+  <s key="Spine.Scanner.Torch">Torch</s>
+  <s key="Spine.Scanner.PermissionDenied">Camera access is off. Turn it on in Settings to scan.</s>
+  <s key="Spine.Scanner.NoCamera">This device has no camera to scan with.</s>
+  <s key="Spine.Scanner.Interrupted">The camera is in use by something else.</s>
+  <s key="Spine.Scanner.NoFrames">The camera stopped sending pictures. Restarting it…</s>
+  <s key="Spine.Scanner.Failed">The camera could not start.</s>
+</strings>
