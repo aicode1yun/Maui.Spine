@@ -306,8 +306,10 @@ internal sealed class PageActionView : ContentView
             IsVisible = false,
         };
         string? _currentSvg;
-        // A confirm action leads the screen: tinted glass on iOS 26, a filled accent circle elsewhere
+        // A confirm action leads the screen: tinted glass on iOS 26, a filled accent circle elsewhere. A selected
+        // action (a toggle that is on) is filled the same way, with the foreground instead of the accent.
         bool _prominent;
+        bool _selected;
 
         public Face(PageActionView owner)
         {
@@ -423,7 +425,7 @@ internal sealed class PageActionView : ContentView
             Haptics.SetOnTap(_textButton, action.Haptic);
 
             _currentSvg = hasSvg ? action.Svg : null;
-            ApplyProminence(action.Role == PageActionRole.Confirm);
+            ApplyProminence(action.Role == PageActionRole.Confirm || action.IsSelected, action.IsSelected);
 
             // The icon is not the glass button's image: a glass configuration that has held an
             // image draws later titles in the label colour, not the accent.
@@ -459,7 +461,7 @@ internal sealed class PageActionView : ContentView
                 return;
 
             var dark = Application.Current?.RequestedTheme == AppTheme.Dark;
-            var tint = _prominent ? OnAccent() : _owner.Foreground ?? (dark ? Colors.White : Colors.Black);
+            var tint = _prominent ? OnFill() : _owner.Foreground ?? (dark ? Colors.White : Colors.Black);
             _morphIcon.Source = SvgBitmapLoader.LoadFromEmbedded(resource, 24, 24, tint);
         }
 
@@ -474,12 +476,20 @@ internal sealed class PageActionView : ContentView
 
         /// <summary>
         /// The prominent look of a confirm: the glass tinted with the accent (iOS 26's prominent bar button), or
-        /// without glass a filled accent circle; the glyph or text in the colour that reads on the accent.
+        /// without glass a filled accent circle; the glyph or text in the colour that reads on the accent. A selected
+        /// action takes the same look in the foreground colour.
         /// </summary>
-        void ApplyProminence(bool prominent)
+        void ApplyProminence(bool prominent, bool selected)
         {
-            if (prominent == _prominent)
+            if (prominent == _prominent && selected == _selected)
                 return;
+
+            _selected = selected;
+            if (prominent == _prominent)
+            {
+                ApplyForeground();
+                return;
+            }
 
             _prominent = prominent;
             if (_owner._glass)
@@ -541,7 +551,11 @@ internal sealed class PageActionView : ContentView
         static Color Accent() => SpineTheme.GetAccent(IsDark ? AppTheme.Dark : AppTheme.Light)
             ?? Color.FromArgb(IsDark ? "#0A84FF" : "#007AFF");
 
-        static Color OnAccent() => SpineAccent.TextOn(Accent());
+        Color Fill() => _selected
+            ? _owner.Foreground ?? (IsDark ? Colors.White : Colors.Black)
+            : Accent();
+
+        Color OnFill() => SpineAccent.TextOn(Fill());
 
         /// <summary>Holds the face at its current size while it fades out.</summary>
         public void Freeze()
@@ -559,14 +573,14 @@ internal sealed class PageActionView : ContentView
         public void ApplyForeground()
         {
             // Read again on every theme or accent change, so the prominent fill follows the accent
-            var fill = _prominent ? Accent() : Colors.Transparent;
+            var fill = _prominent ? Fill() : Colors.Transparent;
             _imageButton.BackgroundColor = fill;
             _textButton.BackgroundColor = fill;
             if (_prominent && !_owner._glass)
                 ApplyFilledStates(fill);
 
             if (_prominent)
-                _textButton.TextColor = OnAccent();
+                _textButton.TextColor = OnFill();
             else if (_owner.Foreground is { } foreground)
                 _textButton.TextColor = foreground;
             else
@@ -574,7 +588,7 @@ internal sealed class PageActionView : ContentView
 
             if (_imageButton.Behaviors.OfType<SvgImageSourceBehavior>().FirstOrDefault() is { } svg)
             {
-                svg.TintColor = _prominent ? OnAccent() : _owner.Foreground;
+                svg.TintColor = _prominent ? OnFill() : _owner.Foreground;
                 svg.UpdateImage();
             }
 
@@ -614,7 +628,7 @@ internal sealed class PageActionView : ContentView
             _badgeLabel.Text = action.Badge ?? string.Empty;
             SemanticProperties.SetDescription(_imageButton, action.Description);
             SemanticProperties.SetDescription(_textButton, action.Description);
-            ApplyProminence(action.Role == PageActionRole.Confirm);
+            ApplyProminence(action.Role == PageActionRole.Confirm || action.IsSelected, action.IsSelected);
 
             MenuButton.SetItems(_imageButton, action.Menu);
             MenuButton.SetItems(_textButton, action.Menu);
@@ -633,7 +647,7 @@ internal sealed class PageActionView : ContentView
                         Svg = action.Svg!,
                         LightTintColor = Colors.Black,
                         DarkTintColor = Colors.White,
-                        TintColor = _prominent ? OnAccent() : _owner.Foreground,
+                        TintColor = _prominent ? OnFill() : _owner.Foreground,
                     };
                     // A 24-point glyph in the 44-point glass circle, the size a UIBarButtonItem uses; the same
                     // in the 40-point filled circle

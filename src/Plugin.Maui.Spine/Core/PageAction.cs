@@ -159,6 +159,18 @@ public sealed partial class PageAction : ObservableObject
     [ObservableProperty]
     public partial bool IsVisible { get; set; } = true;
 
+    /// <summary>
+    /// Whether a toggle the button stands for is on, such as a torch. A selected button is filled with the header
+    /// bar's foreground colour and draws its glyph or text in the colour that reads on it.
+    /// </summary>
+    /// <example>
+    /// <code>
+    /// partial void OnIsTorchOnChanged(bool value) => _torch.IsSelected = value;
+    /// </code>
+    /// </example>
+    [ObservableProperty]
+    public partial bool IsSelected { get; set; }
+
     /// <summary>Whether the button responds to taps. Defaults to <see langword="true"/>.</summary>
     [ObservableProperty]
     public partial bool IsEnabled { get; set; } = true;
