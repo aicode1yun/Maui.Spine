@@ -65,18 +65,22 @@ PageActions.Add(new PageAction("Save", SaveCommand) { Haptic = Haptic.Success })
 
 ## Tabs and sheets
 
-Spine can play a haptic on its own in two places. Both are off by default, because the platforms' own tab bars and sheets are silent.
+Spine can play a haptic on its own in three places. All three are off by default, because the platforms' own tab bars and sheets are silent.
 
 ```csharp
 builder.UseSpine(options =>
 {
     options.Haptics.TabSwitch = Haptic.Selection;
     options.Haptics.SheetDetent = Haptic.Selection;
+    options.Haptics.DismissBlocked = Haptic.Warning;
 });
 ```
 
 - `TabSwitch` plays when the user switches tabs. A switch that navigation makes in code plays nothing.
 - `SheetDetent` plays when the user drags a sheet to another detent and lets go. It plays nothing if the sheet snaps back to where it was, or if it moves because of code. It works on iOS and Android.
+- `DismissBlocked` plays when the user tries to close a sheet and its `OnCloseRequestedAsync` refuses. This covers a swipe down, a tap on the backdrop, the close button and Android's back button, and it works on iOS and Android.
+  - It plays only when the guard answers at once, for example with `Task.FromResult(false)`.
+  - A guard that awaits, such as one that asks "Discard changes?", plays nothing, because the prompt already tells the user what happened.
 
 ## Android: two engines
 

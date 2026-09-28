@@ -213,6 +213,8 @@ public override async Task<bool> OnCloseRequestedAsync()
 
 Return `false` to prevent dismissal; `true` to allow it.
 
+With `options.Haptics.DismissBlocked = Haptic.Warning`, a guard that refuses at once (`Task.FromResult(false)`) plays a warning haptic on iOS and Android. A guard that awaits a prompt, like the one above, plays nothing. See [Haptics](haptics.md#tabs-and-sheets).
+
 ---
 
 ## Full lifecycle hooks

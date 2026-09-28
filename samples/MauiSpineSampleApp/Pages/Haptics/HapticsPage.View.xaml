@@ -68,13 +68,14 @@
         </Example>
 
         <Example Title="Tabs and sheets"
-                 Summary="Spine can play one when the user switches tabs or drags a sheet to another height. Both are off by default, like the platform's own. This app turns on the sheet: drag one on the Bottom sheets page between heights.">
-            <Label Text="Switching tabs in code, or a sheet snapping back by itself, plays nothing." FontSize="15" />
+                 Summary="Spine can play one when the user switches tabs, drags a sheet to another height, or tries to close a sheet that will not close. All are off by default, like the platform's own. This app turns on the sheet ones: drag a sheet on the Bottom sheets page between heights, or tick Prevent dismiss and swipe it down.">
+            <Label Text="Switching tabs in code, a sheet snapping back by itself, or a guard that asks first, plays nothing." FontSize="15" />
             <Example.Code>
                 builder.UseSpine(options =&gt;
                 {
                     options.Haptics.TabSwitch = Haptic.Selection;
                     options.Haptics.SheetDetent = Haptic.Selection;
+                    options.Haptics.DismissBlocked = Haptic.Warning;
                 });
             </Example.Code>
         </Example>

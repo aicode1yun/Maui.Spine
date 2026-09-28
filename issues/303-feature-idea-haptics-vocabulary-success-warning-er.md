@@ -97,6 +97,10 @@ None. There is no Android phone (Jonatan, 2026-09-28): Android is verified throu
   - The Save action (`[PageAction(Haptic = Success)]`) plays CONFIRM, and the Follow button (`OnTap="Selection"`) plays CLOCK_TICK.
   - Sheet: a drag from 50 % to full screen and one from full screen to 75 % each play once. A short drag that springs back plays nothing.
   - Not verified: the fallback warning when the permission is missing, because the sample declares it.
+- `SpineHapticsOptions.DismissBlocked` (Jonatan's suggestion after trying it on the iPhone): both platforms' sheet `CanDismissAsync` go through `AskAsync`, which plays the haptic when `OnCloseRequestedAsync` refuses at once. The Showcase sets it to `Warning`, and the haptics page, `haptics.md` and `sheets.md` (Dismiss guard) describe it.
+- `DismissBlocked` verified on the emulator with Prevent dismiss ticked:
+  - A swipe that reaches the hide threshold, the close button, Android back and a backdrop tap each play LONG_PRESS once, and the sheet stays.
+  - Swipes that stop short of the threshold play nothing. With the guard off, those same swipes do not close the sheet either, so they are not close attempts.
 - Sample: `Pages/Haptics/HapticsPage` (rows for every value, a glass button with `OnTap`, a Save action with `Haptic = Success`, the tab and sheet options, an Android engine switch), index row, csproj and xmlns entries, `TabSwitch`/`SheetDetent` on in `MauiProgram`, `VIBRATE` in the Android manifest.
 
 ## Decisions
@@ -110,3 +114,5 @@ None. There is no Android phone (Jonatan, 2026-09-28): Android is verified throu
 - Android `Warning` has no semantic constant; it maps to `LongPress` (the heavier single) on the view engine and to a strong-then-weak double click on the vibrator.
 - The view engine reaches only the prebaked effects (texture tick, tick, click, heavy click, double click), so on Android impacts share effects in pairs (Light = Soft, Medium = Rigid). Keeping five distinct impacts is what `Vibrator` is for, which is why both engines stay. `TEXT_HANDLE_MOVE` is dropped because the vibrator service ignores it outside a text-handle drag.
 - The sample removes the base class's theme menu, as `PageActionsPage` does, because the header has one trailing slot and the Save action has to be visible.
+- `DismissBlocked` plays only for a guard whose task has already completed when it is returned. A guard that awaits a prompt ("Discard changes?") would otherwise buzz after the user has already chosen to keep editing, and the prompt is feedback enough. This check is deterministic (it looks at `Task.IsCompleted`, not at a timeout). A guard that awaits I/O and then refuses plays nothing too, which the docs say.
+- `DismissBlocked` is off by default, like the other two, since neither platform plays anything here. `Warning` rather than `Error`: nothing failed, the close was refused.

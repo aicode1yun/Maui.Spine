@@ -49,13 +49,27 @@ internal static class BottomSheetPageExtensions
                 && region.BindingContext is NavigationRegionViewModel regionVm
                 && regionVm.CurrentRegionViewModel is ViewModelBase currentVm)
             {
-                return await currentVm.OnCloseRequestedAsync();
+                return await AskAsync(currentVm);
             }
 
             if (bottomSheetContent is BindableObject bo && bo.BindingContext is ViewModelBase vm)
-                return await vm.OnCloseRequestedAsync();
+                return await AskAsync(vm);
 
             return true;
+        }
+
+        // A guard that answers at once gets the refusal haptic; one that awaits (a "discard changes?"
+        // prompt) has already given the user its answer.
+        static async Task<bool> AskAsync(ViewModelBase vm)
+        {
+            var request = vm.OnCloseRequestedAsync();
+            var immediate = request.IsCompleted;
+            var allowed = await request;
+
+            if (!allowed && immediate)
+                Haptics.Play(Haptics.Options.Haptics.DismissBlocked);
+
+            return allowed;
         }
 
         // ── Back guard ────────────────────────────────────────────────────────────
