@@ -168,7 +168,14 @@ The view asks for the camera permission the first time it shows.
 
 ### The scan sheet
 
-`BarcodeScannerPage` is a full-screen sheet that scans until it reads one code, plays the success haptic and returns it. Cancelling returns no value. The header has a torch button when the camera has a torch.
+`BarcodeScannerPage` is a sheet that scans until it reads one code and returns it; closing it returns no value.
+By default:
+- it opens at half height and can be pulled to full screen;
+- the camera fills the sheet under a transparent header, with Spine's close button and, when the device has one, a torch;
+- **aim corners** in the accent colour pulse once a second where to point the camera: square for 2D codes and light grids, wide when only linear codes are read;
+- on a hit, the frame stops, the code is redrawn as accent dots in the perspective it was found in and **bursts towards the user** while the frame dims to half, with the success haptic and a short sound; the sheet closes when that has finished, about half a second later.
+
+For a light grid the dots are the code encoded again from its value and turned to match the lamps that were lit, so each dot lands on its lamp. For a 2D code from the platform reader the code is encoded again with default options, so the dots may differ in detail from the pattern on screen.
 
 ```csharp
 var scan = await navigation.NavigateToWithResultAsync<BarcodeScannerPage, BarcodeScanOptions, BarcodeScanResult>(
@@ -187,9 +194,20 @@ if (scan is { IsSuccess: true, Value: { } code })
 | `Formats` | The standard symbologies to read; default `All`. `None` reads only `LightGrid` |
 | `LightGrid` | A grid of lamps to read as well, such as `new LightGridOptions(12, 12)`; `null` skips it |
 | `Title` | The sheet's title; `null` for the localised "Scan code" |
-| `Prompt` | The hint under the camera; `null` for the localised "Point the camera at the code". A problem replaces it while it lasts |
+| `ShowReticle` | The pulsing aim corners; default `true` |
+| `ShowDetection` | The burst on a hit before the sheet closes; default `true`. Off returns at once |
+| `PlaySound` | A short sound on a hit: the "Tink" system sound on iOS (muted by the silent switch), the acknowledge tone on Android; default `true` |
+| `ShowTorch` | A torch in the header when the device has one; default `true` |
+| `ShowPrompt` | A text box between the aim corners and the bottom edge with `Prompt`; default `false`. A problem is shown there even when it is off |
+| `Prompt` | The prompt's text; `null` for the localised "Point the camera at the code" |
+| `Detents` | The sheet sizes to drag between; default `[SheetDetent.Medium, SheetDetent.FullScreen]` |
+| `InitialDetent` | The size it opens at; `null` for the first of `Detents` |
+| `ShowDiagnostics` | Frames per second, time per frame and what the light-grid reader sees, at the bottom; default `false` |
 
-`BarcodeScanResult` has `Value` (the text), `Format` and `IsLightGrid` (read by the light-grid reader, not the platform's reader).
+The sheet's sizes come from the options rather than its `[NavigableSheet]` attribute through Spine's `ISheetDetentsProvider`,
+which any sheet's view model can implement (see [Sheets](sheets.md#sizes-chosen-per-navigation)).
+
+`BarcodeScanResult` has `Value` (the text), `Format`, `IsLightGrid` (read by the light-grid reader, not the platform's reader), `Corners` (the code's corners in the scanner view) and, for a light grid, `Grid`.
 
 ### BarcodeScannerView
 
@@ -213,9 +231,10 @@ For a scanner inside a page of the app's own:
 | `Detected` | Event with `BarcodeDetectedEventArgs.Result`, on the main thread |
 | `DetectedCommand` | Run with the `BarcodeScanResult`, on the main thread, when `CanExecute` allows |
 | `Problem` | Read-only: what stops the view from scanning, or `null` while it scans |
+| `Diagnostics` | Read-only, twice a second: frames per second, time per frame, and for a light grid whether it was found and read, plus the latest error |
 | `ProblemChanged` | Event with `Problem` and a localised `Message` to show; `Problem` is `null` when scanning resumes |
 
-The camera runs only while the view is on screen and `IsScanning` is true. It is released as soon as the view leaves the screen, even when the page's handler outlives it. Frames are 1280 × 720, or the closest size the camera has: enough detail for a 12 × 12 grid across a room, small enough to read every frame.
+The camera runs only while the native view is in a window and `IsScanning` is true, and it stops, with the torch off, the moment the view leaves its window. That follows the native view, not MAUI's `Loaded` and `Unloaded` or the page's lifecycle, which a closing sheet does not always raise; a camera left running there would fight the next scanner for the device. When scanning stops the view keeps the last frame on screen. The torch is switched on the camera's own queue and only the latest wish is applied, so fast taps do not queue up. Frames are 1280 × 720, or the closest size the camera has: enough detail for a 12 × 12 grid across a room, small enough to read every frame.
 
 A code held in front of the camera is seen many times a second. `RepeatInterval` turns that into one report: the same value is reported again only after the camera has not seen it for that long. A different value is reported at once. To stop after the first hit, set `IsScanning` to false in the command, as the scan sheet does.
 

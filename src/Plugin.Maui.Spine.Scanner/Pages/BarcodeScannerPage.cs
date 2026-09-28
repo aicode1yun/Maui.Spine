@@ -60,19 +60,24 @@ public sealed class BarcodeScannerPage : SpinePage<BarcodeScannerPageViewModel>,
         _scanner.PropertyChanged += (_, e) =>
         {
             if (_viewModel is not { } vm) return;
-            if (e.PropertyName == nameof(BarcodeScannerView.IsTorchAvailable)) vm.IsTorchAvailable = _scanner.IsTorchAvailable;
-            else if (e.PropertyName == nameof(BarcodeScannerView.IsTorchOn)) vm.IsTorchOn = _scanner.IsTorchOn;
+            if (e.PropertyName == nameof(BarcodeScannerView.IsTorchOn)) vm.IsTorchOn = _scanner.IsTorchOn;
             else if (e.PropertyName == nameof(BarcodeScannerView.Diagnostics)) _diagnostics.Text = _scanner.Diagnostics;
         };
 
+        // A pill floating between the aim corners and the bottom edge; placed once the sizes are known
         _promptBox = new Border
         {
             StrokeThickness = 0,
+            StrokeShape = new Microsoft.Maui.Controls.Shapes.RoundRectangle { CornerRadius = 18 },
             BackgroundColor = Color.FromRgba(0, 0, 0, 0.55),
-            Padding = new Thickness(20, 16, 20, 32),
+            Padding = new Thickness(16, 10),
+            Margin = new Thickness(16, 0, 16, 36),
             VerticalOptions = LayoutOptions.End,
-            Content = new VerticalStackLayout { Spacing = 6, Children = { _hint, _diagnostics } },
+            HorizontalOptions = LayoutOptions.Center,
+            Content = new VerticalStackLayout { Spacing = 4, Children = { _hint, _diagnostics } },
         };
+        _promptBox.SizeChanged += (_, _) => PlacePrompt();
+        _overlay.SizeChanged += (_, _) => PlacePrompt();
 
         // The camera and the marking zoom together after a hit; the prompt stays put
         _stage = new Grid { Children = { _scanner, _overlay } };
@@ -130,6 +135,23 @@ public sealed class BarcodeScannerPage : SpinePage<BarcodeScannerPageViewModel>,
         }
     }
 
+    // Halfway between the aim corners and the bottom edge; without corners, above the edge
+    private void PlacePrompt()
+    {
+        double width = _overlay.Width, height = _overlay.Height, box = _promptBox.Height;
+        if (width <= 0 || height <= 0 || box <= 0) return;
+        if (_overlay.Reticle == ReticleShape.None)
+        {
+            _promptBox.VerticalOptions = LayoutOptions.End;
+            _promptBox.Margin = new Thickness(16, 0, 16, 36);
+            return;
+        }
+        var frame = ScannerOverlay.ReticleFor(new RectF(0, 0, (float)width, (float)height), _overlay.Reticle);
+        double top = (frame.Bottom + height) / 2 - box / 2;
+        _promptBox.VerticalOptions = LayoutOptions.Start;
+        _promptBox.Margin = new Thickness(16, Math.Max(frame.Bottom + 8, top), 16, 0);
+    }
+
     private void UpdateReticle()
     {
         if (_viewModel is not { } vm) return;
@@ -138,6 +160,7 @@ public sealed class BarcodeScannerPage : SpinePage<BarcodeScannerPageViewModel>,
             : !twoDimensional && (vm.Formats & BarcodeFormat.OneDimensional) != 0 ? ReticleShape.Wide
             : ReticleShape.Square;
         _overlay.Invalidate();
+        PlacePrompt();
     }
 
     // The text box shows when asked for, and whenever the scanner has a problem to say
@@ -179,28 +202,28 @@ public sealed class BarcodeScannerPage : SpinePage<BarcodeScannerPageViewModel>,
 
     /// <summary>
     /// The code that was read bursts towards the user the moment it is read: the marking appears on the frozen frame,
-    /// grows threefold from the code's centre and fades, while the frame behind it fades to black. The sheet closes
+    /// grows four and a half times from the code's centre and fades, while the frame behind it dims to half. The sheet closes
     /// once it has finished.
     /// </summary>
     private async Task ShowDetectionAsync(BarcodeScanResult result)
     {
-        _overlay.Hit = result;
+        _overlay.ShowHit(result);
         await AnimateAsync("SpineScannerHitIn", v => _overlay.HitProgress = v, 0, 1, 120);
 
         if (result.Corners is not { Count: 4 } corners || ReduceMotion.IsEnabled || _overlay.Width <= 0 || _overlay.Height <= 0)
         {
             await Task.WhenAll(
                 AnimateAsync("SpineScannerHitOut", v => _overlay.HitProgress = v, 1, 0, 250),
-                _scanner.FadeToAsync(0, 250));
+                _scanner.FadeToAsync(0.5, 250));
             return;
         }
 
         _overlay.AnchorX = Math.Clamp(corners.Average(p => p.X) / _overlay.Width, 0, 1);
         _overlay.AnchorY = Math.Clamp(corners.Average(p => p.Y) / _overlay.Height, 0, 1);
         await Task.WhenAll(
-            _overlay.ScaleToAsync(3, 450, Easing.CubicIn),
+            _overlay.ScaleToAsync(4.5, 450, Easing.CubicIn),
             _overlay.FadeToAsync(0, 450, Easing.CubicIn),
-            _scanner.FadeToAsync(0, 450, Easing.CubicOut));
+            _scanner.FadeToAsync(0.5, 450, Easing.CubicOut));
     }
 
     private Task AnimateAsync(string name, Action<double> step, double from, double to, uint length)
@@ -229,6 +252,7 @@ public sealed partial class BarcodeScannerPageViewModel : ViewModelBase, IReceiv
         // slot when the torch takes the trailing one
         _torch = new PageAction(null, ToggleTorchCommand) { Svg = "torch.svg", Description = ScannerStrings.Get("Torch"), IsVisible = false };
         PageActions.Add(_torch);
+        UpdateActions();
     }
 
     [ObservableProperty]
@@ -246,8 +270,9 @@ public sealed partial class BarcodeScannerPageViewModel : ViewModelBase, IReceiv
     [ObservableProperty]
     public partial bool IsTorchOn { get; set; }
 
+    /// <summary>Known when the sheet is created, not when the camera starts, so the header never changes under the user.</summary>
     [ObservableProperty]
-    public partial bool IsTorchAvailable { get; set; }
+    public partial bool IsTorchAvailable { get; set; } = TorchSupport.IsAvailable;
 
     [ObservableProperty]
     public partial bool ShowDiagnostics { get; set; }
@@ -303,6 +328,7 @@ public sealed partial class BarcodeScannerPageViewModel : ViewModelBase, IReceiv
         _returned = true;
         Stop();
         Haptics.Play(Haptic.Success);
+        if (Options.PlaySound) ScanSound.Play();
         return true;
     }
 

@@ -39,7 +39,7 @@ internal sealed class FrameReader
         }
         return result.Text is { } text
             ? new FrameHit(
-                new BarcodeScanResult(text, reader.Options.Format, IsLightGrid: true) { Grid = (reader.Options.Columns, reader.Options.Rows) },
+                new BarcodeScanResult(text, reader.Options.Format, IsLightGrid: true) { Grid = (reader.Options.Columns, reader.Options.Rows), Cells = result.Cells },
                 [.. result.Corners], width, height)
             : null;
     }

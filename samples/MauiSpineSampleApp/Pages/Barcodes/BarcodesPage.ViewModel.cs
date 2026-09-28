@@ -81,6 +81,9 @@ public partial class BarcodesPageViewModel(INavigationService _navigation) : Sam
     public partial bool ShowDetection { get; set; } = true;
 
     [ObservableProperty]
+    public partial bool PlaySound { get; set; } = true;
+
+    [ObservableProperty]
     public partial string OpensAt { get; set; } = SheetDetent.Medium;
 
     private static readonly (string Label, string Detent, string Description)[] Sizes =
@@ -101,6 +104,7 @@ public partial class BarcodesPageViewModel(INavigationService _navigation) : Sam
             size,
             new ToggleOption("Aim corners", "ShowReticle: pulsing corners in the accent colour where to aim; wide for linear codes.", () => ShowReticle, v => ShowReticle = v),
             new ToggleOption("Show the hit", "ShowDetection: the frame stops and the marked code bursts towards you before the sheet closes.", () => ShowDetection, v => ShowDetection = v),
+            new ToggleOption("Sound", "PlaySound: a short sound on a hit, muted by the silent switch on iOS.", () => PlaySound, v => PlaySound = v),
             new ToggleOption("Prompt", "ShowPrompt: a text box at the bottom with Prompt.", () => ShowPrompt, v => ShowPrompt = v),
             new ToggleOption("Torch", "ShowTorch: a torch button in the header when the camera has one.", () => ShowTorch, v => ShowTorch = v),
             new ToggleOption("Diagnostics", "ShowDiagnostics: frames per second, time per frame and what the light-grid reader sees.", () => ShowScanDiagnostics, v => ShowScanDiagnostics = v));
@@ -116,8 +120,9 @@ public partial class BarcodesPageViewModel(INavigationService _navigation) : Sam
                 LightGrid = new LightGridOptions(12, 12),
                 ShowReticle = ShowReticle,
                 ShowDetection = ShowDetection,
+                PlaySound = PlaySound,
                 ShowPrompt = ShowPrompt,
-                Prompt = "Point the camera at a code or the word clock",
+                Prompt = "Point the camera at a code",
                 ShowTorch = ShowTorch,
                 ShowDiagnostics = ShowScanDiagnostics,
                 // The sheet can always be pulled to full screen from where it opens

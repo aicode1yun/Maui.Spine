@@ -2,7 +2,7 @@
 
 **GitHub:** https://github.com/jonatansoderberg/Maui.Spine/issues/415
 **Branch:** issue/415-barcodes-generate-qr-data-matrix-and-custom-codes
-**Status:** In Progress
+**Status:** Completed
 
 ## Plan
 
@@ -79,7 +79,26 @@ The sample gets `NSCameraUsageDescription` and `android.permission.CAMERA`.
   - the light grid straight, at an angle, in night mode, nearly as bright, through a reflection, rotated, showing the time instead of a code, as an empty frame, with a padded stride, across frames, and refusing unsupported sizes.
 - **Showcase:** a Barcodes page (generator, word clock with its code, scan sheet). `NSCameraUsageDescription` added on iOS and Mac Catalyst, and the Android minimum raised to API 23.
 
+- **Scan sheet refined on the iPhone with the maintainer:**
+  - The camera fills the sheet under a transparent overlay header.
+  - It opens at half height (`Detents`, `InitialDetent`, via the new core `ISheetDetentsProvider`).
+  - Accent aim corners pulse in opacity once a second, square or wide, centred half a header below the sheet's middle.
+  - On a hit the frame stops (iOS: preview connection disabled; Android: a still of `PreviewView`), the code is redrawn as accent dots in the perspective it was found in, and it bursts 4.5× while the frame dims to half. The sheet closes after that.
+  - A "Tink" / acknowledge tone plays (`PlaySound`).
+  - The prompt is an optional pill between the corners and the edge (`ShowPrompt`, `Prompt`).
+  - `ShowTorch`, `ShowDiagnostics`.
+- **Scan results** carry `Corners` in view coordinates (Vision and ML Kit corners, light-grid corners) and `Grid`.
+- **Core:** `ISheetDetentsProvider`: a sheet's view model chooses its detents per navigation, and `NavigationService.BuildSheetMessage` asks it after the parameter is delivered.
+- **Docs:** the barcodes wiki describes the sheet's options and lifecycle, and `sheets.md` gets "Sizes chosen per navigation".
+
 ## Decisions
+- **The camera follows the native view's window** (`MovedToWindow` on iOS, attach/detach on Android), not MAUI `Loaded`/`Unloaded` or the page's disappearing. A closing sheet did not raise those every time, and the old session kept running, fighting the next one for the camera: a blinking torch and "camera in use" lag.
+- **The page wires its view model in code, not with compiled lambda bindings.** In the Release build the bindings to the view never resolved, silently: codes were read but never returned, and the light grid and torch were never set.
+- **The torch is switched on the capture queue, coalescing taps,** because `LockForConfiguration` on the main thread blocked the UI and queued taps kept toggling after close. It is turned off before the session stops.
+- **Torch availability is known before the sheet shows** (`TorchSupport`). If it changed after the sheet appeared, Spine's header sometimes missed moving its close button to the leading slot (a race in the header's page-action subscription).
+- **The reticle's pulse starts in `OnHandlerChanged`,** for the same reason: a sheet's content does not always get `Loaded`.
+- **`LightGridReader.Read` never throws;** a bad frame is a miss with the cause in `Diagnostics`, after `Min` on an empty set killed frames in the field.
+- **Release builds for the device need clean `obj/Release`** after changes in referenced projects: an out-of-date AOT module made the app abort at launch.
 - **The scan sheet lives in the Scanner package.** `UseSpineScanner` adds the package's assembly to `SpineOptions.Assemblies` and registers the page and its view model in DI. Spine has scanned the app's assemblies by then, but `NavigationRegistry` is built on first use, so it still sees the page. No change to Spine's core.
 - **Android needs API 23 for the scanner.** CameraX 1.6 declares minSdk 23, so an app below it fails the manifest merge. The Scanner package declares 23 and the Showcase raised its Android minimum to match. The Barcodes package stays at 21.
 - **The Scanner package declares `android.permission.CAMERA` itself,** with `[assembly: UsesPermission]` and `camera.any` as not required, so the manifest merge adds it. iOS still needs the app's `NSCameraUsageDescription`. Without it, the Apple handler reports how to fix it instead of letting iOS kill the app.
@@ -88,3 +107,14 @@ The sample gets `NSCameraUsageDescription` and `android.permission.CAMERA`.
 - **ZXing.Net (Apache-2.0) for encoding and matrix-level Data Matrix decoding, hidden behind Spine types.** The spike showed it forces 12 × 12 and decodes a sampled `BitMatrix` directly. Micro QR is left out, because ZXing has no support for it and Data Matrix 12 × 12 fits the clock better.
 - **Platform engines for standard codes: Vision on iOS, ML Kit on Android.** `LightGridReader` runs next to them on the same frames, only when `LightGrid` is set.
 - **Barcodes and Scanner are separate packages,** so an app that only shows codes needs no camera permission and no ML Kit.
+
+## Verification
+- **Tests:** `Plugin.Maui.Spine.Barcodes.Tests`, 35 passing.
+- **iPhone 16 Pro (iOS 27), Release:**
+  - a QR code and the Showcase word clock read from a Mac screen and from the tablet emulator;
+  - one camera session at a time across repeated opens (traced);
+  - the torch on/off without lag and off when the sheet closes;
+  - the burst and the sound;
+  - 9–30 ms per frame at 30 frames/s.
+- **Android emulator (Pixel Tablet):** the camera starts in the sheet (virtual scene), with one close button, and CameraX analysis runs. The hit animation was not seen on Android, since the emulator camera shows no code.
+- **Builds:** the Showcase builds for iOS and Android, and `Spine.Packages.slnf` builds in Release without new warnings.
