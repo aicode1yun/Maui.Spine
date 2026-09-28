@@ -16,11 +16,11 @@ public partial class EditSheetPageViewModel(INavigationService _navigation) : Vi
         new("Calendar invites", false),
     ];
 
-    [PageAction("Cancel", Placement = PageActionPlacement.Primary)]
+    [PageAction("Cancel", Role = PageActionRole.Cancel)]
     [RelayCommand]
     private async Task Cancel() => await _navigation.CloseAsync();
 
-    [PageAction("Save")]
+    [PageAction("Save", Role = PageActionRole.Confirm)]
     [RelayCommand]
     private async Task Save() => await _navigation.CloseAsync();
 }

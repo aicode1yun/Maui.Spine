@@ -8,7 +8,7 @@ public partial class SamplePageViewModel(INavigationService _navigation) : ViewM
     [RelayCommand]
     private async Task Next() => await _navigation.NavigateToAsync<SamplePage2>();
 
-    [PageAction("Save")]
+    [PageAction("Save", Role = PageActionRole.Confirm)]
     [RelayCommand]
     private Task DummyAction() => Task.CompletedTask;
 }

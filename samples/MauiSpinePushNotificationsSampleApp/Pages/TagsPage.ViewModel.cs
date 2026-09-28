@@ -47,7 +47,7 @@ public partial class TagsPageViewModel(IPushNotificationService _push, PushLog _
     }
 
     // Save lives in the sheet's header bar, where it is reachable at every detent.
-    [PageAction("Save")]
+    [PageAction("Save", Role = PageActionRole.Confirm)]
     [RelayCommand]
     private async Task Apply()
     {

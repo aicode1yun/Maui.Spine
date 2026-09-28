@@ -87,8 +87,8 @@ public partial class MyPageViewModel(INavigationService _navigation) : ViewModel
     [RelayCommand]
     private async Task DoSomething() => await _navigation.NavigateToAsync<OtherPage>();
 
-    // A header-bar button, created by Spine before the page first appears
-    [PageAction("Save")]
+    // A header-bar button, created by Spine before the page first appears: a checkmark that saves
+    [PageAction("Save", Role = PageActionRole.Confirm)]
     [RelayCommand]
     private async Task Save() { /* ... */ }
 }

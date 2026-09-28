@@ -126,18 +126,25 @@ and Spine keeps the page out of it: the content starts below the drag handle
 top padding to clear the close button (`Padding="16,36,16,16"` and the like) — padding you add is
 spacing of your own, on top of that.
 
-### Buttons: page actions for Save and Cancel, the footer for a primary action
+### Buttons: a checkmark and an X in the header, the footer for a primary action
 
-- **Save, Cancel, Done** — confirming or dismissing the sheet — are page actions in the sheet's header
-  bar, never a button stack at the bottom of the sheet. They are in the same place at every detent:
+- **Confirming or cancelling the sheet** (save, done, cancel) is a page action in the sheet's header bar,
+  never a button stack at the bottom of the sheet, so it is in the same place at every detent. Give it a
+  role rather than text: a sheet confirms with a **checkmark** and cancels with an **X**, as the iOS 26
+  Human Interface Guidelines ask, and Spine draws the same on Android. The checkmark is prominent: glass tinted
+  with the accent on iOS 26, a filled accent circle elsewhere. The text you pass is what a screen
+  reader says; without one it says the localised Done or Cancel.
 
   ```csharp
-  [PageAction("Cancel", Placement = PageActionPlacement.Primary)]   // replaces the close button
+  [PageAction("Cancel", Role = PageActionRole.Cancel)]   // an X on the left, in place of the close button
   [RelayCommand] private Task Cancel() => _navigation.CloseAsync();
 
-  [PageAction("Save")]
+  [PageAction("Save", Role = PageActionRole.Confirm)]    // a checkmark on the right
   [RelayCommand] private Task Save() => _navigation.ReturnAsync(_draft);
   ```
+
+  A sheet with nothing to cancel needs no Cancel: Spine's own X closes it. Use a text button only for an
+  action with no standard icon.
 
 - **The sheet's own primary action** — *Log in* on a login sheet, *Continue* in a flow, *Pay* — goes in
   `SpinePage.Footer`:
