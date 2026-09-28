@@ -1,4 +1,5 @@
 using System.Windows.Input;
+using Plugin.Maui.Spine.Common;
 using Plugin.Maui.Spine.Core;
 using Plugin.Maui.Spine.Extensions;
 using Plugin.Maui.Spine.Svg;
@@ -6,8 +7,9 @@ using Plugin.Maui.Spine.Svg;
 namespace Plugin.Maui.Spine.Controls;
 
 /// <summary>
-/// One row of a list or a settings screen: <c>[icon] [title / detail] [value] [accessory] [chevron]</c>.
-/// Every part but the title is optional.
+/// One row of a list or a settings screen: <c>[icon] [title / detail] [value] [accessory] [check] [chevron]</c>.
+/// Every part but the title is optional. Group rows in a <see cref="SpineSection"/> for the
+/// platform's settings look.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -21,12 +23,20 @@ namespace Plugin.Maui.Spine.Controls;
 /// detail and value are read together, a switch accessory makes it a toggle and a command a button.
 /// A title with a value and nothing else is the key/value preset.
 /// </para>
+/// <para>
+/// The defaults follow the platform: on Android the value sits under the title
+/// (<see cref="ValuePlacement"/>) and there is no chevron, as in Android's own settings.
+/// </para>
 /// </remarks>
 public class SpineRow : ContentView
 {
     public static readonly BindableProperty IconProperty = BindableProperty.Create(
         nameof(Icon), typeof(string), typeof(SpineRow), null,
         propertyChanged: static (b, _, _) => ((SpineRow)b).ApplyContent());
+
+    public static readonly BindableProperty IconBackgroundProperty = BindableProperty.Create(
+        nameof(IconBackground), typeof(Color), typeof(SpineRow), null,
+        propertyChanged: static (b, _, _) => ((SpineRow)b).Repaint());
 
     public static readonly BindableProperty TitleProperty = BindableProperty.Create(
         nameof(Title), typeof(string), typeof(SpineRow), null,
@@ -42,6 +52,14 @@ public class SpineRow : ContentView
 
     public static readonly BindableProperty ValueProperty = BindableProperty.Create(
         nameof(Value), typeof(string), typeof(SpineRow), null,
+        propertyChanged: static (b, _, _) => ((SpineRow)b).ApplyContent());
+
+    public static readonly BindableProperty ValuePlacementProperty = BindableProperty.Create(
+        nameof(ValuePlacement), typeof(SpineRowValuePlacement), typeof(SpineRow), SpineRowValuePlacement.Auto,
+        propertyChanged: static (b, _, _) => ((SpineRow)b).ApplyContent());
+
+    public static readonly BindableProperty IsSelectedProperty = BindableProperty.Create(
+        nameof(IsSelected), typeof(bool?), typeof(SpineRow), null,
         propertyChanged: static (b, _, _) => ((SpineRow)b).ApplyContent());
 
     public static readonly BindableProperty AccessoryProperty = BindableProperty.Create(
@@ -69,6 +87,16 @@ public class SpineRow : ContentView
     {
         get => (string?)GetValue(IconProperty);
         set => SetValue(IconProperty, value);
+    }
+
+    /// <summary>
+    /// A fill behind the icon, which then turns white: the coloured rounded squares of iOS Settings,
+    /// the coloured circles of Android's. <see langword="null"/> = the tinted icon on its own.
+    /// </summary>
+    public Color? IconBackground
+    {
+        get => (Color?)GetValue(IconBackgroundProperty);
+        set => SetValue(IconBackgroundProperty, value);
     }
 
     public string? Title
@@ -101,6 +129,24 @@ public class SpineRow : ContentView
         set => SetValue(ValueProperty, value);
     }
 
+    /// <summary>Where <see cref="Value"/> shows. <see cref="SpineRowValuePlacement.Auto"/> (the default) follows the platform.</summary>
+    public SpineRowValuePlacement ValuePlacement
+    {
+        get => (SpineRowValuePlacement)GetValue(ValuePlacementProperty);
+        set => SetValue(ValuePlacementProperty, value);
+    }
+
+    /// <summary>
+    /// Makes the row one choice of a list: <see langword="true"/> shows a check mark at the end,
+    /// <see langword="false"/> leaves the place empty. <see langword="null"/> (the default) = not a choice.
+    /// A choice row shows no chevron unless <see cref="ShowChevron"/> asks for one.
+    /// </summary>
+    public bool? IsSelected
+    {
+        get => (bool?)GetValue(IsSelectedProperty);
+        set => SetValue(IsSelectedProperty, value);
+    }
+
     /// <summary>A view at the end of the row: a <see cref="Switch"/>, a button, a badge.</summary>
     public View? Accessory
     {
@@ -110,7 +156,8 @@ public class SpineRow : ContentView
 
     /// <summary>
     /// Whether the chevron shows. <see langword="null"/> (the default) = when the row has a
-    /// <see cref="Command"/> and no <see cref="Accessory"/>.
+    /// <see cref="Command"/>, no <see cref="Accessory"/> and is not a choice (<see cref="IsSelected"/>),
+    /// and never on Android, whose lists have none.
     /// </summary>
     public bool? ShowChevron
     {
@@ -137,19 +184,32 @@ public class SpineRow : ContentView
         set => SetValue(StyleOptionsProperty, value);
     }
 
+    static readonly bool IsAndroid = DeviceInfo.Platform == DevicePlatform.Android;
+
     readonly Grid _grid;
+    readonly Border _iconBadge;
     readonly Image _icon;
     readonly VerticalStackLayout _text;
     readonly Label _title;
     readonly Label _value;
+    readonly Label _valueBelow;
     readonly ContentView _accessory;
+    readonly Image _check;
     readonly Image _chevron;
     View? _detail;
     Command? _toggle;
 
+    static SpineRow() => RowsStrings.EnsureRegistered();
+
     public SpineRow()
     {
-        _icon = new Image { VerticalOptions = LayoutOptions.Center };
+        _icon = new Image { HorizontalOptions = LayoutOptions.Center, VerticalOptions = LayoutOptions.Center };
+        _iconBadge = new Border
+        {
+            StrokeThickness = 0,
+            VerticalOptions = LayoutOptions.Center,
+            Content = _icon,
+        };
 
         _title = new Label { LineBreakMode = LineBreakMode.TailTruncation, MaxLines = 1 };
         _text = new VerticalStackLayout { VerticalOptions = LayoutOptions.Center, Spacing = 1, Children = { _title } };
@@ -162,7 +222,14 @@ public class SpineRow : ContentView
             MaxLines = 1,
         };
 
+        // Under the title on Android: a preference's summary.
+        _valueBelow = new Label { LineBreakMode = LineBreakMode.TailTruncation, MaxLines = 1 };
+        _text.Add(_valueBelow);
+
         _accessory = new ContentView { VerticalOptions = LayoutOptions.Center };
+
+        _check = new Image { VerticalOptions = LayoutOptions.Center, WidthRequest = 30, HeightRequest = 30 };
+        SvgImageSource.SetSvg(_check, "check.svg");
 
         // The header bar's own back glyph, mirrored, so the two chevrons are one shape.
         _chevron = new Image
@@ -170,7 +237,6 @@ public class SpineRow : ContentView
             VerticalOptions = LayoutOptions.Center,
             WidthRequest = 28,
             HeightRequest = 28,
-            Margin = new Thickness(-6, 0, -9, 0),
             Rotation = 180,
         };
         SvgImageSource.SetSvg(_chevron, Presentation.HeaderBarConstants.BackGlyph);
@@ -184,14 +250,16 @@ public class SpineRow : ContentView
                 new ColumnDefinition(GridLength.Auto),
                 new ColumnDefinition(GridLength.Auto),
                 new ColumnDefinition(GridLength.Auto),
+                new ColumnDefinition(GridLength.Auto),
             ],
-            Children = { _icon, _text, _value, _accessory, _chevron },
+            Children = { _iconBadge, _text, _value, _accessory, _check, _chevron },
         };
 
         Grid.SetColumn(_text, 1);
         Grid.SetColumn(_value, 2);
         Grid.SetColumn(_accessory, 3);
-        Grid.SetColumn(_chevron, 4);
+        Grid.SetColumn(_check, 4);
+        Grid.SetColumn(_chevron, 5);
 
         Content = _grid;
         Semantic.SetMerge(this, true);
@@ -219,7 +287,7 @@ public class SpineRow : ContentView
         _detail = DetailMarquee
             ? new AnimatedLabel()
             : new Label { LineBreakMode = LineBreakMode.TailTruncation, MaxLines = 1 };
-        _text.Add(_detail);
+        _text.Insert(1, _detail);
 
         ApplyContent();
         Repaint();
@@ -227,8 +295,8 @@ public class SpineRow : ContentView
 
     void ApplyContent()
     {
-        _icon.IsVisible = !string.IsNullOrEmpty(Icon);
-        if (_icon.IsVisible)
+        _iconBadge.IsVisible = !string.IsNullOrEmpty(Icon);
+        if (_iconBadge.IsVisible)
             SvgImageSource.SetSvg(_icon, Icon!);
 
         _title.Text = Title;
@@ -253,10 +321,41 @@ public class SpineRow : ContentView
                 break;
         }
 
-        _value.Text = Value;
-        _value.IsVisible = !string.IsNullOrEmpty(Value);
+        var hasValue = !string.IsNullOrEmpty(Value);
+        var below = ValuePlacement == SpineRowValuePlacement.Below
+            || (ValuePlacement == SpineRowValuePlacement.Auto && IsAndroid);
 
-        _chevron.IsVisible = ShowChevron ?? (Command is not null && Accessory is null);
+        _value.Text = Value;
+        _value.IsVisible = hasValue && !below;
+        _valueBelow.Text = Value;
+        _valueBelow.IsVisible = hasValue && below;
+
+        _check.IsVisible = IsSelected == true;
+        SemanticProperties.SetDescription(_check, SpineStrings.Current["Spine.Row.Selected"]);
+
+        _chevron.IsVisible = ShowChevron ?? (Command is not null && Accessory is null && IsSelected is null && !IsAndroid);
+
+        ApplyHeight();
+    }
+
+    // Material 3 list items grow from 56 to 72 dp with a second line; iOS rows keep one height.
+    void ApplyHeight()
+    {
+        var style = SpineRowStyleOptions.Resolve(StyleOptions);
+        var twoLines = _valueBelow.IsVisible || _detail is VisualElement { IsVisible: true };
+        _grid.MinimumHeightRequest = twoLines ? style.TwoLineMinimumHeight : style.MinimumHeight;
+    }
+
+    /// <summary>Where the row's text starts, from its leading edge: a <see cref="SpineSection"/> starts its separators there.</summary>
+    internal double TextInset
+    {
+        get
+        {
+            var style = SpineRowStyleOptions.Resolve(StyleOptions);
+            var icon = !_iconBadge.IsVisible ? 0
+                : (IconBackground is null ? style.IconSize : style.IconBadgeSize) + style.Spacing;
+            return style.Padding.Left + icon;
+        }
     }
 
     void ApplyAccessory()
@@ -289,12 +388,33 @@ public class SpineRow : ContentView
         var style = SpineRowStyleOptions.Resolve(StyleOptions);
 
         _grid.Padding = style.Padding;
-        _grid.ColumnSpacing = style.Spacing;
-        _grid.MinimumHeightRequest = style.MinimumHeight;
+        // Spacing as margins rather than ColumnSpacing: the grid would keep the spacing of an
+        // empty column, and a row without a chevron would end short of its padding.
+        _grid.ColumnSpacing = 0;
+        _iconBadge.Margin = new Thickness(0, 0, style.Spacing, 0);
+        _value.Margin = new Thickness(style.Spacing, 0, 0, 0);
+        _accessory.Margin = new Thickness(style.Spacing, 0, 0, 0);
+        _check.Margin = new Thickness(style.Spacing - 4, 0, -4, 0);
+        // The glyph's own margin, taken back so the chevron sits at the row's padding.
+        _chevron.Margin = new Thickness(style.Spacing - 6, 0, -9, 0);
         _grid.Opacity = IsEnabled ? 1 : style.DisabledOpacity;
+        ApplyHeight();
 
-        _icon.WidthRequest = _icon.HeightRequest = style.IconSize;
-        SvgImageSource.SetTintColor(_icon, style.IconColor!);
+        if (IconBackground is { } badge)
+        {
+            _iconBadge.BackgroundColor = badge;
+            _iconBadge.StrokeShape = new Microsoft.Maui.Controls.Shapes.RoundRectangle { CornerRadius = style.IconBadgeCornerRadius };
+            _iconBadge.WidthRequest = _iconBadge.HeightRequest = style.IconBadgeSize;
+            _icon.WidthRequest = _icon.HeightRequest = style.IconBadgeGlyphSize;
+            SvgImageSource.SetTintColor(_icon, style.IconBadgeGlyphColor!);
+        }
+        else
+        {
+            _iconBadge.BackgroundColor = Colors.Transparent;
+            _iconBadge.WidthRequest = _iconBadge.HeightRequest = style.IconSize;
+            _icon.WidthRequest = _icon.HeightRequest = style.IconSize;
+            SvgImageSource.SetTintColor(_icon, style.IconColor!);
+        }
 
         _title.TextColor = style.TitleColor;
         _title.FontSize = style.TitleFontSize;
@@ -320,6 +440,13 @@ public class SpineRow : ContentView
         _value.FontSize = style.ValueFontSize;
         _value.FontFamily = style.FontFamily;
 
+        _valueBelow.TextColor = style.DetailColor;
+        _valueBelow.FontSize = style.DetailFontSize;
+        _valueBelow.FontFamily = style.FontFamily;
+
         SvgImageSource.SetTintColor(_chevron, style.ChevronColor!);
+        SvgImageSource.SetLineWidthScale(_chevron, style.GlyphLineWidthScale);
+        SvgImageSource.SetTintColor(_check, style.CheckColor!);
+        SvgImageSource.SetLineWidthScale(_check, style.GlyphLineWidthScale);
     }
 }

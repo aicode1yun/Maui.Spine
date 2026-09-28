@@ -3,7 +3,8 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
     x:Class="MauiSpineSampleApp.Pages.Rows.RowsPage"
     x:TypeArguments="RowsPageViewModel"
-    x:DataType="RowsPageViewModel">
+    x:DataType="RowsPageViewModel"
+    BackgroundColor="{AppThemeBinding Light={x:Static SpineSection.PageBackgroundLight}, Dark={x:Static SpineSection.PageBackgroundDark}}">
 
     <ContentPage.Resources>
         <Style x:Key="Card" TargetType="Border">
@@ -13,83 +14,95 @@
             <Setter Property="StrokeShape" Value="RoundRectangle 14" />
             <Setter Property="Padding" Value="0" />
         </Style>
-        <!-- Opaque colour: a BoxView with an alpha colour paints over black on iOS. -->
-        <Style x:Key="Separator" TargetType="BoxView">
-            <Setter Property="HeightRequest" Value="1" />
-            <Setter Property="Color" Value="{DynamicResource CardOutline}" />
-            <Setter Property="Margin" Value="56,0,0,0" />
-        </Style>
     </ContentPage.Resources>
 
     <SampleLayout Packages="Plugin.Maui.Spine.Controls.Rows, Plugin.Maui.Spine">
 
         <Example Title="A settings screen, row by row"
-                 Summary="One control for every row of a settings list: icon, title, detail, value, a switch and the chevron. Tapping gives the platform's press feedback, and a screen reader reads each row as one element."
+                 Summary="Rows in a SpineSection look like the platform's own settings: an inset group with hairline separators on iOS, plain rows under a coloured header on Android. Each row has an icon, title, detail, value or switch, and the platform's press feedback."
                  OptionsCommand="{Binding ShowRowOptionsCommand}">
             <VerticalStackLayout Spacing="10">
-                <Border Style="{StaticResource Card}">
-                    <VerticalStackLayout>
-                        <SpineRow Icon="wireless.svg" Title="Wi-Fi" Detail="Tap the row or the switch">
-                            <SpineRow.Accessory>
-                                <Switch IsToggled="{Binding WiFi}" />
-                            </SpineRow.Accessory>
-                        </SpineRow>
-                        <BoxView Style="{StaticResource Separator}" />
-                        <SpineRow Icon="bell.svg" Title="Notifications">
-                            <SpineRow.Accessory>
-                                <Switch IsToggled="{Binding Notifications}" />
-                            </SpineRow.Accessory>
-                        </SpineRow>
-                        <BoxView Style="{StaticResource Separator}" />
-                        <SpineRow Icon="lamp.svg" Title="Appearance" Value="{Binding Theme}"
-                                  Command="{Binding CycleThemeCommand}" />
-                        <BoxView Style="{StaticResource Separator}" />
-                        <SpineRow Icon="user.svg" Title="Account" Detail="Signed in"
-                                  Command="{Binding OpenCommand}" CommandParameter="Account" />
-                        <BoxView Style="{StaticResource Separator}" />
-                        <SpineRow Icon="lock.svg" Title="Privacy" DetailMarquee="True"
-                                  Detail="Location, camera, microphone, contacts, photos and every other permission the app asked for"
-                                  Command="{Binding OpenCommand}" CommandParameter="Privacy" />
-                        <BoxView Style="{StaticResource Separator}" />
-                        <SpineRow Icon="printer.svg" Title="Printer" Detail="Disabled: no press, no command" IsEnabled="False"
-                                  Command="{Binding OpenCommand}" CommandParameter="Printer" />
-                    </VerticalStackLayout>
-                </Border>
-                <Label Text="{Binding LastTap}" FontSize="15" />
+                <SpineSection Header="Connections" Footer="Tap a row or its switch. A screen reader reads each row as one element.">
+                    <SpineRow Icon="wireless.svg" IconBackground="{Binding BlueBadge}" Title="Wi-Fi"
+                              Value="{Binding WiFiState}" ValuePlacement="{Binding Placement}">
+                        <SpineRow.Accessory>
+                            <Switch IsToggled="{Binding WiFi}" />
+                        </SpineRow.Accessory>
+                    </SpineRow>
+                    <SpineRow Icon="bell.svg" IconBackground="{Binding RedBadge}" Title="Notifications">
+                        <SpineRow.Accessory>
+                            <Switch IsToggled="{Binding Notifications}" />
+                        </SpineRow.Accessory>
+                    </SpineRow>
+                    <SpineRow Icon="lamp.svg" IconBackground="{Binding IndigoBadge}" Title="Appearance"
+                              Value="{Binding Theme}" ValuePlacement="{Binding Placement}"
+                              Command="{Binding CycleThemeCommand}" />
+                </SpineSection>
+                <SpineSection Header="Account">
+                    <SpineRow Icon="user.svg" IconBackground="{Binding GrayBadge}" Title="Account" Detail="Signed in"
+                              Command="{Binding OpenCommand}" CommandParameter="Account" />
+                    <SpineRow Icon="lock.svg" IconBackground="{Binding BlueBadge}" Title="Privacy" DetailMarquee="True"
+                              Detail="Location, camera, microphone, contacts, photos and every other permission the app asked for"
+                              Command="{Binding OpenCommand}" CommandParameter="Privacy" />
+                    <SpineRow Icon="printer.svg" IconBackground="{Binding GrayBadge}" Title="Printer" Detail="Disabled: no press, no command" IsEnabled="False"
+                              Command="{Binding OpenCommand}" CommandParameter="Printer" />
+                </SpineSection>
+                <Label Text="{Binding LastTap}" FontSize="15" Margin="16,0" />
             </VerticalStackLayout>
             <Example.Code>
-                &lt;!-- No registration needed --&gt;
-                &lt;SpineRow Icon="lamp.svg" Title="Appearance"
-                          Value="{Binding Theme}"
-                          Command="{Binding PickThemeCommand}" /&gt;
+                &lt;SpineSection Header="Connections"
+                              Footer="Wi-Fi turns on again tomorrow."&gt;
+                    &lt;SpineRow Icon="wireless.svg" IconBackground="#007AFF"
+                              Title="Wi-Fi" Value="{Binding Network}"&gt;
+                        &lt;SpineRow.Accessory&gt;
+                            &lt;Switch IsToggled="{Binding WiFi}" /&gt;
+                        &lt;/SpineRow.Accessory&gt;
+                    &lt;/SpineRow&gt;
+                    &lt;SpineRow Icon="lamp.svg" IconBackground="#5856D6"
+                              Title="Appearance" Value="{Binding Theme}"
+                              Command="{Binding PickThemeCommand}" /&gt;
+                &lt;/SpineSection&gt;
 
-                &lt;SpineRow Icon="bell.svg" Title="Notifications"&gt;
-                    &lt;SpineRow.Accessory&gt;
-                        &lt;Switch IsToggled="{Binding Notify}" /&gt;
-                    &lt;/SpineRow.Accessory&gt;
-                &lt;/SpineRow&gt;
+                &lt;!-- iOS: the groups sit on the grouped background --&gt;
+                &lt;SpinePage BackgroundColor="{AppThemeBinding
+                    Light={x:Static SpineSection.PageBackgroundLight},
+                    Dark={x:Static SpineSection.PageBackgroundDark}}"&gt;
+            </Example.Code>
+        </Example>
 
-                &lt;!-- A long detail scrolls instead of wrapping --&gt;
-                &lt;SpineRow Icon="lock.svg" Title="Privacy"
-                          Detail="{Binding Permissions}"
-                          DetailMarquee="True" /&gt;
+        <Example Title="Pick one"
+                 Summary="A list of choices: the selected row shows a check mark, a tap moves it. For a sort order, a language, a quality setting.">
+            <SpineSection Header="Sort by">
+                <SpineRow Title="Name" IsSelected="{Binding SortByName}" Command="{Binding SortCommand}" CommandParameter="Name" />
+                <SpineRow Title="Date" IsSelected="{Binding SortByDate}" Command="{Binding SortCommand}" CommandParameter="Date" />
+                <SpineRow Title="Size" IsSelected="{Binding SortBySize}" Command="{Binding SortCommand}" CommandParameter="Size" />
+            </SpineSection>
+            <Example.Code>
+                &lt;SpineSection Header="Sort by"&gt;
+                    &lt;SpineRow Title="Name" IsSelected="{Binding ByName}"
+                              Command="{Binding SortCommand}"
+                              CommandParameter="Name" /&gt;
+                    &lt;SpineRow Title="Date" IsSelected="{Binding ByDate}"
+                              Command="{Binding SortCommand}"
+                              CommandParameter="Date" /&gt;
+                &lt;/SpineSection&gt;
             </Example.Code>
         </Example>
 
         <Example Title="Key and value"
                  Summary="A title and a value with nothing to tap: an About screen, order details, a device's status.">
-            <Border Style="{StaticResource Card}">
-                <VerticalStackLayout>
-                    <SpineRow Title="Version" Value="1.0 (1)" />
-                    <BoxView Style="{StaticResource Separator}" Margin="16,0,0,0" />
-                    <SpineRow Title="Platform" Value="{OnPlatform iOS=iOS, Android=Android, MacCatalyst=Mac Catalyst, WinUI=Windows}" />
-                    <BoxView Style="{StaticResource Separator}" Margin="16,0,0,0" />
-                    <SpineRow Title="Wi-Fi" Value="{Binding WiFiState}" />
-                </VerticalStackLayout>
-            </Border>
+            <SpineSection>
+                <SpineRow Title="Version" Value="1.0 (1)" ValuePlacement="Trailing" />
+                <SpineRow Title="Platform" Value="{OnPlatform iOS=iOS, Android=Android, MacCatalyst=Mac Catalyst, WinUI=Windows}" ValuePlacement="Trailing" />
+                <SpineRow Title="Wi-Fi" Value="{Binding WiFiState}" ValuePlacement="Trailing" />
+            </SpineSection>
             <Example.Code>
-                &lt;SpineRow Title="Version" Value="1.0 (1)" /&gt;
-                &lt;SpineRow Title="Wi-Fi" Value="{Binding WiFiState}" /&gt;
+                &lt;SpineSection&gt;
+                    &lt;SpineRow Title="Version" Value="1.0 (1)"
+                              ValuePlacement="Trailing" /&gt;
+                    &lt;SpineRow Title="Wi-Fi" Value="{Binding WiFiState}"
+                              ValuePlacement="Trailing" /&gt;
+                &lt;/SpineSection&gt;
             </Example.Code>
         </Example>
 
