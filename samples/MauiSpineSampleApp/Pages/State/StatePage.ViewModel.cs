@@ -71,6 +71,14 @@ public partial class StatePageViewModel : SampleViewModel
 
     partial void OnReturnEmptyChanged(bool value) => LoadNamesAgain();
 
+    // Refresh keeps the list; this forgets it and shows the skeleton again.
+    [RelayCommand]
+    private Task LoadPeopleFromScratch()
+    {
+        People.Reset();
+        return People.LoadAsync();
+    }
+
     private void LoadNamesAgain()
     {
         Names.Reset();

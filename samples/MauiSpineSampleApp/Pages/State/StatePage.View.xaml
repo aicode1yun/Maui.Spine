@@ -57,7 +57,7 @@
         </Example>
 
         <Example Title="A skeleton, then the list, in the same view"
-                 Summary="With a placeholder the content shows from the start, as a skeleton with the rows it will have. A refresh keeps the list; if it fails, the list stays and the error is there to show.">
+                 Summary="With a placeholder the content shows from the start, as a skeleton with the rows it will have. Refresh keeps the list; if it fails, the list stays and the error is there to show. Load from scratch forgets the list with Reset() and shows the skeleton again.">
             <VerticalStackLayout Spacing="12">
                 <Grid ColumnDefinitions="*,Auto">
                     <Label Text="Fail the next refresh" VerticalOptions="Center" />
@@ -65,6 +65,7 @@
                 </Grid>
                 <HorizontalStackLayout Spacing="12">
                     <Button Text="Refresh" Command="{Binding People.LoadCommand}" />
+                    <Button Text="Load from scratch" Command="{Binding LoadPeopleFromScratchCommand}" />
                     <ActivityIndicator IsRunning="{Binding People.IsRefreshing}" IsVisible="{Binding People.IsRefreshing}"
                                        VerticalOptions="Center" HeightRequest="24" WidthRequest="24" />
                 </HorizontalStackLayout>
@@ -104,6 +105,11 @@
                             "{Binding People.Value}"&gt;
                         …
                 &lt;/StateView&gt;
+
+                // Refresh keeps the list. To show the
+                // skeleton again, forget the result first:
+                People.Reset();
+                await People.LoadAsync();
 
                 &lt;!-- Pull to refresh on a list page --&gt;
                 &lt;RefreshView
