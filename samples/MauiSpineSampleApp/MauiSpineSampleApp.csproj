@@ -236,6 +236,15 @@
       <DependentUpon>EditSheetPage.cs</DependentUpon>
     </Compile>
 
+    <MauiXaml Update="Pages\Sheets\LateActionSheet.View.xaml">
+      <DependentUpon>LateActionSheet.cs</DependentUpon>
+      <Generator>MSBuild:Compile</Generator>
+    </MauiXaml>
+
+    <Compile Include="Pages\Sheets\LateActionSheet.ViewModel.cs">
+      <DependentUpon>LateActionSheet.cs</DependentUpon>
+    </Compile>
+
     <MauiXaml Update="Pages\Results\ResultsPage.View.xaml">
       <DependentUpon>ResultsPage.cs</DependentUpon>
       <Generator>MSBuild:Compile</Generator>
