@@ -106,6 +106,9 @@ internal sealed class PageActionView : ContentView
         : DeviceInfo.Platform == DevicePlatform.WinUI ? 200u
         : 300u;
 
+    /// <summary>How long an action takes to go away: half as long as it takes to arrive.</summary>
+    internal static uint RemovalDuration => TransitionDuration / 2;
+
     /// <summary>The scale an action grows from and shrinks to; 1 (none) under Reduce Motion.</summary>
     internal static double TransitionScale => ReducedMotion.IsOn ? 1 : 0.85;
 
@@ -176,7 +179,9 @@ internal sealed class PageActionView : ContentView
     void Morph(PageAction? action)
     {
 #if IOS || MACCATALYST
-        if (Window?.Handler?.PlatformView is UIKit.UIWindow window)
+        // The header bar's own view: laying out only it keeps the animation to the actions, not
+        // the page and its title arriving at the same time.
+        if (BarView() is { } bar)
         {
             var reduced = ReducedMotion.IsOn;
 
@@ -190,7 +195,7 @@ internal sealed class PageActionView : ContentView
             UIKit.UIView.AnimateNotify(
                 reduced ? 0.2 : 0.45, 0, reduced ? 1f : 0.82f, 0,
                 UIKit.UIViewAnimationOptions.BeginFromCurrentState | UIKit.UIViewAnimationOptions.AllowUserInteraction,
-                window.LayoutIfNeeded,
+                bar.LayoutIfNeeded,
                 null);
 
             // The glass starts moving at once; the content follows a beat later, when the
@@ -201,6 +206,19 @@ internal sealed class PageActionView : ContentView
 #endif
         _front.Apply(action);
     }
+
+#if IOS || MACCATALYST
+    UIKit.UIView? BarView()
+    {
+        for (Element? parent = Parent; parent is not null; parent = parent.Parent)
+        {
+            if (parent is HeaderBarView { Handler.PlatformView: UIKit.UIView view })
+                return view;
+        }
+
+        return Handler?.PlatformView as UIKit.UIView;
+    }
+#endif
 
     /// <summary>Crosses from what the front face shows to <paramref name="action"/> on the other face.</summary>
     async Task SwapAsync(PageAction? action)
@@ -240,8 +258,8 @@ internal sealed class PageActionView : ContentView
             await Task.WhenAll(
                 GlassAppearance.AnimateAsync(incoming, show: true, duration),
                 incoming.ScaleToAsync(1, duration, TransitionEasing),
-                GlassAppearance.AnimateAsync(outgoing, show: false, duration * 7 / 10),
-                outgoing.ScaleToAsync(shrink, duration * 7 / 10, TransitionEasing));
+                GlassAppearance.AnimateAsync(outgoing, show: false, RemovalDuration),
+                outgoing.ScaleToAsync(shrink, RemovalDuration, TransitionEasing));
 
             if (ReferenceEquals(_back, outgoing))
             {
@@ -259,9 +277,9 @@ internal sealed class PageActionView : ContentView
         {
             { 0, 1, new Animation(v => incoming.Opacity = v, 0, 1) },
             { 0, 1, new Animation(v => incoming.Scale = v, shrink, 1) },
-            // The old face is gone a little before the new one has settled, as UIKit's crossfade.
-            { 0, 0.7, new Animation(v => outgoing.Opacity = v, outgoing.Opacity, 0) },
-            { 0, 0.7, new Animation(v => outgoing.Scale = v, 1, shrink) },
+            // The old face is gone halfway, well before the new one has settled.
+            { 0, 0.5, new Animation(v => outgoing.Opacity = v, outgoing.Opacity, 0) },
+            { 0, 0.5, new Animation(v => outgoing.Scale = v, 1, shrink) },
         }.Commit(this, "Swap", 16, duration, TransitionEasing, (_, cancelled) =>
         {
             if (!cancelled && ReferenceEquals(_back, outgoing))

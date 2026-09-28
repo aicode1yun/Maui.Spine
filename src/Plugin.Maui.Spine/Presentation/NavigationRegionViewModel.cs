@@ -30,6 +30,23 @@ internal partial class NavigationRegionViewModel : ObservableObject
     /// </summary>
     public ViewModelBase? CurrentRegionViewModel => FrontView.Content?.BindingContext as ViewModelBase;
 
+    ViewModelBase? _arrivingHeader;
+
+    /// <summary>
+    /// The page the header bar shows: the current page, except while going back, when it is
+    /// already the page coming back. A navigation bar changes its items with the transition,
+    /// not after it, so the leaving page's actions do not linger over the page underneath.
+    /// </summary>
+    public ViewModelBase? HeaderRegionViewModel => _arrivingHeader ?? CurrentRegionViewModel;
+
+    void ShowHeaderOf(ViewModelBase? arriving)
+    {
+        _arrivingHeader = arriving;
+        OnPropertyChanged(nameof(HeaderRegionViewModel));
+        OnPropertyChanged(nameof(PrimaryPageAction));
+        OnPropertyChanged(nameof(SecondaryPageAction));
+    }
+
     /// <summary>The presenter hosting the foreground (active) page view.</summary>
     [ObservableProperty]
     public partial PagePresenter FrontView { get; set; } = new();
@@ -91,7 +108,7 @@ internal partial class NavigationRegionViewModel : ObservableObject
 
     PageAction? GetExplicitAction(PageActionPlacement placement)
     {
-        var vm = CurrentRegionViewModel;
+        var vm = HeaderRegionViewModel;
         if (vm is null)
             return null;
 
@@ -205,6 +222,7 @@ internal partial class NavigationRegionViewModel : ObservableObject
         // Pre-notify so NavigationRegion applies safe-area padding & header-bar bindings
         // for the incoming page before the transition animation starts.
         OnPropertyChanged(nameof(CurrentRegionViewModel));
+        OnPropertyChanged(nameof(HeaderRegionViewModel));
         OnPropertyChanged(nameof(PrimaryPageAction));
         OnPropertyChanged(nameof(SecondaryPageAction));
 
@@ -219,6 +237,7 @@ internal partial class NavigationRegionViewModel : ObservableObject
         BackCommand.NotifyCanExecuteChanged();
 
         OnPropertyChanged(nameof(CurrentRegionViewModel));
+        OnPropertyChanged(nameof(HeaderRegionViewModel));
         OnPropertyChanged(nameof(PrimaryPageAction));
         OnPropertyChanged(nameof(SecondaryPageAction));
     }
@@ -299,12 +318,15 @@ internal partial class NavigationRegionViewModel : ObservableObject
             // before the back-transition animation reveals the previous page.
             OnPropertyChanged(nameof(BackView));
 
+            ShowHeaderOf(prev.BindingContext as ViewModelBase);
+
             if (animate)
                 await Task.WhenAll([_frameTransition.AnimateBackShowAsync(BackView), _frameTransition.AnimateBackHideAsync(FrontView)]);
 
             BackView.Content = null;
             FrontView.Content = prev;
             FrontView.IsVisible = true;
+            _arrivingHeader = null;
         }
 
         InvokeOnAppearing(NavigationDirection.Back);
@@ -313,6 +335,7 @@ internal partial class NavigationRegionViewModel : ObservableObject
         BackCommand.NotifyCanExecuteChanged();
 
         OnPropertyChanged(nameof(CurrentRegionViewModel));
+        OnPropertyChanged(nameof(HeaderRegionViewModel));
         OnPropertyChanged(nameof(PrimaryPageAction));
         OnPropertyChanged(nameof(SecondaryPageAction));
     }
@@ -350,12 +373,14 @@ internal partial class NavigationRegionViewModel : ObservableObject
 
         BackView.Content = root;
         OnPropertyChanged(nameof(BackView));
+        ShowHeaderOf(root.BindingContext as ViewModelBase);
 
         await Task.WhenAll([_frameTransition.AnimateBackShowAsync(BackView), _frameTransition.AnimateBackHideAsync(FrontView)]);
 
         BackView.Content = null;
         FrontView.Content = root;
         FrontView.IsVisible = true;
+        _arrivingHeader = null;
 
         InvokeOnAppearing(NavigationDirection.Back);
 
@@ -363,6 +388,7 @@ internal partial class NavigationRegionViewModel : ObservableObject
         BackCommand.NotifyCanExecuteChanged();
 
         OnPropertyChanged(nameof(CurrentRegionViewModel));
+        OnPropertyChanged(nameof(HeaderRegionViewModel));
         OnPropertyChanged(nameof(PrimaryPageAction));
         OnPropertyChanged(nameof(SecondaryPageAction));
     }
@@ -457,6 +483,7 @@ internal partial class NavigationRegionViewModel : ObservableObject
         // Pre-notify so NavigationRegion applies safe-area padding for the root page
         // before the set-root animation plays.
         OnPropertyChanged(nameof(CurrentRegionViewModel));
+        OnPropertyChanged(nameof(HeaderRegionViewModel));
         OnPropertyChanged(nameof(PrimaryPageAction));
         OnPropertyChanged(nameof(SecondaryPageAction));
 
@@ -468,6 +495,7 @@ internal partial class NavigationRegionViewModel : ObservableObject
         BackCommand.NotifyCanExecuteChanged();
 
         OnPropertyChanged(nameof(CurrentRegionViewModel));
+        OnPropertyChanged(nameof(HeaderRegionViewModel));
         OnPropertyChanged(nameof(PrimaryPageAction));
         OnPropertyChanged(nameof(SecondaryPageAction));
     }

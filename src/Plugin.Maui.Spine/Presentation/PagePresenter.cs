@@ -587,8 +587,12 @@ internal sealed class TitleSlotLayout : Layout, ILayoutManager
         // middle of the bar, so an action that grows or shrinks beside it (even inside an
         // animation) does not change its frame, and it is truncated rather than pushed aside
         // when it no longer fits.
+        // Before the title is measured its natural width is 0: a frame of that width would be a
+        // point that the title then grows out of.
         var (left, width) = isCentred
-            ? CentredFrame(bounds.Width, Math.Min(_natural.Width, centredRoom))
+            ? _natural.Width > 0
+                ? CentredFrame(bounds.Width, Math.Min(_natural.Width, centredRoom))
+                : (mirrored, centredRoom)
             : (Slots.Left, bounds.Width - Slots.HorizontalThickness);
 
         child.Arrange(new Rect(bounds.X + left, bounds.Y, Math.Max(0, width), bounds.Height));

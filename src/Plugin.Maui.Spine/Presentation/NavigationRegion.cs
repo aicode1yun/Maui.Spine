@@ -281,16 +281,22 @@ public sealed partial class NavigationRegion : ContentView
 
     private void OnViewModelPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
     {
+        // The header follows the page it shows, which while going back is already the page coming back.
+        if (e.PropertyName == nameof(ViewModel.HeaderRegionViewModel))
+        {
+            var header = ViewModel.HeaderRegionViewModel;
+            _frameActionView?.SetBinding(HeaderBarView.IsHeaderBarVisibleProperty, new Binding("IsHeaderBarVisible", source: header));
+            _frameActionView?.SetBinding(HeaderBarView.IsBackButtonVisibleProperty, new Binding("IsBackButtonVisible", source: header));
+            _frameActionView?.SetBinding(HeaderBarView.IsTitleBarVisibleProperty, new Binding("IsTitleBarVisible", source: header));
+            _frameActionView?.SetBinding(HeaderBarView.ForegroundProperty, new Binding(nameof(ViewModelBase.HeaderBarForeground), source: header));
+        }
+
         if (e.PropertyName == nameof(ViewModel.CurrentRegionViewModel))
         {
             // Mac Catalyst: container margin depends on the new page's SafeAreaEdges +
             // IsHeaderBarVisible, so recalculate whenever the page changes.
             UpdateContainerMargin();
 
-            _frameActionView?.SetBinding(HeaderBarView.IsHeaderBarVisibleProperty, new Binding("IsHeaderBarVisible", source: ViewModel.CurrentRegionViewModel));
-            _frameActionView?.SetBinding(HeaderBarView.IsBackButtonVisibleProperty, new Binding("IsBackButtonVisible", source: ViewModel.CurrentRegionViewModel));
-            _frameActionView?.SetBinding(HeaderBarView.IsTitleBarVisibleProperty, new Binding("IsTitleBarVisible", source: ViewModel.CurrentRegionViewModel));
-            _frameActionView?.SetBinding(HeaderBarView.ForegroundProperty, new Binding(nameof(ViewModelBase.HeaderBarForeground), source: ViewModel.CurrentRegionViewModel));
 
             // A sheet keeps the status bar of the page under it.
             if (ViewModel.Presentation is NavigationPresentation.Region && ViewModel.CurrentRegionViewModel is { } shown)

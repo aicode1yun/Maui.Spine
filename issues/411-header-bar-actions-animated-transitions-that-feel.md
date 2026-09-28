@@ -26,6 +26,11 @@ Path 2, on iOS 26 with glass: one glass button whose content and frame change in
 - A centred title keeps its natural width in the middle of the bar (`TitleSlotLayout`), truncated only when it does not fit. It used to fill the room between the actions and fall back to the left when it did not fit, so it jumped when Back became Cancel, and animating its frame inside the spring made UIKit redraw it off centre.
 - Glass text capsules drop the plain text button's 12 pt inset, so they line up with the page margin like the icon circles.
 
+- Removal is quicker than arrival (`RemovalDuration`, half of `TransitionDuration`), and the whole bar fades without scaling when a page hides it.
+- Going back, the header switches to the returning page at the start of the transition (`NavigationRegionViewModel.HeaderRegionViewModel`), as a navigation bar does; the leaving page's actions used to stay about 250 ms over the page underneath, until the transition had finished.
+- The morph lays out only the header bar inside its spring, not the window, so the arriving page and its title are not pulled into the animation.
+- A centred title that has not been measured yet keeps the room between the actions instead of a zero-width frame it would grow out of.
+
 Verified in the iOS 26.4 simulator from screen recordings: Back ↔ Cancel crosses over without a gap, Filter hidden lets Bell take its place, and it comes back. Android built only.
 
 ## Decisions

@@ -175,7 +175,8 @@ internal class HeaderBarView : Microsoft.Maui.Controls.ContentView
         // would still swallow touches meant for whatever the page draws underneath (a hero header).
         InputTransparent = !isVisible;
 
-        _ = AnimateVisibility(Content, isVisible);
+        // The whole bar only fades: shrinking every item at once reads as the bar sinking away.
+        _ = AnimateVisibility(Content, isVisible, scales: false);
     }
 
     void SetIsBackButtonVisible(bool isVisible)
@@ -454,14 +455,14 @@ internal class HeaderBarView : Microsoft.Maui.Controls.ContentView
 
     // A navigation bar item fades and grows in, and fades and shrinks out. Liquid Glass cannot fade
     // through its alpha (it turns flat grey), so glass materializes and dissolves instead.
-    async Task AnimateVisibility(View? target, bool show)
+    async Task AnimateVisibility(View? target, bool show, bool scales = true)
     {
         if (target is null)
             return;
 
         var version = _visibilityVersions[target] = _visibilityVersions.GetValueOrDefault(target) + 1;
         var duration = PageActionView.TransitionDuration;
-        var scale = PageActionView.TransitionScale;
+        var scale = scales ? PageActionView.TransitionScale : 1;
         target.AbortAnimation("Visibility");
 
         if (show)
@@ -514,7 +515,9 @@ internal class HeaderBarView : Microsoft.Maui.Controls.ContentView
         }
         else
         {
-            var outDuration = duration * 7 / 10;
+            // Leaving is quicker than arriving, as with a navigation bar's items: gone before the
+            // page that took them has slid away.
+            var outDuration = PageActionView.RemovalDuration;
 
 #if IOS || MACCATALYST
             if (GlassAppearance.Applies(target))
