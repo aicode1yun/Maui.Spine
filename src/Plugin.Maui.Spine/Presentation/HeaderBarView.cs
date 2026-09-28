@@ -257,12 +257,7 @@ internal class HeaderBarView : Microsoft.Maui.Controls.ContentView
         return SideMargin + IconButtonWidth;
     }
 
-    void UpdateActionWidth(PageActionView pageActionView)
-    {
-        pageActionView.WidthRequest = string.IsNullOrEmpty(pageActionView?.Action?.Svg)
-            ? HeaderBarConstants.Auto // Allow to size to text content
-            : IconButtonWidth;
-    }
+    void UpdateActionWidth(PageActionView pageActionView) => pageActionView.IconWidth = IconButtonWidth;
 
     // Glass buttons are 44-point circles whose edge lines up with the page's content, as a
     // UINavigationBar's do; without glass the older, platform-specific slots stay.
@@ -401,7 +396,7 @@ internal class HeaderBarView : Microsoft.Maui.Controls.ContentView
             HorizontalOptions = LayoutOptions.Start,
             VerticalOptions = LayoutOptions.Center,
             HeightRequest = HeaderBarConstants.Height,
-            WidthRequest = HeaderBarConstants.SheetButtonWidth,
+            IconWidth = HeaderBarConstants.SheetButtonWidth,
             Padding = HeaderBarConstants.SheetButtonPadding,
             Opacity = 0,
             IsVisible = false
@@ -412,7 +407,7 @@ internal class HeaderBarView : Microsoft.Maui.Controls.ContentView
             HorizontalOptions = LayoutOptions.End,
             VerticalOptions = LayoutOptions.Center,
             HeightRequest = HeaderBarConstants.Height,
-            WidthRequest = HeaderBarConstants.SheetButtonWidth,
+            IconWidth = HeaderBarConstants.SheetButtonWidth,
             Padding = HeaderBarConstants.SheetButtonPadding,
             Opacity = 0,
             IsVisible = false
@@ -455,21 +450,39 @@ internal class HeaderBarView : Microsoft.Maui.Controls.ContentView
         UpdatePresentationSizes();
     }
 
+    // A navigation bar item fades and grows in, and fades and shrinks out.
     async Task AnimateVisibility(View? target, bool show)
     {
         if (target is null)
             return;
 
+        var duration = PageActionView.TransitionDuration;
+        var scale = PageActionView.TransitionScale;
+        target.AbortAnimation("Visibility");
+
         if (show)
         {
+            if (!target.IsVisible || target.Opacity == 0)
+                target.Scale = scale;
+
             target.IsVisible = true;
             PublishActionSlots();
-            await target.FadeToAsync(1, HeaderBarConstants.FadeInDuration, Easing.SinIn);
+            await Task.WhenAll(
+                target.FadeToAsync(1, duration, PageActionView.TransitionEasing),
+                target.ScaleToAsync(1, duration, PageActionView.TransitionEasing));
         }
         else
         {
-            await target.FadeToAsync(0, HeaderBarConstants.FadeOutDuration, Easing.SinOut);
+            await Task.WhenAll(
+                target.FadeToAsync(0, duration * 7 / 10, PageActionView.TransitionEasing),
+                target.ScaleToAsync(scale, duration * 7 / 10, PageActionView.TransitionEasing));
+
+            // Shown again while it faded out: leave it.
+            if (target.Opacity > 0)
+                return;
+
             target.IsVisible = false;
+            target.Scale = 1;
             PublishActionSlots();
         }
     }
