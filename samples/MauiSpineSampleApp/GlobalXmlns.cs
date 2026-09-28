@@ -125,3 +125,7 @@
 [assembly: XmlnsDefinition(
     "http://schemas.microsoft.com/dotnet/maui/global",
     "MauiSpineSampleApp.Pages.Rows")]
+
+[assembly: XmlnsDefinition(
+    "http://schemas.microsoft.com/dotnet/maui/global",
+    "MauiSpineSampleApp.Pages.State")]

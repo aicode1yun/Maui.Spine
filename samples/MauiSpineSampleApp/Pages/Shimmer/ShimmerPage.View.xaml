@@ -73,7 +73,7 @@
         </Example>
 
         <Example Title="A list that does not jump"
-                 Summary="Give the list a few empty rows while it loads and the skeleton draws them in the row template, so the page has its final height before the data arrives."
+                 Summary="Give the list a few empty rows while it loads and the skeleton draws them in the row template, so the page has its final height before the data arrives. A TaskState with a placeholder does this for you: see Loading states."
                  OptionsCommand="{Binding ShowSkeletonOptionsCommand}">
             <VerticalStackLayout Spacing="12">
                 <Button Text="Reload" Command="{Binding ReloadCommand}" HorizontalOptions="Start" />
