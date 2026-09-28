@@ -337,6 +337,7 @@ private Task RefreshAsync(CancellationToken ct) => _scores.LoadAsync(PageLifetim
 | `PageLifetime` | a new token when the page appears | cancelled when the page disappears (not on backgrounding) |
 | `Poll(interval, work)` | when the page appears, and again at once on activation | while the page is hidden or the window is deactivated |
 | `WhileVisible(...)` | subscribes when the page appears | unsubscribes when the page disappears |
+| `Load(load, isEmpty, placeholder)` | loads when the page appears with nothing to show | cancelled when the page disappears; see [Loading states](loading-states.md) |
 
 Register them once, from the constructor or `OnAppearingAsync`; a registration lives as long as the view model, so a singleton tab page polls every time it is shown. Spine's own service events (`ILiveActivityService.ActivitiesChanged`, `IPushNotificationService.RegistrationChanged`, `IWidgetService.PushTokenChanged`) are raised on the UI thread.
 

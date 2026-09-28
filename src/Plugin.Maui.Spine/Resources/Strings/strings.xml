@@ -2,4 +2,8 @@
 <strings>
   <s key="Spine.Header.Back">Back</s>
   <s key="Spine.Header.Close">Close</s>
+  <s key="Spine.State.Loading">Loading</s>
+  <s key="Spine.State.Error.Title">Couldn't load</s>
+  <s key="Spine.State.Error.Retry">Try again</s>
+  <s key="Spine.State.Empty.Title">Nothing here yet</s>
 </strings>

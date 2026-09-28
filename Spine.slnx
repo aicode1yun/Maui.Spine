@@ -19,6 +19,7 @@
   <Project Path="src/Plugin.Maui.Spine.Widgets/Plugin.Maui.Spine.Widgets.csproj" />
   <Project Path="src/Plugin.Maui.Spine.Server/Plugin.Maui.Spine.Server.csproj" />
   <Project Path="src/Plugin.Maui.Spine.PushNotifications/Plugin.Maui.Spine.PushNotifications.csproj" />
+  <Project Path="tests/Plugin.Maui.Spine.Core.Tests/Plugin.Maui.Spine.Core.Tests.csproj" />
   <Project Path="tests/Plugin.Maui.Spine.Server.Tests/Plugin.Maui.Spine.Server.Tests.csproj" />
   <Project Path="tests/Plugin.Maui.Spine.Svg.Tests/Plugin.Maui.Spine.Svg.Tests.csproj" />
 </Solution>

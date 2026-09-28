@@ -132,6 +132,15 @@
       <DependentUpon>HeaderBarPage.cs</DependentUpon>
     </Compile>
 
+    <MauiXaml Update="Pages\State\StatePage.View.xaml">
+      <DependentUpon>StatePage.cs</DependentUpon>
+      <Generator>MSBuild:Compile</Generator>
+    </MauiXaml>
+
+    <Compile Include="Pages\State\StatePage.ViewModel.cs">
+      <DependentUpon>StatePage.cs</DependentUpon>
+    </Compile>
+
     <MauiXaml Update="Pages\Lifetime\LifetimePage.View.xaml">
       <DependentUpon>LifetimePage.cs</DependentUpon>
       <Generator>MSBuild:Compile</Generator>
