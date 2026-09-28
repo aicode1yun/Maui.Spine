@@ -13,6 +13,20 @@
 		<PackageVersion Include="Svg.Skia" Version="3.6.0" />
 	</ItemGroup>
 
+	<!-- Plugin.Maui.Spine.Barcodes -->
+	<ItemGroup>
+		<PackageVersion Include="ZXing.Net" Version="0.16.11" />
+	</ItemGroup>
+
+	<!-- Plugin.Maui.Spine.Scanner, Android only -->
+	<ItemGroup>
+		<PackageVersion Include="Xamarin.AndroidX.Camera.Camera2" Version="1.6.2" />
+		<PackageVersion Include="Xamarin.AndroidX.Camera.Lifecycle" Version="1.6.2" />
+		<PackageVersion Include="Xamarin.AndroidX.Camera.View" Version="1.6.2" />
+		<PackageVersion Include="Xamarin.Google.MLKit.BarcodeScanning" Version="117.3.0.9" />
+		<PackageVersion Include="Xamarin.AndroidX.Collection.Ktx" Version="1.6.0.1" />
+	</ItemGroup>
+
 	<!-- Plugin.Maui.Spine.Server -->
 	<ItemGroup>
 		<PackageVersion Include="Azure.Data.Tables" Version="12.12.0" />

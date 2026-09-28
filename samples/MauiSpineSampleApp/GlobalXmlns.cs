@@ -40,6 +40,14 @@
 
 [assembly: XmlnsDefinition(
     "http://schemas.microsoft.com/dotnet/maui/global",
+    "Plugin.Maui.Spine.Barcodes", AssemblyName = "Plugin.Maui.Spine.Barcodes")]
+
+[assembly: XmlnsDefinition(
+    "http://schemas.microsoft.com/dotnet/maui/global",
+    "Plugin.Maui.Spine.Scanner", AssemblyName = "Plugin.Maui.Spine.Scanner")]
+
+[assembly: XmlnsDefinition(
+    "http://schemas.microsoft.com/dotnet/maui/global",
     "MauiSpineSampleApp.Pages")]
 
 [assembly: XmlnsDefinition(
@@ -129,6 +137,10 @@
 [assembly: XmlnsDefinition(
     "http://schemas.microsoft.com/dotnet/maui/global",
     "MauiSpineSampleApp.Pages.Rows")]
+
+[assembly: XmlnsDefinition(
+    "http://schemas.microsoft.com/dotnet/maui/global",
+    "MauiSpineSampleApp.Pages.Barcodes")]
 
 [assembly: XmlnsDefinition(
     "http://schemas.microsoft.com/dotnet/maui/global",

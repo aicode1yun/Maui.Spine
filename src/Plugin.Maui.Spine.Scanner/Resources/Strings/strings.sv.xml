@@ -1,0 +1,10 @@
+<strings culture="sv">
+  <s key="Spine.Scanner.Title">Skanna kod</s>
+  <s key="Spine.Scanner.Prompt">Rikta kameran mot koden</s>
+  <s key="Spine.Scanner.Torch">Ficklampa</s>
+  <s key="Spine.Scanner.PermissionDenied">Kameraåtkomst är avstängd. Slå på den i Inställningar för att skanna.</s>
+  <s key="Spine.Scanner.NoCamera">Enheten har ingen kamera att skanna med.</s>
+  <s key="Spine.Scanner.Interrupted">Kameran används av något annat.</s>
+  <s key="Spine.Scanner.NoFrames">Kameran slutade skicka bilder. Startar om den …</s>
+  <s key="Spine.Scanner.Failed">Kameran kunde inte starta.</s>
+</strings>

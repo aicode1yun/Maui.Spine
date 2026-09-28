@@ -27,6 +27,8 @@
 
 		<!-- App Identifier -->
 		<ApplicationId>se.cosmomedia.spineshowcase</ApplicationId>
+		<!-- Plugin.Maui.Spine.Scanner uses CameraX, which needs Android 6.0. -->
+		<SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android'">23.0</SupportedOSPlatformVersion>
 
 		<!-- Versions -->
 		<ApplicationDisplayVersion>1.0</ApplicationDisplayVersion>
@@ -279,6 +281,13 @@
       <DependentUpon>DataGridPage.cs</DependentUpon>
     </Compile>
 
+    <MauiXaml Update="Pages\Barcodes\BarcodesPage.View.xaml">
+      <DependentUpon>BarcodesPage.cs</DependentUpon>
+      <Generator>MSBuild:Compile</Generator>
+    </MauiXaml>
+    <Compile Include="Pages\Barcodes\BarcodesPage.ViewModel.cs">
+      <DependentUpon>BarcodesPage.cs</DependentUpon>
+    </Compile>
     <MauiXaml Update="Pages\Shimmer\ShimmerPage.View.xaml">
       <DependentUpon>ShimmerPage.cs</DependentUpon>
       <Generator>MSBuild:Compile</Generator>
@@ -399,6 +408,8 @@
   
   
 	<ItemGroup>
+		<ProjectReference Include="..\..\src\Plugin.Maui.Spine.Barcodes\Plugin.Maui.Spine.Barcodes.csproj" />
+		<ProjectReference Include="..\..\src\Plugin.Maui.Spine.Scanner\Plugin.Maui.Spine.Scanner.csproj" />
 		<ProjectReference Include="..\..\src\Plugin.Maui.Spine.Controls.AnimatedLabel\Plugin.Maui.Spine.Controls.AnimatedLabel.csproj" />
 		<ProjectReference Include="..\..\src\Plugin.Maui.Spine.Controls.Calendar\Plugin.Maui.Spine.Controls.Calendar.csproj" />
 		<ProjectReference Include="..\..\src\Plugin.Maui.Spine.Controls.DataGrid\Plugin.Maui.Spine.Controls.DataGrid.csproj" />

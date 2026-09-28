@@ -348,6 +348,28 @@ internal sealed class NavigationService : INavigationService
                 message.SelectedDetent = initial!;
         }
 
+        // The view model's choice for this navigation wins over the attribute
+        if (view.BindingContext is ISheetDetentsProvider provider)
+        {
+            if (provider.AllowedDetents is { Count: > 0 } allowed)
+            {
+                var parsed = allowed
+                    .Select(s => SheetDetent.TryParse(s, out var d) ? d : null)
+                    .Where(d => d is not null)
+                    .Select(d => d!)
+                    .ToArray();
+
+                if (parsed.Length > 0)
+                {
+                    message.AllowedDetents = parsed;
+                    message.SelectedDetent = parsed[0];
+                }
+            }
+
+            if (SheetDetent.TryParse(provider.InitialDetent, out var chosen))
+                message.SelectedDetent = chosen!;
+        }
+
         return message;
     }
 
