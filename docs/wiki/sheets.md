@@ -131,7 +131,8 @@ spacing of your own, on top of that.
 - **Confirming or cancelling the sheet** (save, done, cancel) is a page action in the sheet's header bar,
   never a button stack at the bottom of the sheet, so it is in the same place at every detent. Give it a
   role rather than text: a sheet confirms with a **checkmark** and cancels with an **X**, as the iOS 26
-  Human Interface Guidelines ask, and Spine draws the same on Android. The text you pass is what a screen
+  Human Interface Guidelines ask, and Spine draws the same on Android. The checkmark is prominent: glass tinted
+  with the accent on iOS 26, a filled accent circle elsewhere. The text you pass is what a screen
   reader says; without one it says the localised Done or Cancel.
 
   ```csharp

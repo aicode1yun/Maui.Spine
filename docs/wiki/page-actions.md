@@ -132,6 +132,10 @@ Guidelines; Spine uses the same on Android). `Role` picks the icon, the slot and
 | `Confirm` | `check.svg` (Spine's) | `Secondary` (right) | The action's text, or the localised `Spine.Header.Done` |
 | `Cancel` | `close.svg` (Spine's) | `Primary` (left) | The action's text, or the localised `Spine.Header.Cancel` |
 
+A `Confirm` is also drawn **prominently**, as the one action the screen leads with: on iOS 26 it is Liquid Glass
+tinted with the accent (`GlassStyle.Prominent`), elsewhere a filled accent circle (Material 3's filled icon
+button); the glyph takes the colour that reads on the accent.
+
 An explicit `Svg`, `Description` or `Placement` still wins. For a hand-made action:
 
 ```csharp
