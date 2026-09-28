@@ -6,16 +6,6 @@
     x:DataType="RowsPageViewModel"
     BackgroundColor="{AppThemeBinding Light={x:Static SpineSection.PageBackgroundLight}, Dark={x:Static SpineSection.PageBackgroundDark}}">
 
-    <ContentPage.Resources>
-        <Style x:Key="Card" TargetType="Border">
-            <Setter Property="StrokeThickness" Value="1" />
-            <Setter Property="Stroke" Value="{DynamicResource CardOutline}" />
-            <Setter Property="BackgroundColor" Value="{DynamicResource CardBackground}" />
-            <Setter Property="StrokeShape" Value="RoundRectangle 14" />
-            <Setter Property="Padding" Value="0" />
-        </Style>
-    </ContentPage.Resources>
-
     <SampleLayout Packages="Plugin.Maui.Spine.Controls.Rows, Plugin.Maui.Spine">
 
         <Example Title="A settings screen, row by row"
@@ -108,16 +98,16 @@
 
         <Example Title="Make any view a button"
                  Summary="A whole card as the tap target, with the same press feedback as a row. Semantic.Merge makes it one element to a screen reader.">
-            <Border Style="{StaticResource Card}" Padding="16,14"
-                    Tap.Command="{Binding TapCardCommand}" Semantic.Merge="True">
-                <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto" ColumnSpacing="12">
+            <SpineSection>
+                <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto" ColumnSpacing="12" Padding="16,14"
+                      Tap.Command="{Binding TapCardCommand}" Semantic.Merge="True">
                     <Label Text="A card is a button too" FontSize="17" FontAttributes="Bold" />
                     <Label Grid.Row="1" Text="Tap anywhere on the card."
                            FontSize="13" TextColor="Gray" />
                     <Label Grid.Column="1" Grid.RowSpan="2" Text="{Binding CardTaps}" FontSize="28"
                            VerticalOptions="Center" />
                 </Grid>
-            </Border>
+            </SpineSection>
             <Example.Code>
                 &lt;Border Tap.Command="{Binding OpenCommand}"
                         Tap.CommandParameter="{Binding .}"
@@ -129,13 +119,13 @@
 
         <Example Title="Read a layout as one element"
                  Summary="A screen reader stops on every label in a row of your own. Semantic.Merge reads the layout as one element: “Battery, 82 %”.">
-            <Border Style="{StaticResource Card}" Padding="16,12">
-                <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12" Semantic.Merge="True">
+            <SpineSection>
+                <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12" Padding="16,12" Semantic.Merge="True">
                     <Image SvgImageSource.Svg="energy.svg" WidthRequest="24" HeightRequest="24" VerticalOptions="Center" />
                     <Label Grid.Column="1" Text="Battery" VerticalOptions="Center" />
                     <Label Grid.Column="2" Text="82 %" VerticalOptions="Center" TextColor="Gray" />
                 </Grid>
-            </Border>
+            </SpineSection>
             <Example.Code>
                 &lt;Grid ColumnDefinitions="*,Auto"
                       Semantic.Merge="True"&gt;
