@@ -69,6 +69,6 @@ public sealed class SamplePushHandler(
         log.Note(message.IsLocal ? "opened (lokal)" : "opened", $"route: {message.Route ?? "none"}{(action is null ? "" : $", action: {action}")}");
 
         // The route is a string the app decides the meaning of; Spine only carries it.
-        if (message.Route is "log") await navigation.NavigateToAsync<Pages.LogPage>();
+        if (message.Route is "log") await navigation.ShowAsync<Pages.LogPage>();
     }
 }

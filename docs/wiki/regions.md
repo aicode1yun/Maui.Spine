@@ -66,6 +66,24 @@ public partial class MainPageViewModel(INavigationService _navigation) : ViewMod
 
 Spine automatically decides the presentation style — if the target page carries `[NavigableRegion]` it will be pushed onto the stack; if it carries `[NavigableSheet]` it will be presented as a bottom sheet.
 
+### Showing a page from outside the app
+
+`NavigateToAsync` always pushes: tapping the same shortcut twice would stack two copies. For every way into the app from outside it (app shortcuts, widget and notification taps, links), use `ShowAsync`:
+
+```csharp
+await _navigation.ShowAsync<SettingsPage>();
+await _navigation.ShowAsync<ScanPage, OpenScanner>(new OpenScanner());
+```
+
+| Where the page is | What `ShowAsync` does |
+|---|---|
+| In front | Nothing moves; a parameter still reaches `OnNavigationParameterAsync` |
+| Further down the region's stack | Closes an open sheet, hands over the parameter, and goes back to it in one back transition |
+| Not on the stack | Closes an open sheet and pushes it, as `NavigateToAsync` |
+| A `[NavigableTab]` page | Switches to the tab |
+
+A region page is looked for in the current region (with tabs, the selected tab's), a sheet page in the open sheet. A page already in front gets its parameter but no `OnAppearingAsync`, since nothing appeared, so act on the parameter in `OnNavigationParameterAsync` when it has to do something. The guard of the page in front (`OnBackRequestedAsync`) still applies to going back.
+
 ---
 
 ## Navigating back

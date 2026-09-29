@@ -56,8 +56,8 @@ public sealed class ScoreWidget(LiveScore _score, IWidgetService _widgets, INavi
 
     /// <summary>The Live Activity's link carries <c>from=activity</c>; the widget's carries nothing.</summary>
     public Task OnWidgetOpenedAsync(WidgetLink link) => link.Url.Query.Contains("from=activity", StringComparison.Ordinal)
-        ? _navigation.NavigateToAsync<LiveActivitiesPage>()
-        : _navigation.NavigateToAsync<WidgetsPage>();
+        ? _navigation.ShowAsync<LiveActivitiesPage>()
+        : _navigation.ShowAsync<WidgetsPage>();
 
     private static Dictionary<WidgetFamily, WidgetNode> Trees(Game game, DateTimeOffset now)
     {

@@ -74,7 +74,7 @@ public sealed class SampleWidget(IWidgetService _widgets, INavigationService _na
         return Task.FromResult(timeline);
     }
 
-    public Task OnWidgetOpenedAsync(WidgetLink link) => _navigation.NavigateToAsync<WidgetsPage>();
+    public Task OnWidgetOpenedAsync(WidgetLink link) => _navigation.ShowAsync<WidgetsPage>();
 
     public Task OnActionAsync(WidgetAction action)
     {

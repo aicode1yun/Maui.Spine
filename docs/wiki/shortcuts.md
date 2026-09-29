@@ -36,8 +36,8 @@ public class ShortcutHandler(INavigationService _navigation) : IShortcutHandler
     public Task InvokeAsync(string shortcutId) =>
         shortcutId switch
         {
-            "settings" => _navigation.NavigateToAsync<SettingsPage>(),
-            "new-item"  => _navigation.NavigateToAsync<NewItemPage>(),
+            "settings" => _navigation.ShowAsync<SettingsPage>(),
+            "new-item"  => _navigation.ShowAsync<NewItemPage>(),
             _           => Task.CompletedTask
         };
 }
@@ -138,4 +138,4 @@ A shortcut declared with `showInTray: false` stays out of the menu but keeps its
 
 Because `Configure` is called before the DI container is ready, it must not access services or the database. Use only literal values for `id` and `title`.
 
-Runtime navigation (e.g. `_navigation.NavigateToAsync<...>()`) belongs in `InvokeAsync`, which is resolved from DI and has full access to injected services.
+Runtime navigation belongs in `InvokeAsync`, which is resolved from DI and has full access to injected services. Use `ShowAsync` rather than `NavigateToAsync` there: a shortcut used twice, or while its page is already open, then goes back to that page instead of stacking another copy (see [Showing a page from outside the app](regions.md#showing-a-page-from-outside-the-app)).
