@@ -363,8 +363,20 @@ public sealed class AnimatedLabel : SKCanvasView
         if (Width > 0.5)
         {
             var refinedScale = info.Width / (float)Width;
-            if (refinedScale > 0.01f)
+
+            // The text image is rasterised at _scale, so a new density (the window moved to a
+            // screen with another scale factor) needs a new image, not just a new scale.
+            // The pixel-width tolerance ignores rounding of info.Width.
+            if (refinedScale > 0.01f && Math.Abs(refinedScale - _scale) * Width > 1d)
+            {
                 _scale = refinedScale;
+                RebuildAndRecalculate();
+                ClampScrollStateAfterOverflowChange();
+                UpdateAnimationRegistration();
+
+                if (_textImage is null)
+                    return;
+            }
         }
 
         float scrollPx = _scrollOffsetDp * _scale;
