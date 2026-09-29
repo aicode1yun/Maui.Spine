@@ -18,6 +18,8 @@
 
 	<ItemGroup>
 		<None Include="build\**" Pack="true" PackagePath="build\;buildTransitive\" />
+		<!-- The SVGs as files too, for shortcut icons rendered at build time; see build\Plugin.Maui.Spine.Svg.Icons.props. -->
+		<None Include="Images\*.svg" Pack="true" PackagePath="build\Images\;buildTransitive\Images\" />
 	</ItemGroup>
 
 </Project>
