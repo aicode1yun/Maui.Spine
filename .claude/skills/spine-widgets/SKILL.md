@@ -7,7 +7,7 @@ You are building a widget or a Live Activity with **Plugin.Maui.Spine.Widgets**.
 
 Check `/spine-setup` §7 first: the package (registered by `UseSpine`; `UseSpineWidgets(o => …)` only for options), the `<SpineWidget>` items, and on iOS the App Group entitlement.
 
-Platforms: iOS 17+ (home screen, Lock Screen, Live Activities) and Android 5+ (home screen; Live Activities on Android 16+ as Live Updates). Mac Catalyst and Windows get no-op services — check `IWidgetService.IsSupported`.
+Platforms: iOS 17+ (home screen, Lock Screen, Live Activities), Mac Catalyst (the same widgets on the desktop, no Live Activities) and Android 5+ (home screen; Live Activities on Android 16+ as Live Updates). Windows gets no-op services — check `IWidgetService.IsSupported`.
 
 ---
 
@@ -176,6 +176,7 @@ await activity.EndAsync();
 ## 7. Build and test
 
 - iOS: macOS with Xcode; the extension compiles with `swiftc` in the iOS build (simulator builds sign ad hoc by themselves). Device builds need a second App ID (`<ApplicationId>.SpineWidgets`) and profile, App Group on both.
+- Mac Catalyst: macOS 15 blocks a `group.…` App Group without a profile, and any group for an ad hoc signed build — the widget stays empty ("Data Access Blocked"). Set `SpineWidgetsAppGroup` for maccatalyst to `<TeamID>.<name>`, put the same group (and `com.apple.security.app-sandbox`) in `Platforms/MacCatalyst/Entitlements.plist`, and sign with `CodesignKey` (a personal one in `<project>.csproj.user`). The build warns about both. Add the widget from the desktop: right-click → Edit Widgets…
 - Android: nothing extra; Live Activities need Android 16.
 - Launch the app once after install so it writes the first timeline, then add the widget: long-press the home screen → Edit → Add Widget. Lock Screen: wake with Home, long-press the wallpaper → Customize. `rm -rf obj/spinewidgets` when the extension seems stale.
 - Test timeline turns with entries two minutes apart and the app terminated.

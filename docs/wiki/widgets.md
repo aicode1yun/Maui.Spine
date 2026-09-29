@@ -21,7 +21,7 @@ The reasoning behind the design — why C# cannot run inside a WidgetKit extensi
 | Platform | Home-screen widget | Live Activity |
 |---|---|---|
 | iOS 17+ | ✅ WidgetKit extension built at compile time | ✅ Lock Screen and Dynamic Island (all regions) |
-| Mac Catalyst | ❌ Not built: the extension step runs for iOS only, and the services are no-ops | ⚠️ Nothing of its own; macOS 26 mirrors an iPhone activity by itself |
+| Mac Catalyst 14+ (iOS 17 API) | ✅ The same WidgetKit extension, built for the Mac: widgets on the desktop and in Notification Center. Needs a Team ID App Group and a signed build, see [Mac Catalyst](#mac-catalyst) | ❌ ActivityKit does not exist on the Mac: `AreActivitiesEnabled` is `false`, `StartAsync` returns `null`. macOS 26 mirrors an iPhone activity by itself |
 | Android 5+ | ✅ `AppWidgetProvider` receivers drawn from the tree with `RemoteViews`; size- and theme-adaptive from Android 12 | ✅ Android 16+ as a **Live Update** (promoted notification); `StartAsync` returns `null` below |
 | Windows | ❌ Planned, MSIX-packaged apps only | — |
 
@@ -144,11 +144,42 @@ Spine copies the extension's profile into the `.appex` before signing. The .NET 
 
 Changing capabilities on an App ID invalidates every profile that includes it — the portal says so when you save. Regenerate and download them again, or the build picks up an invalid one.
 
+### Mac Catalyst
+
+The same `<SpineWidget>` items build a widget extension for the Mac: the extension and the bridge compile against the macOS SDK for Mac Catalyst, and the widgets appear in the widget gallery (right-click the desktop, **Edit Widgets…**). Timelines, pictures, icons, buttons and links work as on iOS. There is no Live Activity.
+
+macOS 15 guards App Group containers more strictly than iOS. A sandboxed app and its extension may use a group only if it is theirs:
+
+- a `group.…` id needs a **provisioning profile** for the app and for the extension that lists the group;
+- a `<TeamID>.…` id needs no profile, only a signature from that team.
+
+Without either, macOS blocks the container ("Data Access Blocked") and the widget stays empty. The simplest setup uses the Team ID form on the Mac and keeps `group.…` for iOS:
+
+```xml
+<PropertyGroup Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'maccatalyst'">
+  <SpineWidgetsAppGroup>ABCDE12345.com.companyname.myapp</SpineWidgetsAppGroup>
+  <CodesignKey>Apple Development: Your Name (XXXXXXXXXX)</CodesignKey>
+</PropertyGroup>
+```
+
+```xml
+<!-- Platforms/MacCatalyst/Entitlements.plist; the app is sandboxed on the Mac -->
+<key>com.apple.security.app-sandbox</key><true/>
+<key>com.apple.security.application-groups</key>
+<array><string>ABCDE12345.com.companyname.myapp</string></array>
+```
+
+- The extension gets `com.apple.security.app-sandbox` and the group by itself, and is re-signed with the app's identity.
+- The build warns when a Mac Catalyst build uses a `group.…` id without `CodesignProvision`, and when it is signed ad hoc, since both leave the widget empty.
+- Keep a personal `CodesignKey` out of the repository in `<project>.csproj.user`, which MSBuild imports by itself; the sample does that.
+- A Release build is universal (arm64 and x64): each architecture's bundle is built and the SDK merges them. Spine gives both the same App Intents metadata before the merge, since the tool that writes it orders it differently on every run, and signs the merged extension, which the SDK does not.
+- Mac Catalyst debug builds register the extension when the app is opened. A build moved or rebuilt elsewhere may leave an old copy registered with the same bundle id; `pluginkit -m -A -D -v | grep <bundle id>` lists them.
+
 ### Build requirements
 
-- **macOS with Xcode for iOS.** The extension and the bridge are compiled with `swiftc` during the iOS build (a few seconds); everything else is untouched. The Android build needs nothing beyond the SDK and runs on any host.
+- **macOS with Xcode for iOS and Mac Catalyst.** The extension and the bridge are compiled with `swiftc` during the iOS and Mac Catalyst builds (a few seconds); everything else is untouched. The Android build needs nothing beyond the SDK and runs on any host.
 - **A real App Group in the provisioning profile** for device and TestFlight builds, on both App IDs — see [above](#4-register-the-extension-in-the-developer-portal-for-device-builds). Simulator builds sign ad hoc and need no identity — the targets set `CodesignKey=-` themselves when none is configured.
-- Only iOS **inner** builds (those with a `RuntimeIdentifier`) run the native step. Design-time builds, other platforms and Windows hosts skip it entirely.
+- Only iOS and Mac Catalyst **inner** builds (those with a `RuntimeIdentifier`) run the native step. Design-time builds, other platforms and Windows hosts skip it entirely.
 - **Release builds carry the widgets' debug symbols.** The extension and the bridge are compiled with debug info, stripped, and their dSYMs — `SpineWidgets.appex.dSYM` and `SpineWidgetBridge.framework.dSYM` — land beside the app's in the archive, so a crash in a widget is symbolicated like one in the app.
 
 ---
@@ -909,7 +940,8 @@ What Spine widgets cannot do, and what to do instead.
 | Start a Live Activity from the background on iOS | ActivityKit starts one only in the foreground | Push-to-start from a server |
 | Keep a Live Activity longer than eight hours on iOS | The system ends it | Start a new one; see [Keeping one on screen around the clock](#keeping-one-on-screen-around-the-clock) |
 | Color a Live Update on Android | Android does not promote a colorized notification | Leave `Background` to iOS |
-| Widgets on Mac Catalyst and Windows | Not implemented | The services are no-ops there; check `IsSupported` |
+| Widgets on Windows | Not implemented | The services are no-ops there; check `IsSupported` |
+| A Live Activity on the Mac | ActivityKit does not exist on macOS | A widget, or a notification |
 
 ---
 

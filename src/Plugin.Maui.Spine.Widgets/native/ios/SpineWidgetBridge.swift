@@ -1,9 +1,13 @@
 import Foundation
 import WidgetKit
+#if !targetEnvironment(macCatalyst)
 import ActivityKit
+#endif
 
 // The one door from .NET into WidgetKit and ActivityKit, which have no Objective-C surface.
 // Every member is @objc so the app reaches it with objc_msgSend; no binding project needed.
+// ActivityKit does not exist on Mac Catalyst: there the activity members answer "none" and do
+// nothing, so the app calls the same selectors on every platform.
 @objc(SpineWidgetBridge)
 public final class SpineWidgetBridge: NSObject {
 
@@ -19,6 +23,7 @@ public final class SpineWidgetBridge: NSObject {
     // post the same dismissal twice.
     private static var observed: Set<String> = []
 
+#if !targetEnvironment(macCatalyst)
     /// Starts listening for the push-to-start token and the tokens of activities already running.
     /// Call it before `observeActivities`, which is what starts the per-activity token listeners.
     @objc public static func enablePushTokens() {
@@ -43,6 +48,11 @@ public final class SpineWidgetBridge: NSObject {
             for await activity in Activity<SpineActivityAttributes>.activityUpdates { observe(activity) }
         }
     }
+
+#else
+    @objc public static func enablePushTokens() {}
+    @objc public static func observeActivities() {}
+#endif
 
     @objc public static func pushToStartToken() -> String? {
         tokenLock.withLock { startToken }
@@ -81,6 +91,7 @@ public final class SpineWidgetBridge: NSObject {
         CFNotificationCenterPostNotification(CFNotificationCenterGetDarwinNotifyCenter(), name, nil, nil, true)
     }
 
+#if !targetEnvironment(macCatalyst)
     private static func observe(_ activity: Activity<SpineActivityAttributes>) {
         guard tokenLock.withLock({ observed.insert(activity.id).inserted }) else { return }
         Task {
@@ -99,6 +110,8 @@ public final class SpineWidgetBridge: NSObject {
             }
         }
     }
+
+#endif
 
     private static func notifyActivityChanged() {
         let name = CFNotificationName("\(ActionLog.appGroup).spine-widgets.activity" as CFString)
@@ -122,6 +135,7 @@ public final class SpineWidgetBridge: NSObject {
         WidgetCenter.shared.reloadTimelines(ofKind: kind)
     }
 
+#if !targetEnvironment(macCatalyst)
     @objc public static func activitiesEnabled() -> Bool {
         ActivityAuthorizationInfo().areActivitiesEnabled
     }
@@ -173,6 +187,14 @@ public final class SpineWidgetBridge: NSObject {
         Dictionary(Activity<SpineActivityAttributes>.activities.map { ($0.id, $0.attributes.kind) },
                    uniquingKeysWith: { first, _ in first })
     }
+
+#else
+    @objc public static func activitiesEnabled() -> Bool { false }
+    @objc public static func startActivity(kind: String, json: String, staleAt: Double, channel: String?) -> String? { nil }
+    @objc public static func updateActivity(id: String, json: String, staleAt: Double) {}
+    @objc public static func endActivity(id: String) {}
+    @objc public static func activeActivities() -> [String: String] { [:] }
+#endif
 
     private static func staleDate(_ seconds: Double) -> Date? {
         seconds > 0 ? Date(timeIntervalSince1970: seconds) : nil
