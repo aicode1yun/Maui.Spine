@@ -1,3 +1,4 @@
+#if !targetEnvironment(macCatalyst)
 import ActivityKit
 
 // Compiled into both the widget extension and the bridge framework. ActivityKit matches the
@@ -12,3 +13,4 @@ public struct SpineActivityAttributes: ActivityAttributes {
     public var kind: String
     public init(kind: String) { self.kind = kind }
 }
+#endif

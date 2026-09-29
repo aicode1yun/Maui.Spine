@@ -39,9 +39,22 @@ done
 [[ ${#WIDGETS[@]} -le 9 ]] || { echo "spine-widgets-build.sh: WidgetKit bundles hold at most 10 widgets; Spine reserves one for Live Activities" >&2; exit 2; }
 
 case "$ARCH" in x64) ARCH="x86_64";; esac
+# Mac Catalyst compiles the same iOS sources against the macOS SDK, where the iOS frameworks it uses
+# (WidgetKit, SwiftUI as UIKit sees it, AppIntents) live under iOSSupport. Its bundles are macOS
+# bundles: Contents/, and a versioned framework. ActivityKit does not exist there, so neither does a
+# Live Activity.
+XCRUN_SDK="$SDK"
+CATALYST=false
+IOS_SUPPORT=()
 case "$SDK" in
   iphonesimulator) TARGET="$ARCH-apple-ios$MIN_OS-simulator"; PLATFORM="iPhoneSimulator";;
   iphoneos) TARGET="$ARCH-apple-ios$MIN_OS"; PLATFORM="iPhoneOS";;
+  maccatalyst)
+    TARGET="$ARCH-apple-ios$MIN_OS-macabi"; PLATFORM="MacOSX"; XCRUN_SDK="macosx"; CATALYST=true; LIVE="false"
+    MACOS_SDK="$(xcrun --sdk macosx --show-sdk-path)"
+    IOS_SUPPORT=(-Fsystem "$MACOS_SDK/System/iOSSupport/System/Library/Frameworks"
+                 -I "$MACOS_SDK/System/iOSSupport/usr/lib/swift"
+                 -L "$MACOS_SDK/System/iOSSupport/usr/lib/swift" -L "$MACOS_SDK/System/iOSSupport/usr/lib");;
   *) echo "spine-widgets-build.sh: unsupported sdk $SDK" >&2; exit 2;;
 esac
 # -g in Release too: it changes no optimization, only that DWARF is written and swiftc leaves a dSYM, which
@@ -56,15 +69,35 @@ EXT_MIN_OS="$MIN_OS"
 if [[ "$PUSH" == "true" && "${MIN_OS%%.*}" -lt 26 ]]; then EXT_MIN_OS="26.0"; fi
 case "$SDK" in
   iphonesimulator) EXT_TARGET="$ARCH-apple-ios$EXT_MIN_OS-simulator";;
+  maccatalyst) EXT_TARGET="$ARCH-apple-ios$EXT_MIN_OS-macabi";;
   *) EXT_TARGET="$ARCH-apple-ios$EXT_MIN_OS";;
 esac
 
 APPEX="$OUT/$NAME.appex"
 FRAMEWORK="$OUT/SpineWidgetBridge.framework"
+# Where each bundle keeps its binary, its Info.plist and its resources: flat on iOS; Contents/ for the
+# extension and Versions/A for the framework on the Mac, which codesign requires there.
+if [[ "$CATALYST" == "true" ]]; then
+  APPEX_INFO="$APPEX/Contents"; APPEX_BIN="$APPEX/Contents/MacOS"; APPEX_RES="$APPEX/Contents/Resources"
+  FRAMEWORK_BIN="$FRAMEWORK/Versions/A"; FRAMEWORK_INFO="$FRAMEWORK/Versions/A/Resources"
+  BRIDGE_INSTALL_NAME="@rpath/SpineWidgetBridge.framework/Versions/A/SpineWidgetBridge"
+  # PlugIns/<name>.appex/Contents/MacOS/<name> back to the app's Contents/Frameworks.
+  EXT_RPATH="@executable_path/../../../../Frameworks"
+else
+  APPEX_INFO="$APPEX"; APPEX_BIN="$APPEX"; APPEX_RES="$APPEX"
+  FRAMEWORK_BIN="$FRAMEWORK"; FRAMEWORK_INFO="$FRAMEWORK"
+  BRIDGE_INSTALL_NAME="@rpath/SpineWidgetBridge.framework/SpineWidgetBridge"
+  EXT_RPATH="@executable_path/../../Frameworks"
+fi
 APP="$OUT/app"
 GEN="$OUT/gen"
 rm -rf "$APPEX" "$FRAMEWORK" "$APP" "$GEN"
-mkdir -p "$APPEX" "$FRAMEWORK" "$APP" "$GEN"
+mkdir -p "$APPEX_INFO" "$APPEX_BIN" "$APPEX_RES" "$FRAMEWORK_BIN" "$FRAMEWORK_INFO" "$APP" "$GEN"
+if [[ "$CATALYST" == "true" ]]; then
+  ln -s A "$FRAMEWORK/Versions/Current"
+  ln -s Versions/Current/SpineWidgetBridge "$FRAMEWORK/SpineWidgetBridge"
+  ln -s Versions/Current/Resources "$FRAMEWORK/Resources"
+fi
 # Every path below is absolute; running from gen/ keeps whatever a tool writes beside itself — swiftc left
 # SpineWidgets-1.swiftmodule and its kin in the app project's directory in Release — in obj/.
 cd "$GEN"
@@ -73,7 +106,7 @@ json_escape() { printf '%s' "$1" | sed -e 's/\\/\\\\/g' -e 's/"/\\"/g'; }
 plist_escape() { printf '%s' "$1" | sed -e 's/&/\&amp;/g' -e 's/</\&lt;/g' -e 's/>/\&gt;/g'; }
 
 # --- Manifest read by the extension at runtime ------------------------------------------------
-MANIFEST="$APPEX/spine-widgets.json"
+MANIFEST="$APPEX_RES/spine-widgets.json"
 {
   printf '{"appGroup":"%s","widgets":[' "$(json_escape "$APP_GROUP")"
   first=1
@@ -122,8 +155,8 @@ BUNDLE="$GEN/SpineWidgetBundle.swift"
 # --- Toolchain facts for the DT keys App Store validation expects --------------------------------
 XCODE_VERSION="$(xcodebuild -version | awk 'NR==1 {print $2}')"
 XCODE_BUILD="$(xcodebuild -version | awk 'NR==2 {print $3}')"
-SDK_VERSION="$(xcrun --sdk "$SDK" --show-sdk-version)"
-SDK_BUILD="$(xcrun --sdk "$SDK" --show-sdk-build-version)"
+SDK_VERSION="$(xcrun --sdk "$XCRUN_SDK" --show-sdk-version)"
+SDK_BUILD="$(xcrun --sdk "$XCRUN_SDK" --show-sdk-build-version)"
 MACHINE_BUILD="$(sw_vers -buildVersion)"
 IFS='.' read -r xmaj xmin <<< "$XCODE_VERSION"
 DT_XCODE="$(printf '%02d%d0' "$xmaj" "${xmin:-0}")"
@@ -135,6 +168,20 @@ write_plist_header() {
 <plist version="1.0">
 <dict>
 PLIST
+}
+
+# The minimum system and device family: iOS says MinimumOSVersion; a Catalyst bundle says the macOS
+# version its iOS one corresponds to (iOS 17 is macOS 14), and the Mac idiom beside the iPad's.
+os_keys() {  # <ios version>
+  if [[ "$CATALYST" == "true" ]]; then
+    local major="${1%%.*}" rest=""
+    [[ "$1" == *.* ]] && rest=".${1#*.}"
+    printf '\t<key>LSMinimumSystemVersion</key><string>%s%s</string>\n' "$((major - 3))" "$rest"
+    printf '\t<key>UIDeviceFamily</key><array><integer>2</integer><integer>6</integer></array>'
+  else
+    printf '\t<key>MinimumOSVersion</key><string>%s</string>\n' "$1"
+    printf '\t<key>UIDeviceFamily</key><array><integer>1</integer><integer>2</integer></array>'
+  fi
 }
 
 # --- Extension Info.plist ------------------------------------------------------------------------
@@ -151,14 +198,13 @@ PLIST
 	<key>CFBundleShortVersionString</key><string>1.0</string>
 	<key>CFBundleVersion</key><string>1</string>
 	<key>CFBundleSupportedPlatforms</key><array><string>$PLATFORM</string></array>
-	<key>MinimumOSVersion</key><string>$EXT_MIN_OS</string>
+$(os_keys "$EXT_MIN_OS")
 	<key>SpineWidgetsAppGroup</key><string>$(plist_escape "$APP_GROUP")</string>
-	<key>UIDeviceFamily</key><array><integer>1</integer><integer>2</integer></array>
 	<key>DTCompiler</key><string>com.apple.compilers.llvm.clang.1_0</string>
-	<key>DTPlatformName</key><string>$SDK</string>
+	<key>DTPlatformName</key><string>$XCRUN_SDK</string>
 	<key>DTPlatformVersion</key><string>$SDK_VERSION</string>
 	<key>DTPlatformBuild</key><string>$SDK_BUILD</string>
-	<key>DTSDKName</key><string>$SDK$SDK_VERSION</string>
+	<key>DTSDKName</key><string>$XCRUN_SDK$SDK_VERSION</string>
 	<key>DTSDKBuild</key><string>$SDK_BUILD</string>
 	<key>DTXcode</key><string>$DT_XCODE</string>
 	<key>DTXcodeBuild</key><string>$XCODE_BUILD</string>
@@ -170,7 +216,7 @@ PLIST
 </dict>
 </plist>
 PLIST
-} > "$APPEX/Info.plist"
+} > "$APPEX_INFO/Info.plist"
 
 # --- Entitlements: the extension's own, and a host default when the app has none -----------------
 # The host app's entitlements are written by the shared step in Plugin.Maui.Spine; only the
@@ -182,6 +228,7 @@ write_entitlements() {  # <file> <include aps-environment>
 	<key>com.apple.security.application-groups</key>
 	<array><string>$APP_GROUP</string></array>
 $( [[ "$2" == "true" ]] && printf '\t<key>aps-environment</key><string>%s</string>' "$PUSH_ENV" )
+$( [[ "$CATALYST" == "true" ]] && printf '\t<key>com.apple.security.app-sandbox</key><true/>' )
 </dict>
 </plist>
 PLIST
@@ -248,7 +295,7 @@ app_intents_metadata() {  # <module> <output dir> <const values> <target> <min o
     --output "$output" \
     --toolchain-dir "$(xcode-select -p)/Toolchains/XcodeDefault.xctoolchain" \
     --module-name "$module" \
-    --sdk-root "$(xcrun --sdk "$SDK" --show-sdk-path)" \
+    --sdk-root "$(xcrun --sdk "$XCRUN_SDK" --show-sdk-path)" \
     --xcode-version "$XCODE_BUILD" \
     --platform-family iOS \
     --deployment-target "$minos" \
@@ -260,14 +307,14 @@ app_intents_metadata() {  # <module> <output dir> <const values> <target> <min o
 
 # --- Bridge framework ------------------------------------------------------------------------------
 BRIDGE_SOURCES=("$SOURCES/SpineWidgetShared.swift" "$SOURCES/SpineWidgetIntent.swift" "$SOURCES/SpineWidgetBridge.swift")
-xcrun -sdk "$SDK" swiftc \
-  -target "$TARGET" "${OPT[@]}" -parse-as-library \
+xcrun -sdk "$XCRUN_SDK" swiftc \
+  -target "$TARGET" "${OPT[@]}" ${IOS_SUPPORT[@]+"${IOS_SUPPORT[@]}"} -parse-as-library \
   -emit-library -module-name SpineWidgetBridge \
-  -framework WidgetKit -framework ActivityKit -framework AppIntents \
+  -framework WidgetKit $( [[ "$CATALYST" == "true" ]] || echo -framework ActivityKit ) -framework AppIntents \
   -wmo -emit-const-values-path "$GEN/SpineWidgetBridge.swiftconstvalues" \
   -Xfrontend -const-gather-protocols-file -Xfrontend "$GEN/protocols.json" \
-  -Xlinker -install_name -Xlinker @rpath/SpineWidgetBridge.framework/SpineWidgetBridge \
-  -o "$FRAMEWORK/SpineWidgetBridge" \
+  -Xlinker -install_name -Xlinker "$BRIDGE_INSTALL_NAME" \
+  -o "$FRAMEWORK_BIN/SpineWidgetBridge" \
   "${BRIDGE_SOURCES[@]}"
 app_intents_metadata SpineWidgetBridge "$APP" "$GEN/SpineWidgetBridge.swiftconstvalues" "$TARGET" "$MIN_OS" "${BRIDGE_SOURCES[@]}"
 {
@@ -281,38 +328,38 @@ app_intents_metadata SpineWidgetBridge "$APP" "$GEN/SpineWidgetBridge.swiftconst
 	<key>CFBundleShortVersionString</key><string>1.0</string>
 	<key>CFBundleVersion</key><string>1</string>
 	<key>CFBundleSupportedPlatforms</key><array><string>$PLATFORM</string></array>
-	<key>MinimumOSVersion</key><string>$MIN_OS</string>
+$(os_keys "$MIN_OS")
 </dict>
 </plist>
 PLIST
-} > "$FRAMEWORK/Info.plist"
+} > "$FRAMEWORK_INFO/Info.plist"
 
 # --- Widget extension --------------------------------------------------------------------------------
 EXT_SOURCES=("$SOURCES/SpineWidgetShared.swift" "$SOURCES/SpineWidgetIntent.swift" "$SOURCES/SpineWidgetRenderer.swift" "$SOURCES/SpineWidgetPush.swift" "$BUNDLE")
-xcrun -sdk "$SDK" swiftc \
-  -target "$EXT_TARGET" "${OPT[@]}" -parse-as-library -application-extension \
+xcrun -sdk "$XCRUN_SDK" swiftc \
+  -target "$EXT_TARGET" "${OPT[@]}" ${IOS_SUPPORT[@]+"${IOS_SUPPORT[@]}"} -parse-as-library -application-extension \
   -module-name "$NAME" \
-  -framework WidgetKit -framework SwiftUI -framework ActivityKit -framework AppIntents \
+  -framework WidgetKit -framework SwiftUI $( [[ "$CATALYST" == "true" ]] || echo -framework ActivityKit ) -framework AppIntents \
   -wmo -emit-const-values-path "$GEN/$NAME.swiftconstvalues" \
   -Xfrontend -const-gather-protocols-file -Xfrontend "$GEN/protocols.json" \
   -Xlinker -e -Xlinker _NSExtensionMain \
-  -Xlinker -rpath -Xlinker @executable_path/../../Frameworks \
+  -Xlinker -rpath -Xlinker "$EXT_RPATH" \
   ${SIMULATED_ENTITLEMENTS[@]+"${SIMULATED_ENTITLEMENTS[@]}"} \
-  -o "$APPEX/$NAME" \
+  -o "$APPEX_BIN/$NAME" \
   "${EXT_SOURCES[@]}"
 
-app_intents_metadata "$NAME" "$APPEX" "$GEN/$NAME.swiftconstvalues" "$EXT_TARGET" "$EXT_MIN_OS" "${EXT_SOURCES[@]}"
+app_intents_metadata "$NAME" "$APPEX_RES" "$GEN/$NAME.swiftconstvalues" "$EXT_TARGET" "$EXT_MIN_OS" "${EXT_SOURCES[@]}"
 
 # swiftc -g drops a dSYM inside each product. Each goes beside its bundle, named after it as Xcode names
 # them in an archive, and never stays in the bundles the SDK signs and ships; the targets copy them beside
 # the app's and into the archive.
 rm -rf "$OUT/dSYM" "$OUT/$NAME.appex.dSYM" "$OUT/SpineWidgetBridge.framework.dSYM"
-if [[ -d "$APPEX/$NAME.dSYM" ]]; then mv "$APPEX/$NAME.dSYM" "$OUT/$NAME.appex.dSYM"; fi
-if [[ -d "$FRAMEWORK/SpineWidgetBridge.dSYM" ]]; then mv "$FRAMEWORK/SpineWidgetBridge.dSYM" "$OUT/SpineWidgetBridge.framework.dSYM"; fi
+if [[ -d "$APPEX_BIN/$NAME.dSYM" ]]; then mv "$APPEX_BIN/$NAME.dSYM" "$OUT/$NAME.appex.dSYM"; fi
+if [[ -d "$FRAMEWORK_BIN/SpineWidgetBridge.dSYM" ]]; then mv "$FRAMEWORK_BIN/SpineWidgetBridge.dSYM" "$OUT/SpineWidgetBridge.framework.dSYM"; fi
 
 # The SDK strips the app in Release but neither the extension nor the bridge (seen with the 26.2 SDK), so
 # both are stripped here, before they are signed. Their debug info is in the dSYMs.
-if [[ "$CONFIG" == "Release" ]]; then xcrun strip -S -x "$APPEX/$NAME" "$FRAMEWORK/SpineWidgetBridge"; fi
+if [[ "$CONFIG" == "Release" ]]; then xcrun strip -S -x "$APPEX_BIN/$NAME" "$FRAMEWORK_BIN/SpineWidgetBridge"; fi
 
 # --- The extension's own provisioning profile ---------------------------------------------------
 # The .NET iOS SDK embeds a profile into the app bundle only (_EmbedProvisionProfile writes

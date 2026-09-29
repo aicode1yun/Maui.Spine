@@ -1,3 +1,5 @@
+#if IOS || MACCATALYST
+
 using Foundation;
 using Microsoft.Extensions.Logging;
 using ObjCRuntime;
@@ -249,3 +251,5 @@ internal sealed class WidgetPlatform : IWidgetPlatform
     [DllImport(Constants.ObjectiveCLibrary, EntryPoint = "objc_msgSend")]
     private static extern byte SendBool(IntPtr receiver, IntPtr selector);
 }
+
+#endif

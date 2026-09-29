@@ -454,7 +454,14 @@
 		<ProjectReference Include="..\..\src\Plugin.Maui.Spine.Svg\Plugin.Maui.Spine.Svg.csproj" />
 		<ProjectReference Include="..\..\src\Plugin.Maui.Spine.Svg.Icons\Plugin.Maui.Spine.Svg.Icons.csproj" />
 	</ItemGroup>
-	<!-- Widgets: the kinds below become a WidgetKit extension on iOS; the providers are the [Widget] classes in Widgets\. -->
+	<!-- Mac Catalyst widgets: macOS blocks a group.* App Group without a provisioning profile, so the Mac
+	     build uses the Team ID form, the same as Platforms/MacCatalyst/Entitlements.plist. The build must be
+	     signed with that team's certificate: set CodesignKey, e.g. in MauiSpineSampleApp.csproj.user. -->
+	<PropertyGroup Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'maccatalyst'">
+		<SpineWidgetsAppGroup>7F2CQZ9T84.se.cosmomedia.spineshowcase</SpineWidgetsAppGroup>
+	</PropertyGroup>
+
+	<!-- Widgets: the kinds below become a WidgetKit extension on iOS and Mac Catalyst; the providers are the [Widget] classes in Widgets\. -->
 	<ItemGroup>
 		<SpineWidget Include="sample" DisplayName="Spine sample" Description="A data-driven widget rendered from a tree the app builds." Families="Small,Medium" />
 		<SpineWidget Include="score" DisplayName="Live score" Description="The game while it is on, then the next game and the latest results." Families="Small,Medium,AccessoryCircular,AccessoryRectangular,AccessoryInline" />
