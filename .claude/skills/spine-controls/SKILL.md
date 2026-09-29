@@ -1,6 +1,6 @@
 ---
 name: spine-controls
-description: Use Spine's controls and visual extensions in a .NET MAUI app — HeroCollectionView (collapsing hero header), AnimatedLabel (marquee), Calendar (month calendar with year/decade pickers, week numbers and days marked from an external source), DataGrid (responsive row grid with layouts, sorting, grouping, swipe actions), Shimmer and Skeleton.IsActive (skeleton loading), SpineRow (settings and key/value rows), barcodes (Barcode.Encode and BarcodeView: QR, Data Matrix, fixed sizes) and camera scanning (BarcodeScannerView, a scan sheet, codes on a word clock), Tap.Command (press feedback on any view) and Semantic.Merge (one screen-reader element), embedded SVG icons with SvgImageSource and the Plugin.Maui.Spine.Svg.Icons set, Liquid Glass buttons with Glass.Style, material surfaces (glass, blur, tinted) with Material.Kind, and tray/window icons from SVG. Use when laying out a page with these controls or when an SVG does not resolve. Invoke as /spine-controls.
+description: Use Spine's controls and visual extensions in a .NET MAUI app — HeroCollectionView (collapsing hero header), AnimatedLabel (marquee, rolling numbers), Calendar (month calendar with year/decade pickers, week numbers and days marked from an external source), DataGrid (responsive row grid with layouts, sorting, grouping, swipe actions), Shimmer and Skeleton.IsActive (skeleton loading), SpineRow (settings and key/value rows), barcodes (Barcode.Encode and BarcodeView: QR, Data Matrix, fixed sizes) and camera scanning (BarcodeScannerView, a scan sheet, codes on a word clock), Tap.Command (press feedback on any view) and Semantic.Merge (one screen-reader element), embedded SVG icons with SvgImageSource and the Plugin.Maui.Spine.Svg.Icons set, Liquid Glass buttons with Glass.Style, material surfaces (glass, blur, tinted) with Material.Kind, and tray/window icons from SVG. Use when laying out a page with these controls or when an SVG does not resolve. Invoke as /spine-controls.
 ---
 
 You are using Spine's controls in an app built on **Plugin.Maui.Spine**. Each control is its own package with one registration call; SVGs resolve by short file name everywhere. Full docs: https://github.com/jonatansoderberg/Maui.Spine/tree/master/docs/wiki.
@@ -91,6 +91,12 @@ A SkiaSharp label that scrolls (marquee) or fades text that does not fit. `UseSp
 ```
 
 Give it a `HeightRequest`; it measures on the Skia canvas, not through MAUI's text layout.
+
+`Mode="RollingNumber"` is for a score, count or clock: on a `Text` change the characters that differ roll vertically (up when the number grows, down when it shrinks), the rest stand still, and the text does not marquee. `RollDurationMs` (350) sets the speed; Reduce Motion falls back to the fade.
+
+```xml
+<AnimatedLabel Text="{Binding Score}" Mode="RollingNumber" FontSize="28" />
+```
 
 ## Calendar (`Plugin.Maui.Spine.Controls.Calendar`)
 

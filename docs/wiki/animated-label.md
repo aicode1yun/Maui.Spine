@@ -4,7 +4,7 @@
 dotnet add package Plugin.Maui.Spine.Controls.AnimatedLabel
 ```
 
-`Plugin.Maui.Spine.Controls.AnimatedLabel` provides a SkiaSharp-based label control that automatically scrolls (marquee) when the text is wider than the available space. It includes configurable scroll speed, pause duration, fade effects, and text-change animations.
+`Plugin.Maui.Spine.Controls.AnimatedLabel` provides a SkiaSharp-based label control that automatically scrolls (marquee) when the text is wider than the available space. It includes configurable scroll speed, pause duration, fade effects, text-change animations, and numbers that roll like an odometer.
 
 <p align="center">
   <img src="images/animated-label-and-page-actions.png" width="260" alt="Two AnimatedLabels scrolling text that does not fit">
@@ -64,6 +64,24 @@ builder
 
 ---
 
+## Rolling numbers
+
+With `Mode="RollingNumber"` the label is meant for a score, a count or a clock. When `Text` changes, the characters that differ roll vertically, like an odometer, and the rest stand still.
+
+```xml
+<AnimatedLabel Text="{Binding Score}" Mode="RollingNumber" FontSize="28" />
+```
+
+- **Which characters roll.** Text before the number that has not changed stays put (`Score 9` → `Score 10`). The rest is lined up from the right, so the ones stay over the ones when the number gains a digit (`99` → `100`). A separator that is the same on both sides, such as the colon in `12:59` → `13:00`, stands still.
+- **Which way.** When the number grows, the old digits leave upwards and the new ones come in from below. When it shrinks, as in a countdown, they roll the other way. The number is read with the app's culture, so `1,5` is one and a half in Swedish. A text that is not a plain number, like a time, compares its digits in order.
+- **Width.** A column that moves sideways because the number gained or lost a digit glides to its new place during the roll.
+- **Reduce Motion.** With Reduce Motion (Remove animations on Android) turned on, the label fades as in `Marquee` mode, or changes at once if `EnableFadeOnTextChange` is `False`.
+- **No marquee.** In this mode the text does not scroll sideways, since numbers are short. Text that is too wide is clipped.
+
+A change that comes while a roll is still running starts a new roll from the latest value.
+
+---
+
 ## Property reference
 
 | Property | Type | Default | Description |
@@ -82,6 +100,8 @@ builder
 | `ScrollThresholdDp` | `double` | `2` | Minimum overflow (dp) before scrolling starts |
 | `EndPaddingDp` | `double` | `2` | Extra padding at the end of the text before the scroll reverses |
 | `FadeEdgeWidthDp` | `double` | `8` | Width of the left/right fade edges (dp) |
+| `Mode` | `AnimatedLabelMode` | `Marquee` | `Marquee` scrolls and fades; `RollingNumber` rolls the characters that change |
+| `RollDurationMs` | `int` | `350` | How long a change takes to roll in `RollingNumber` mode (ms) |
 
 ---
 
