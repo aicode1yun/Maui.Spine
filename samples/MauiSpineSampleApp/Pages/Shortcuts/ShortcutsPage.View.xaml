@@ -12,7 +12,7 @@
                  Summary="Shortcuts open the app where the user wants to be, from outside it. The app declares them once at startup, and one handler takes each tap and navigates. Tap a row to run it the way the platform does.">
             <VerticalStackLayout Spacing="10">
                 <SpineSection Header="This app's shortcuts">
-                    <SpineRow Title="Live score" Value="live-score" Icon="play.svg" Command="{Binding RunCommand}" CommandParameter="live-score" />
+                    <SpineRow Title="Live score" Value="live-score" Icon="timer.svg" Command="{Binding RunCommand}" CommandParameter="live-score" />
                     <SpineRow Title="Widgets" Value="widgets" Icon="stack.svg" Command="{Binding RunCommand}" CommandParameter="widgets" />
                     <SpineRow Title="Scan a code" Value="scan · not in tray" Icon="qrcode.svg" Command="{Binding RunCommand}" CommandParameter="scan" />
                     <SpineRow Title="Theme" Value="theme" Icon="theme.svg" Command="{Binding RunCommand}" CommandParameter="theme" />
@@ -25,10 +25,10 @@
                 {
                     // Before the DI container exists: literal ids and titles only
                     public static void Configure(IShortcutBuilder builder) =&gt; builder
-                        .Add("live-score", "Live score")
-                        .Add("widgets", "Widgets")
-                        .Add("scan", "Scan a code", showInTray: false)
-                        .Add("theme", "Theme");
+                        .Add("live-score", "Live score", icon: "timer", subtitle: "Owls vs Foxes")
+                        .Add("widgets", "Widgets", icon: "stack")
+                        .Add("scan", "Scan a code", showInTray: false, icon: "qrcode")
+                        .Add("theme", "Theme", icon: "theme");
 
                     // From DI, when the user picks one
                     public Task InvokeAsync(string shortcutId) =&gt; shortcutId switch
@@ -40,6 +40,17 @@
                 }
 
                 builder.UseSpine(options =&gt; options.Shortcuts.UseHandler&lt;ShortcutHandler&gt;());
+            </Example.Code>
+        </Example>
+
+        <Example Title="Icons and subtitles"
+                 Summary="Each shortcut has an icon from an SVG and a line under its title. The home screen draws them, not the app, so the build renders each declared SVG into the app: iOS tints it like its own icons, Android shows it in the launcher's circle, and the tray menus draw the same SVG. Touch and hold the app icon to see them.">
+            <Label Text="An icon named but not declared falls back to the SF Symbol of that name on iOS, and to none on Android; both are logged." FontSize="15" />
+            <Example.Code>
+                &lt;SpineShortcutIcon Include="timer" /&gt;
+                &lt;SpineShortcutIcon Include="qrcode" /&gt;
+
+                builder.Add("scan", "Scan a code", icon: "qrcode", subtitle: "Opens the camera");
             </Example.Code>
         </Example>
 

@@ -14,17 +14,17 @@ public class ShortcutHandler(INavigationService _navigation) : IShortcutHandler
 {
     public static IReadOnlyList<SpineShortcut> All { get; } =
     [
-        new("live-score", "Live score"),
-        new("widgets", "Widgets"),
+        new("live-score", "Live score", Icon: "timer", Subtitle: "Owls vs Foxes"),
+        new("widgets", "Widgets", Icon: "stack", Subtitle: "Home screen and Lock Screen"),
         // A camera from the menu bar makes little sense on a Mac, so it stays out of the tray.
-        new("scan", "Scan a code", ShowInTray: false),
-        new("theme", "Theme"),
+        new("scan", "Scan a code", ShowInTray: false, Icon: "qrcode", Subtitle: "Opens the camera"),
+        new("theme", "Theme", Icon: "theme", Subtitle: "Light, dark or the system"),
     ];
 
     public static void Configure(IShortcutBuilder builder)
     {
         foreach (var shortcut in All)
-            builder.Add(shortcut.Id, shortcut.Title, shortcut.ShowInTray);
+            builder.Add(shortcut.Id, shortcut.Title, shortcut.ShowInTray, shortcut.Icon, shortcut.Subtitle);
     }
 
     /// <summary>The last shortcut used and when, for the Shortcuts page.</summary>
