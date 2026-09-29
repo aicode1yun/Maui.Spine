@@ -67,6 +67,9 @@ public static class MauiProgram
             });
 
 
+        // The live-score demo's one game, shared by the Widgets and Live Activities pages and the widget.
+        builder.Services.AddSingleton<MauiSpineSampleApp.Widgets.Hockey.LiveScore>();
+
 #if DEBUG
         builder.Logging.AddDebug();
 #endif

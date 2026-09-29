@@ -234,9 +234,10 @@ The `samples/MauiSpineSampleApp` project demonstrates all of the above features:
 | Compact (small) sheet | `MainPage` → `SmallSheetPage` |
 | Navigation parameter | `MainPage` → `PersonDetailPage` |
 | Navigation result | `MainPage` → `FullscreenSheetPage` (awaits `FullscreenSheetResult`) |
-| App shortcut → navigation | `ShortcutHandler` → `ThemePage` |
+| App shortcuts → navigation | `ShortcutHandler` → `ShortcutsPage`, `LiveActivitiesPage`, `WidgetsPage`, the scanner sheet on `BarcodesPage`, `ThemePage` |
 | Windows tray icon + close-to-background | `MauiProgram.cs` options |
-| Home-screen widget + Live Activity (iOS, Android) | `Widgets/SampleWidget.cs`, `WidgetsPage` |
+| Home-screen and Lock Screen widgets with buttons (iOS, Android) | `Widgets/Hockey/ScoreWidget.cs`, `Widgets/SampleWidget.cs`, `WidgetsPage` |
+| Live Activity updated from the app, with a lock-screen button (iOS, Android 16) | `Widgets/Hockey/ScoreActivity.cs`, `LiveActivitiesPage` |
 | Liquid Glass buttons (iOS 26) | `MainPage` → `GlassPage` (second item in the list) |
 
 ### Push sample

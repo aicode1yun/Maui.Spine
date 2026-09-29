@@ -3,8 +3,16 @@ using Plugin.Maui.Spine.Scanner;
 
 namespace MauiSpineSampleApp.Pages.Barcodes;
 
-public partial class BarcodesPageViewModel(INavigationService _navigation) : SampleViewModel
+public partial class BarcodesPageViewModel(INavigationService _navigation) : SampleViewModel, IReceivesNavigationParameter<OpenScanner>
 {
+    private bool _openScanner;
+
+    public Task OnNavigationParameterAsync(OpenScanner parameter)
+    {
+        _openScanner = true;
+        return Task.CompletedTask;
+    }
+
     // A value each format accepts, so switching format always shows a code
     private static readonly Dictionary<BarcodeFormat, string> SampleValues = new()
     {
@@ -139,6 +147,14 @@ public partial class BarcodesPageViewModel(INavigationService _navigation) : Sam
     public override Task OnAppearingAsync(NavigationDirection navigationDirection)
     {
         ClockMatrix = Barcode.Encode(PairingCode, new DataMatrixOptions { Size = (12, 12) });
+
+        // Once, and after the page is up: the scanner sheet opens over it, and its result lands here.
+        if (_openScanner)
+        {
+            _openScanner = false;
+            MainThread.BeginInvokeOnMainThread(() => ScanCommand.Execute(null));
+        }
+
         return base.OnAppearingAsync(navigationDirection);
     }
 }

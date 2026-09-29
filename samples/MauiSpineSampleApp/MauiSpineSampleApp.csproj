@@ -107,6 +107,24 @@
       <DependentUpon>GlassPage.cs</DependentUpon>
     </Compile>
 
+    <MauiXaml Update="Pages\LiveActivities\LiveActivitiesPage.View.xaml">
+      <DependentUpon>LiveActivitiesPage.cs</DependentUpon>
+      <Generator>MSBuild:Compile</Generator>
+    </MauiXaml>
+
+    <Compile Include="Pages\LiveActivities\LiveActivitiesPage.ViewModel.cs">
+      <DependentUpon>LiveActivitiesPage.cs</DependentUpon>
+    </Compile>
+
+    <MauiXaml Update="Pages\Shortcuts\ShortcutsPage.View.xaml">
+      <DependentUpon>ShortcutsPage.cs</DependentUpon>
+      <Generator>MSBuild:Compile</Generator>
+    </MauiXaml>
+
+    <Compile Include="Pages\Shortcuts\ShortcutsPage.ViewModel.cs">
+      <DependentUpon>ShortcutsPage.cs</DependentUpon>
+    </Compile>
+
     <MauiXaml Update="Pages\Haptics\HapticsPage.View.xaml">
       <DependentUpon>HapticsPage.cs</DependentUpon>
       <Generator>MSBuild:Compile</Generator>
@@ -430,9 +448,10 @@
 		<ProjectReference Include="..\..\src\Plugin.Maui.Spine.Svg\Plugin.Maui.Spine.Svg.csproj" />
 		<ProjectReference Include="..\..\src\Plugin.Maui.Spine.Svg.Icons\Plugin.Maui.Spine.Svg.Icons.csproj" />
 	</ItemGroup>
-	<!-- Widgets: the kinds below become a WidgetKit extension on iOS; the provider is [Widget("sample")] in Widgets\. -->
+	<!-- Widgets: the kinds below become a WidgetKit extension on iOS; the providers are the [Widget] classes in Widgets\. -->
 	<ItemGroup>
 		<SpineWidget Include="sample" DisplayName="Spine sample" Description="A data-driven widget rendered from a tree the app builds." Families="Small,Medium" />
+		<SpineWidget Include="score" DisplayName="Live score" Description="The game while it is on, then the next game and the latest results." Families="Small,Medium,AccessoryCircular,AccessoryRectangular,AccessoryInline" />
 	</ItemGroup>
 	<Import Project="..\..\src\Plugin.Maui.Spine.Common\build\Plugin.Maui.Spine.Common.targets" />
 	<Import Project="..\..\src\Plugin.Maui.Spine.Widgets\build\Plugin.Maui.Spine.Widgets.targets" />
