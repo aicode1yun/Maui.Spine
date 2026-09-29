@@ -1,0 +1,88 @@
+<SpinePage
+    xmlns="http://schemas.microsoft.com/dotnet/maui/global"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    x:Class="MauiSpineSampleApp.Pages.Shortcuts.ShortcutsPage"
+    x:TypeArguments="ShortcutsPageViewModel"
+    x:DataType="ShortcutsPageViewModel"
+    BackgroundColor="{AppThemeBinding Light={x:Static SpineSection.PageBackgroundLight}, Dark={x:Static SpineSection.PageBackgroundDark}}">
+
+    <SampleLayout Packages="Plugin.Maui.Spine">
+
+        <Example Title="Straight to a page"
+                 Summary="Shortcuts open the app where the user wants to be, from outside it. The app declares them once at startup, and one handler takes each tap and navigates. Tap a row to run it the way the platform does.">
+            <VerticalStackLayout Spacing="10">
+                <SpineSection Header="This app's shortcuts">
+                    <SpineRow Title="Live score" Value="live-score" Icon="timer.svg" Command="{Binding RunCommand}" CommandParameter="live-score" />
+                    <SpineRow Title="Widgets" Value="widgets" Icon="stack.svg" Command="{Binding RunCommand}" CommandParameter="widgets" />
+                    <SpineRow Title="Scan a code" Value="scan · not in tray" Icon="qrcode.svg" Command="{Binding RunCommand}" CommandParameter="scan" />
+                    <SpineRow Title="Theme" Value="theme" Icon="theme.svg" Command="{Binding RunCommand}" CommandParameter="theme" />
+                </SpineSection>
+                <Label Text="{Binding Where}" FontSize="15" />
+                <Label Text="{Binding LastUsed}" FontSize="15" />
+            </VerticalStackLayout>
+            <Example.Code>
+                public class ShortcutHandler(INavigationService _navigation) : IShortcutHandler
+                {
+                    // Before the DI container exists: literal ids and titles only
+                    public static void Configure(IShortcutBuilder builder) =&gt; builder
+                        .Add("live-score", "Live score", icon: "timer", subtitle: "Owls vs Foxes")
+                        .Add("widgets", "Widgets", icon: "stack")
+                        .Add("scan", "Scan a code", showInTray: false, icon: "qrcode")
+                        .Add("theme", "Theme", icon: "theme");
+
+                    // From DI, when the user picks one
+                    public Task InvokeAsync(string shortcutId) =&gt; shortcutId switch
+                    {
+                        "live-score" =&gt; _navigation.NavigateToAsync&lt;LiveActivitiesPage&gt;(),
+                        "scan" =&gt; _navigation.NavigateToAsync&lt;BarcodesPage, OpenScanner&gt;(new OpenScanner()),
+                        _ =&gt; Task.CompletedTask,
+                    };
+                }
+
+                builder.UseSpine(options =&gt; options.Shortcuts.UseHandler&lt;ShortcutHandler&gt;());
+            </Example.Code>
+        </Example>
+
+        <Example Title="Icons and subtitles"
+                 Summary="Each shortcut has an icon from an SVG and a line under its title. The home screen draws them, not the app, so the build renders each declared SVG into the app: iOS tints it like its own icons, Android shows it in the launcher's circle, and the tray menus draw the same SVG. Touch and hold the app icon to see them.">
+            <Label Text="An icon named but not declared falls back to the SF Symbol of that name on iOS, and to none on Android; both are logged." FontSize="15" />
+            <Example.Code>
+                &lt;SpineShortcutIcon Include="timer" /&gt;
+                &lt;SpineShortcutIcon Include="qrcode" /&gt;
+
+                builder.Add("scan", "Scan a code", icon: "qrcode", subtitle: "Opens the camera");
+            </Example.Code>
+        </Example>
+
+        <Example Title="Where they appear"
+                 Summary="The same list goes to every platform: the menu on the app icon on Android and iOS, the jump list on Windows, and the tray menu on Windows and the Mac when the tray icon is on.">
+            <SpineSection>
+                <SpineRow Title="Android" Value="Long-press the app icon" />
+                <SpineRow Title="iOS" Value="Long-press the app icon" />
+                <SpineRow Title="Windows" Value="Jump list and tray menu" />
+                <SpineRow Title="Mac" Value="Menu bar icon" />
+            </SpineSection>
+            <Example.Code>
+                builder.UseSpine(options =&gt;
+                {
+                    options.Shortcuts.UseHandler&lt;ShortcutHandler&gt;();
+
+                    options.Windows.ShowTrayIcon = true;
+                    options.Windows.TrayIconSvg = "water.svg";
+                    options.MacOS.ShowTrayIcon = true;
+                    options.MacOS.TrayIconSvg = "water.svg";
+                });
+            </Example.Code>
+        </Example>
+
+        <Example Title="Not everything belongs in the tray"
+                 Summary="A shortcut declared with showInTray: false stays on the app icon and in the jump list, and out of the tray menu. Scan a code needs the phone's camera, so the Mac's menu bar leaves it out.">
+            <Label Text="Open the menu bar icon on the Mac: Live score, Widgets and Theme are there, Scan a code is not." FontSize="15" />
+            <Example.Code>
+                builder.Add("scan", "Scan a code", showInTray: false);
+            </Example.Code>
+        </Example>
+
+    </SampleLayout>
+
+</SpinePage>
