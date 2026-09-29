@@ -2,7 +2,7 @@
 
 **GitHub:** https://github.com/jonatansoderberg/Maui.Spine/issues/159
 **Branch:** issue/159-android-sida-som-utesluter-toppen
-**Status:** In Progress
+**Status:** Completed
 
 ## Plan
 

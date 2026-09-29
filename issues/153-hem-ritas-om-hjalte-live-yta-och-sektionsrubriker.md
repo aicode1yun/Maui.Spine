@@ -2,7 +2,7 @@
 
 **GitHub:** https://github.com/jonatansoderberg/Maui.Spine/issues/153
 **Branch:** issue/153-hem-ritas-om-hjalte-live-yta-och-sektionsrubriker
-**Status:** In Progress
+**Status:** Completed
 
 ## Plan
 

@@ -2,7 +2,7 @@
 
 **GitHub:** https://github.com/jonatansoderberg/Maui.Spine/issues/251
 **Branch:** issue/251-svg-ikoner-renderas-i-1x-pa-ios
-**Status:** In Progress
+**Status:** Completed
 
 ## Plan
 

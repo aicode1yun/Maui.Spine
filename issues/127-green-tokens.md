@@ -2,7 +2,7 @@
 
 **GitHub:** https://github.com/jonatansoderberg/Maui.Spine/issues/127
 **Branch:** issue/127-green-tokens
-**Status:** In Progress
+**Status:** Completed
 
 ## Plan
 

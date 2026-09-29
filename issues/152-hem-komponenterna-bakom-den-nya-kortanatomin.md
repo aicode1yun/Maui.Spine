@@ -2,7 +2,7 @@
 
 **GitHub:** https://github.com/jonatansoderberg/Maui.Spine/issues/152
 **Branch:** issue/152-hem-komponenterna-bakom-den-nya-kortanatomin
-**Status:** In Progress
+**Status:** Completed
 
 ## Plan
 
