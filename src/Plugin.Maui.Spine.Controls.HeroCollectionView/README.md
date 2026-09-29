@@ -1,6 +1,6 @@
 # Plugin.Maui.Spine.Controls.HeroCollectionView
 
-`HeroCollectionView` is a `CollectionView` for .NET MAUI with a collapsing sticky header, an optional title overlay, and an adaptive colour-sampling overlay for dynamic theming. On Windows it doubles as the drag region for custom title-bar windows.
+`HeroCollectionView` is a `CollectionView` for .NET MAUI with a collapsing sticky header, an optional title overlay, and an adaptive colour-sampling overlay for dynamic theming. On Windows it doubles as the drag region for custom title-bar windows; on the Mac, once the header has collapsed into the title bar, its bottom row slides right of the close, minimise and zoom buttons.
 
 ```bash
 dotnet add package Plugin.Maui.Spine.Controls.HeroCollectionView

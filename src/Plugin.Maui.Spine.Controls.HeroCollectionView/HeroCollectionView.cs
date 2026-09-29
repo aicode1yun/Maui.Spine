@@ -84,6 +84,7 @@ public partial class HeroCollectionView : CollectionView
     partial void ScheduleDragRegionUpdate();
     partial void TeardownDragRegion();
     partial void OnHandlerChangedPartial();
+    partial void UpdateWindowButtonClearance();
 
     protected override void OnHandlerChanged()
     {

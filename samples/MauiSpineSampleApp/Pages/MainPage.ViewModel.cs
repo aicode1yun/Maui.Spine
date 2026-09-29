@@ -11,14 +11,23 @@ public partial class MainPageViewModel(INavigationService _navigation) : SampleV
     // The collapsed hero: a bar below the status bar with the title and the theme button centred on one line.
     private const double CompactBar = 36;
 
-    public double HeaderMinHeight => SystemBarInsets.Top + CompactBar;
+    // On the Mac the theme button mirrors the close button, whose centre is this far in from the
+    // window's top-left corner (in the iPad idiom's points, which the Mac draws at 77 %). The
+    // collapsed bar is centred on the window buttons, so the title shares their line.
+    private const double MacCloseButtonCentre = 20;
+
+    public double HeaderMinHeight => DeviceInfo.Platform == DevicePlatform.MacCatalyst
+        ? 2 * MacCloseButtonCentre
+        : SystemBarInsets.Top + CompactBar;
 
     // Tall enough that the photo's S starts below the status bar (and the Dynamic Island) rather than behind it.
     public double HeaderMaxHeight => SystemBarInsets.Top + 270;
 
     public Thickness GearMargin => DeviceInfo.Platform == DevicePlatform.WinUI
         ? new Thickness(0, 0, 144, 0)
-        : new Thickness(0, SystemBarInsets.Top + (CompactBar - 44) / 2, HeaderBarConstants.PageMargin + SystemBarInsets.Right, 0);
+        : DeviceInfo.Platform == DevicePlatform.MacCatalyst
+            ? new Thickness(0, MacCloseButtonCentre - 44 / 2, MacCloseButtonCentre - 44 / 2, 0)
+            : new Thickness(0, SystemBarInsets.Top + (CompactBar - 44) / 2, HeaderBarConstants.PageMargin + SystemBarInsets.Right, 0);
 
     // The photo runs edge to edge; the title and the rows keep clear of the Dynamic Island and the
     // rounded corners in landscape.
