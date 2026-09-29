@@ -179,7 +179,7 @@ private static void RegisterShortcuts(MauiAppBuilder builder, SpineOptions optio
         builder.ConfigureEssentials(essentials =>
         {
             foreach (var shortcut in config.Items)
-                essentials.AddAppAction(new AppAction(shortcut.Id, shortcut.Title));
+                essentials.AddAppAction(new AppAction(shortcut.Id, shortcut.Title, shortcut.Subtitle, ShortcutIcons.ForAppAction(shortcut)));
 
             essentials.OnAppAction(async appAction =>
             {
@@ -187,6 +187,9 @@ private static void RegisterShortcuts(MauiAppBuilder builder, SpineOptions optio
                     await handler.InvokeAsync(appAction.Id);
             });
         });
+
+        // After MAUI's own initializer, which hands the shortcuts to the platform.
+        services.AddSingleton<IMauiInitializeService>(new ShortcutIcons.Initializer(config.Items));
     }
 
     private static void RegisterNavigables(IServiceCollection services, IEnumerable<Assembly> assemblies)

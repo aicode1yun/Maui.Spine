@@ -75,4 +75,58 @@
 		</ItemGroup>
 	</Target>
 
+	<!--
+		Shortcut icons. The home screen draws a shortcut's icon, not the app, so it has to be an image in
+		the app: iOS reads it from the bundle, Android from the drawables. Each name an app declares
+
+		  <SpineShortcutIcon Include="qrcode" />
+
+		is looked up among the app's own SVGs (EmbeddedResource and MauiImage), then among the
+		SpineShortcutIconSource items the Plugin.Maui.Spine.Svg.Icons package declares, ignoring case,
+		with dots and dashes read as underscores (figure.run finds figure_run.svg). The first match
+		becomes a MauiImage named spine_shortcut_<key>, which Resizetizer renders for each platform, and
+		options.Shortcuts' Add(..., icon: "qrcode") names that image. The key must stay the same as
+		ShortcutIcons.Key in Core/ShortcutIcons.cs.
+	-->
+	<Target Name="_SpineAddShortcutIcons" BeforeTargets="ResizetizeCollectItems" Condition="'@(SpineShortcutIcon)' != ''">
+
+		<ItemGroup>
+			<_SpineShortcutIconWanted Include="@(SpineShortcutIcon)"
+				Key="$([System.Text.RegularExpressions.Regex]::Replace($([System.Text.RegularExpressions.Regex]::Replace('%(Identity)', '(?i)\.svg$', '').ToLowerInvariant()), '[^a-z0-9]', '_'))" />
+
+			<!-- The app's own first, so an app can replace an icon of the set. -->
+			<_SpineShortcutIconCandidate Include="@(EmbeddedResource)" Condition="'%(Extension)' == '.svg'" />
+			<_SpineShortcutIconCandidate Include="@(MauiImage)" Condition="'%(Extension)' == '.svg'" />
+			<_SpineShortcutIconCandidate Include="@(SpineShortcutIconSource)" />
+			<_SpineShortcutIconCandidate>
+				<Key>$([System.Text.RegularExpressions.Regex]::Replace($([System.String]::Copy('%(Filename)').ToLowerInvariant()), '[^a-z0-9]', '_'))</Key>
+				<Source>%(FullPath)</Source>
+			</_SpineShortcutIconCandidate>
+		</ItemGroup>
+
+		<PropertyGroup>
+			<_SpineShortcutIconKeys>;@(_SpineShortcutIconWanted->'%(Key)');</_SpineShortcutIconKeys>
+		</PropertyGroup>
+
+		<ItemGroup>
+			<_SpineShortcutIconMatch Include="@(_SpineShortcutIconCandidate->'%(Key)')" Condition="$(_SpineShortcutIconKeys.Contains(';%(Key);'))" />
+		</ItemGroup>
+
+		<!-- One per key, the first found. -->
+		<RemoveDuplicates Inputs="@(_SpineShortcutIconMatch)">
+			<Output TaskParameter="Filtered" ItemName="_SpineShortcutIconFound" />
+		</RemoveDuplicates>
+
+		<PropertyGroup>
+			<_SpineShortcutIconFoundKeys>;@(_SpineShortcutIconFound);</_SpineShortcutIconFoundKeys>
+		</PropertyGroup>
+
+		<Warning Condition="!$(_SpineShortcutIconFoundKeys.Contains(';%(_SpineShortcutIconWanted.Key);'))"
+				 Text="SpineShortcutIcon &quot;%(_SpineShortcutIconWanted.Identity)&quot;: no %(_SpineShortcutIconWanted.Key).svg among the app's SVGs or in Plugin.Maui.Spine.Svg.Icons. The shortcut shows without it: iOS falls back to the SF Symbol of that name, if there is one." />
+
+		<ItemGroup>
+			<MauiImage Include="%(_SpineShortcutIconFound.Source)" Link="spine_shortcut_%(_SpineShortcutIconFound.Identity).svg" BaseSize="35,35" />
+		</ItemGroup>
+	</Target>
+
 </Project>

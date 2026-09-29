@@ -8,10 +8,11 @@
 
 	<!--
 		Plugin.Maui.Spine targets only MAUI platforms, which a net10.0 test cannot reference.
-		TaskState has no MAUI types, so it is compiled in here directly.
+		TaskState and the shortcut icon names have no MAUI types, so they are compiled in here directly.
 	-->
 	<ItemGroup>
 		<Compile Include="..\..\src\Plugin.Maui.Spine\Core\TaskState.cs" Link="TaskState.cs" />
+		<Compile Include="..\..\src\Plugin.Maui.Spine\Core\ShortcutIcons.Names.cs" Link="ShortcutIcons.Names.cs" />
 	</ItemGroup>
 
 	<ItemGroup>

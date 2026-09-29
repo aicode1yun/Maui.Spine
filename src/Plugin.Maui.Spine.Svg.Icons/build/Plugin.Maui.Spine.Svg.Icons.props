@@ -1,0 +1,16 @@
+<Project>
+	<!--
+		The set's SVGs as files, for what has to be rendered at build time: a shortcut's icon is drawn by
+		the home screen, not the app, so Plugin.Maui.Spine.targets renders the ones an app names in
+		<SpineShortcutIcon> into the app (see there). The package carries them beside this file; in this
+		repo they are the project's own Images folder.
+	-->
+	<PropertyGroup>
+		<_SpineSvgIconsDirectory>$(MSBuildThisFileDirectory)Images\</_SpineSvgIconsDirectory>
+		<_SpineSvgIconsDirectory Condition="!Exists('$(_SpineSvgIconsDirectory)')">$(MSBuildThisFileDirectory)..\Images\</_SpineSvgIconsDirectory>
+	</PropertyGroup>
+
+	<ItemGroup>
+		<SpineShortcutIconSource Include="$(_SpineSvgIconsDirectory)*.svg" />
+	</ItemGroup>
+</Project>

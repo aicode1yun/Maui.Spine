@@ -28,7 +28,7 @@
 - **Header bar & page actions** — built-in header bar with back button, title, and pluggable action buttons (text or SVG icon)
 - **Liquid Glass buttons** — `Glass.Style` turns any `Button` or `ImageButton` into glass on iOS 26; the header bar's own buttons are glass by default
 - **Haptics** — success, warning, error, selection and impacts from the platform's own generators, on a tap, a header action, a tab switch or a sheet detent
-- **App shortcuts** — register OS-level shortcuts (dock, jump list, tray menu) with a single handler interface
+- **App shortcuts** — the app-icon menu on iOS and Android, the jump list and the tray menu, with icons from SVG, through a single handler interface
 - **Windows desktop support** — window size, position persistence, tray icon, single-instance enforcement, and custom title bar
 - **Platform-aware defaults** — mobile defaults differ from desktop defaults out of the box; override per-page or globally
 - **Zero route registration** — Spine scans your assembly for `[NavigableRegion]` and `[NavigableSheet]` attributes at startup

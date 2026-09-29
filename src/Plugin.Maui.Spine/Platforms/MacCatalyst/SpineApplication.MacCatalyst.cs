@@ -169,6 +169,16 @@ public partial class SpineApplication<TNavigable> where TNavigable : INavigable
             (IntPtr)new NSString(tooltipText).Handle);
     }
 
+    /// <summary>A menu item's image: a template, so it follows the menu's text colour, at the menu's 16 points.</summary>
+    private static IntPtr MenuImage(byte[] pdf)
+    {
+        var alloc = AppKitObjC.IntPtr_msgSend(Class.GetHandle("NSImage"), Selector.GetHandle("alloc"));
+        var image = AppKitObjC.IntPtr_msgSend_IntPtr(alloc, Selector.GetHandle("initWithData:"), (IntPtr)NSData.FromArray(pdf).Handle);
+        AppKitObjC.Void_msgSend_bool(image, Selector.GetHandle("setTemplate:"), true);
+        AppKitObjC.Void_msgSend_CGSize(image, Selector.GetHandle("setSize:"), new CoreGraphics.CGSize(16, 16));
+        return image;
+    }
+
     private void BuildStatusItemMenu(SpineOptions options)
     {
         if (_statusItem is null) return;
@@ -189,8 +199,10 @@ public partial class SpineApplication<TNavigable> where TNavigable : INavigable
                     .SafeFireAndForget();
             });
             _menuTargets.Add(target);
-            AppKitObjC.Void_msgSend_IntPtr(menuHandle, Selector.GetHandle("addItem:"),
-                AppKitObjC.CreateMenuItem(shortcut.Title, target));
+            var item = AppKitObjC.CreateMenuItem(shortcut.Title, target);
+            if (ShortcutIcons.ForTray(_services, shortcut) is { } icon)
+                AppKitObjC.Void_msgSend_IntPtr(item, Selector.GetHandle("setImage:"), MenuImage(icon.GetMacOsPdf()));
+            AppKitObjC.Void_msgSend_IntPtr(menuHandle, Selector.GetHandle("addItem:"), item);
         }
 
         if (shortcuts.Count > 0)
@@ -348,6 +360,9 @@ internal static class AppKitObjC
 
     [DllImport(Lib, EntryPoint = "objc_msgSend")]
     public static extern void Void_msgSend_bool(IntPtr receiver, IntPtr selector, bool arg1);
+
+    [DllImport(Lib, EntryPoint = "objc_msgSend")]
+    public static extern void Void_msgSend_CGSize(IntPtr receiver, IntPtr selector, CoreGraphics.CGSize arg1);
 
     [DllImport(Lib, EntryPoint = "objc_msgSend")]
     public static extern nuint nuint_msgSend(IntPtr receiver, IntPtr selector);
