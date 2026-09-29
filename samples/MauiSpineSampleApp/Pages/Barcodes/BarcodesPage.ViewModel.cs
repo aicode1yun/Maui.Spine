@@ -6,10 +6,16 @@ namespace MauiSpineSampleApp.Pages.Barcodes;
 public partial class BarcodesPageViewModel(INavigationService _navigation) : SampleViewModel, IReceivesNavigationParameter<OpenScanner>
 {
     private bool _openScanner;
+    private bool _showing;
 
+    // ShowAsync hands the parameter to a page that is already in front too, and nothing appears
+    // then, so the scanner opens here at once; otherwise when the page has appeared.
     public Task OnNavigationParameterAsync(OpenScanner parameter)
     {
-        _openScanner = true;
+        if (_showing)
+            MainThread.BeginInvokeOnMainThread(() => ScanCommand.Execute(null));
+        else
+            _openScanner = true;
         return Task.CompletedTask;
     }
 
@@ -155,6 +161,13 @@ public partial class BarcodesPageViewModel(INavigationService _navigation) : Sam
             MainThread.BeginInvokeOnMainThread(() => ScanCommand.Execute(null));
         }
 
+        _showing = true;
         return base.OnAppearingAsync(navigationDirection);
+    }
+
+    public override Task OnDisappearingAsync(NavigationDirection navigationDirection)
+    {
+        _showing = false;
+        return base.OnDisappearingAsync(navigationDirection);
     }
 }

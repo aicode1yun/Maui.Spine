@@ -42,10 +42,10 @@ public class ShortcutHandler(INavigationService _navigation) : IShortcutHandler
 
         return shortcutId switch
         {
-            "live-score" => _navigation.NavigateToAsync<LiveActivitiesPage>(),
-            "widgets" => _navigation.NavigateToAsync<WidgetsPage>(),
-            "scan" => _navigation.NavigateToAsync<BarcodesPage, OpenScanner>(new OpenScanner()),
-            "theme" => _navigation.NavigateToAsync<ThemePage>(),
+            "live-score" => _navigation.ShowAsync<LiveActivitiesPage>(),
+            "widgets" => _navigation.ShowAsync<WidgetsPage>(),
+            "scan" => _navigation.ShowAsync<BarcodesPage, OpenScanner>(new OpenScanner()),
+            "theme" => _navigation.ShowAsync<ThemePage>(),
             _ => Task.CompletedTask,
         };
     }

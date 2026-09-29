@@ -455,9 +455,11 @@ A provider that also implements `IWidgetLinkHandler` is called on the main threa
 ```csharp
 public Task OnWidgetOpenedAsync(WidgetLink link) =>
     HttpUtility.ParseQueryString(link.Url.Query)["competition"] is { Length: > 0 } id
-        ? _navigation.NavigateToAsync<ParticipantsPage, ParticipantsTarget>(new(CompetitionId.From(id)))
+        ? _navigation.ShowAsync<ParticipantsPage, ParticipantsTarget>(new(CompetitionId.From(id)))
         : _navigation.SwitchToTabAsync<HomePage>();
 ```
+
+`ShowAsync` rather than `NavigateToAsync`: a widget tapped while its page is already open goes back to that page instead of stacking another copy.
 
 ### Icons
 
