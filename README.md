@@ -28,7 +28,7 @@
 - **Header bar & page actions** — built-in header bar with back button, title, and pluggable action buttons (text or SVG icon)
 - **Liquid Glass buttons** — `Glass.Style` turns any `Button` or `ImageButton` into glass on iOS 26; the header bar's own buttons are glass by default
 - **Haptics** — success, warning, error, selection and impacts from the platform's own generators, on a tap, a header action, a tab switch or a sheet detent
-- **App shortcuts** — register OS-level shortcuts (dock, jump list, tray menu) with a single handler interface
+- **App shortcuts** — the app-icon menu on iOS and Android, the jump list and the tray menu, with icons from SVG, through a single handler interface
 - **Windows desktop support** — window size, position persistence, tray icon, single-instance enforcement, and custom title bar
 - **Platform-aware defaults** — mobile defaults differ from desktop defaults out of the box; override per-page or globally
 - **Zero route registration** — Spine scans your assembly for `[NavigableRegion]` and `[NavigableSheet]` attributes at startup
@@ -234,9 +234,10 @@ The `samples/MauiSpineSampleApp` project demonstrates all of the above features:
 | Compact (small) sheet | `MainPage` → `SmallSheetPage` |
 | Navigation parameter | `MainPage` → `PersonDetailPage` |
 | Navigation result | `MainPage` → `FullscreenSheetPage` (awaits `FullscreenSheetResult`) |
-| App shortcut → navigation | `ShortcutHandler` → `ThemePage` |
+| App shortcuts → navigation | `ShortcutHandler` → `ShortcutsPage`, `LiveActivitiesPage`, `WidgetsPage`, the scanner sheet on `BarcodesPage`, `ThemePage` |
 | Windows tray icon + close-to-background | `MauiProgram.cs` options |
-| Home-screen widget + Live Activity (iOS, Android) | `Widgets/SampleWidget.cs`, `WidgetsPage` |
+| Home-screen and Lock Screen widgets with buttons (iOS, Android) | `Widgets/Hockey/ScoreWidget.cs`, `Widgets/SampleWidget.cs`, `WidgetsPage` |
+| Live Activity updated from the app, with a lock-screen button (iOS, Android 16) | `Widgets/Hockey/ScoreActivity.cs`, `LiveActivitiesPage` |
 | Liquid Glass buttons (iOS 26) | `MainPage` → `GlassPage` (second item in the list) |
 
 ### Push sample

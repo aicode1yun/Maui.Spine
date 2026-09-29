@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!-- The demo game as the app shows it: the same state the widget and the Live Activity are drawn from. -->
+<ContentView xmlns="http://schemas.microsoft.com/dotnet/maui/global"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="MauiSpineSampleApp.Pages.LiveActivities.Scoreboard"
+             x:DataType="LiveScore">
+
+    <ContentView.Resources>
+        <Style x:Key="Logo" TargetType="Image">
+            <Setter Property="SvgImageSource.Padding" Value="0" />
+            <Setter Property="SvgImageSource.LightTintColor" Value="Transparent" />
+            <Setter Property="SvgImageSource.DarkTintColor" Value="Transparent" />
+            <Setter Property="WidthRequest" Value="52" />
+            <Setter Property="HeightRequest" Value="52" />
+        </Style>
+        <Style x:Key="Ink" TargetType="Label">
+            <Setter Property="TextColor" Value="White" />
+            <Setter Property="HorizontalTextAlignment" Value="Center" />
+        </Style>
+        <Style x:Key="Muted" TargetType="Label" BasedOn="{StaticResource Ink}">
+            <Setter Property="TextColor" Value="#A6FFFFFF" />
+            <Setter Property="FontSize" Value="13" />
+        </Style>
+    </ContentView.Resources>
+
+    <Border StrokeThickness="0" Padding="16,14" StrokeShape="RoundRectangle 20">
+        <Border.Background>
+            <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+                <GradientStop Color="#1C222D" Offset="0" />
+                <GradientStop Color="#0B0E13" Offset="1" />
+            </LinearGradientBrush>
+        </Border.Background>
+
+        <VerticalStackLayout Spacing="10">
+            <Grid ColumnDefinitions="*,*,*">
+                <VerticalStackLayout Spacing="4">
+                    <Image Style="{StaticResource Logo}" SvgImageSource.Svg="{Binding Home.LogoSvg}" />
+                    <Label Style="{StaticResource Ink}" Text="{Binding Home.ShortName}" FontSize="13" FontAttributes="Bold" />
+                </VerticalStackLayout>
+                <VerticalStackLayout Grid.Column="1" Spacing="2" VerticalOptions="Center">
+                    <Label Style="{StaticResource Muted}" Text="{Binding PhaseText}" Text.FontFeatures="TabularFigures" />
+                    <Label Style="{StaticResource Ink}" Text="{Binding Score}" FontSize="30" FontAttributes="Bold" Text.FontFeatures="TabularFigures" />
+                    <Label Style="{StaticResource Muted}" Text="{Binding Details}" />
+                </VerticalStackLayout>
+                <VerticalStackLayout Grid.Column="2" Spacing="4">
+                    <Image Style="{StaticResource Logo}" SvgImageSource.Svg="{Binding Away.LogoSvg}" />
+                    <Label Style="{StaticResource Ink}" Text="{Binding Away.ShortName}" FontSize="13" FontAttributes="Bold" />
+                </VerticalStackLayout>
+            </Grid>
+
+            <VerticalStackLayout BindableLayout.ItemsSource="{Binding GoalLines}" Spacing="2">
+                <BindableLayout.ItemTemplate>
+                    <DataTemplate x:DataType="x:String">
+                        <Label Style="{StaticResource Ink}" Text="{Binding .}" FontSize="13" Text.FontFeatures="TabularFigures" />
+                    </DataTemplate>
+                </BindableLayout.ItemTemplate>
+            </VerticalStackLayout>
+        </VerticalStackLayout>
+    </Border>
+</ContentView>

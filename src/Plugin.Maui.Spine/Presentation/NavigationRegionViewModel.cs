@@ -340,13 +340,24 @@ internal partial class NavigationRegionViewModel : ObservableObject
         OnPropertyChanged(nameof(SecondaryPageAction));
     }
 
+    /// <summary>The topmost page of <paramref name="pageType"/> on this stack, or <see langword="null"/>.</summary>
+    internal View? Find(Type pageType) => _stack.FirstOrDefault(view => view.GetType() == pageType);
+
+    internal bool IsTop(View view) => _stack.TryPeek(out var top) && ReferenceEquals(top, view);
+
     /// <summary>
     /// Pops every page above the root in a single back transition. Used when the active tab is
     /// re-selected (iOS convention). No-op when the stack is already at its root.
     /// </summary>
-    public async Task PopToRootAsync()
+    public Task PopToRootAsync() => _stack.Count < 2 ? Task.CompletedTask : PopToAsync(_stack.Last());
+
+    /// <summary>
+    /// Pops every page above <paramref name="target"/> in a single back transition, so it is the
+    /// front page again. No-op when it is already on top or not on this stack.
+    /// </summary>
+    public async Task PopToAsync(View target)
     {
-        if (_stack.Count < 2)
+        if (IsTop(target) || !_stack.Contains(target))
             return;
 
         if (CurrentRegionViewModel is not null)
@@ -358,8 +369,8 @@ internal partial class NavigationRegionViewModel : ObservableObject
 
         InvokeOnDisappearing(NavigationDirection.Back);
 
-        // Cancel pending results on every popped page, then collapse the stack to its root.
-        while (_stack.Count > 1 && _stack.TryPop(out var popped))
+        // Cancel pending results on every popped page, then collapse the stack down to the target.
+        while (!ReferenceEquals(_stack.Peek(), target) && _stack.TryPop(out var popped))
         {
             if (popped?.BindingContext is ViewModelBase poppedVm && poppedVm.PendingResult is { } tcs)
             {
@@ -369,16 +380,14 @@ internal partial class NavigationRegionViewModel : ObservableObject
             }
         }
 
-        var root = _stack.Peek();
-
-        BackView.Content = root;
+        BackView.Content = target;
         OnPropertyChanged(nameof(BackView));
-        ShowHeaderOf(root.BindingContext as ViewModelBase);
+        ShowHeaderOf(target.BindingContext as ViewModelBase);
 
         await Task.WhenAll([_frameTransition.AnimateBackShowAsync(BackView), _frameTransition.AnimateBackHideAsync(FrontView)]);
 
         BackView.Content = null;
-        FrontView.Content = root;
+        FrontView.Content = target;
         FrontView.IsVisible = true;
         _arrivingHeader = null;
 

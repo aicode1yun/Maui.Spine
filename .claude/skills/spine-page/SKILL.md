@@ -85,7 +85,10 @@ Tabs: `Order` is effectively required (assembly scan order is random; duplicates
 await _navigation.NavigateToAsync<DetailPage>();
 await _navigation.BackAsync();
 await _navigation.SetRootAsync<LoginPage>();          // replaces the stack (logout); with a tab page, resets that tab
+await _navigation.ShowAsync<SettingsPage>();          // from outside the app: goes back to it if it is on the stack, pushes otherwise
 ```
+
+Use `ShowAsync` (and `ShowAsync<TPage, TParam>`) for every way in from outside the app: shortcuts, widget and notification taps, links. `NavigateToAsync` always pushes, so a second tap stacks a second copy. A page already in front gets the parameter in `OnNavigationParameterAsync` but no `OnAppearingAsync`.
 
 ### Typed parameter
 

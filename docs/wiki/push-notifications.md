@@ -104,7 +104,8 @@ public sealed class MyPushHandler(INavigationService navigation) : IPushNotifica
 
     public async Task OnOpenedAsync(PushMessage message, string? action)
     {
-        if (message.Route is "settings") await navigation.NavigateToAsync<SettingsPage>();
+        // ShowAsync: a second tap on the same kind of notification does not stack a second page
+        if (message.Route is "settings") await navigation.ShowAsync<SettingsPage>();
     }
 }
 ```

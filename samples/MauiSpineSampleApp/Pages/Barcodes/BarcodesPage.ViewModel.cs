@@ -3,8 +3,22 @@ using Plugin.Maui.Spine.Scanner;
 
 namespace MauiSpineSampleApp.Pages.Barcodes;
 
-public partial class BarcodesPageViewModel(INavigationService _navigation) : SampleViewModel
+public partial class BarcodesPageViewModel(INavigationService _navigation) : SampleViewModel, IReceivesNavigationParameter<OpenScanner>
 {
+    private bool _openScanner;
+    private bool _showing;
+
+    // ShowAsync hands the parameter to a page that is already in front too, and nothing appears
+    // then, so the scanner opens here at once; otherwise when the page has appeared.
+    public Task OnNavigationParameterAsync(OpenScanner parameter)
+    {
+        if (_showing)
+            MainThread.BeginInvokeOnMainThread(() => ScanCommand.Execute(null));
+        else
+            _openScanner = true;
+        return Task.CompletedTask;
+    }
+
     // A value each format accepts, so switching format always shows a code
     private static readonly Dictionary<BarcodeFormat, string> SampleValues = new()
     {
@@ -139,6 +153,21 @@ public partial class BarcodesPageViewModel(INavigationService _navigation) : Sam
     public override Task OnAppearingAsync(NavigationDirection navigationDirection)
     {
         ClockMatrix = Barcode.Encode(PairingCode, new DataMatrixOptions { Size = (12, 12) });
+
+        // Once, and after the page is up: the scanner sheet opens over it, and its result lands here.
+        if (_openScanner)
+        {
+            _openScanner = false;
+            MainThread.BeginInvokeOnMainThread(() => ScanCommand.Execute(null));
+        }
+
+        _showing = true;
         return base.OnAppearingAsync(navigationDirection);
+    }
+
+    public override Task OnDisappearingAsync(NavigationDirection navigationDirection)
+    {
+        _showing = false;
+        return base.OnDisappearingAsync(navigationDirection);
     }
 }

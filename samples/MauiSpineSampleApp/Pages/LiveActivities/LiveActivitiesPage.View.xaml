@@ -1,0 +1,112 @@
+<SpinePage
+    xmlns="http://schemas.microsoft.com/dotnet/maui/global"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    x:Class="MauiSpineSampleApp.Pages.LiveActivities.LiveActivitiesPage"
+    x:TypeArguments="LiveActivitiesPageViewModel"
+    x:DataType="LiveActivitiesPageViewModel">
+
+    <SampleLayout Packages="Plugin.Maui.Spine.Widgets">
+
+        <Example Title="A live score"
+                 Summary="A game between two made-up teams on the lock screen and in the Dynamic Island. Start it, then play the game from here: every tap hands the activity a new layout, and the widget on the Widgets page follows. Before face-off the system counts down by itself; at face-off the app, while it is open, turns it into the scoreboard.">
+            <VerticalStackLayout Spacing="10">
+                <Scoreboard BindingContext="{Binding Score}" />
+                <Label Text="{Binding Score.ActivityStatus}" FontSize="15" />
+                <Button Text="{Binding Score.ActivityButton}" Command="{Binding Score.ToggleActivityCommand}" IsEnabled="{Binding Score.CanToggleActivity}" />
+                <Grid ColumnDefinitions="*,*" RowDefinitions="Auto,Auto" ColumnSpacing="10" RowSpacing="10">
+                    <Button Text="{Binding Score.GoalHomeText}" Command="{Binding Score.GoalHomeCommand}" IsEnabled="{Binding Score.Game.IsRunning}" />
+                    <Button Grid.Column="1" Text="{Binding Score.GoalAwayText}" Command="{Binding Score.GoalAwayCommand}" IsEnabled="{Binding Score.Game.IsRunning}" />
+                    <Button Grid.Row="1" Text="{Binding Score.StepButton}" Command="{Binding Score.StepCommand}" />
+                    <Button Grid.Row="1" Grid.Column="1" Text="Face-off in 2 min" Command="{Binding Score.CountdownCommand}" />
+                </Grid>
+            </VerticalStackLayout>
+            <Example.Code>
+                // Behind a button: iOS starts an activity only while the app is in front.
+                var activity = await _activities.StartAsync("score",
+                    ScoreActivity.Layout(game, now, link),
+                    staleAt: now.AddMinutes(40));
+
+                // A goal: the whole layout again, built from the new state.
+                await activity.UpdateAsync(ScoreActivity.Layout(game, now, link));
+
+                await activity.EndAsync();
+            </Example.Code>
+        </Example>
+
+        <Example Title="Eight regions, one layout"
+                 Summary="The lock screen gets the whole story: badges, score, clock, shots and the last goals. Around the camera the compact regions hold a badge and a number each; a long press shows the expanded regions, and a small circle is left when another app's activity also runs. The badges are pictures the app drew from its SVGs and stored once.">
+            <Label Text="Start the activity, then lock the phone, or press and hold the Dynamic Island." FontSize="15" />
+            <Example.Code>
+                new LiveActivityLayout
+                {
+                    LockScreen = W.VStack(8, Board(home, away), Footer(game)).Padding(14),
+                    Background = WidgetColor.FromHex("#0F131A"),
+
+                    ExpandedLeading = W.HStack(8, W.Image(home.LogoAsset, 44).FullColor(), W.Text("2").Title().Bold()),
+                    ExpandedTrailing = W.HStack(8, W.Text("1").Title().Bold(), W.Image(away.LogoAsset, 44).FullColor()),
+                    ExpandedCenter = W.Text("P2 · 07:19\nShots 14–9").Caption().Centered(),
+
+                    CompactLeading = W.HStack(W.Image(home.LogoAsset, 22), W.Text("2").Headline().Bold()),
+                    CompactTrailing = W.HStack(W.Text("1").Headline().Bold(), W.Image(away.LogoAsset, 22)),
+                    Minimal = W.Text("2–1").Caption().Bold(),
+                };
+
+                // The badges, once, before the first layout names them
+                await _widgets.StoreAssetAsync("team-owls.png", png);
+            </Example.Code>
+        </Example>
+
+        <Example Title="A countdown the system runs"
+                 Summary="Before face-off the activity holds a timer rather than a time the app keeps rewriting: the system counts it down on the lock screen with the app closed. Tap Face-off in 2 min, start the activity and lock the phone.">
+            <Label Text="A timer takes all the width it is given, so it gets a centred row of its own, and never sits in a compact region." FontSize="15" />
+            <Example.Code>
+                LockScreen = W.VStack(8,
+                    Board(home, away, W.Text("19:00").Title().Bold()),
+                    W.Timer(faceOff, prefix: "Face-off in ").Caption().Centered()),
+                ExpandedBottom = W.Timer(faceOff, prefix: "Face-off in ").Caption().Centered(),
+                CompactTrailing = W.Text("19:00").Caption().Bold(),
+            </Example.Code>
+        </Example>
+
+        <Example Title="A button on the lock screen"
+                 Summary="At the final whistle the activity shows Next game ›. Its kind is the widget's, so the tap reaches the Live score widget's action handler in the app's process, without opening the app; the handler ends the activity and turns the widget to the next fixture. Android's Live Updates have no buttons and leave it out.">
+            <Label Text="Play the game to the final whistle, lock the phone and tap Next game ›." FontSize="15" />
+            <Example.Code>
+                // In the layout, only at the final score
+                W.Button("next", W.Text("Next game ›").Caption().Bold())
+
+                // Reaches the provider whose kind is the activity's: "score"
+                [Widget("score")]
+                public sealed class ScoreWidget(LiveScore _score) : IWidgetProvider, IWidgetActionHandler
+                {
+                    public Task OnActionAsync(WidgetAction action) =&gt;
+                        action.ActionId == "next" ? _score.NextGameAsync() : Task.CompletedTask;
+                }
+            </Example.Code>
+        </Example>
+
+        <Example Title="Android Live Updates"
+                 Summary="On Android 16 the activity is a promoted notification: a title, a line of text, a chip in the status bar and one picture. Three columns of badges do not read as a title, so the layout says what the notification should say.">
+            <Label Text="Android crops the picture to a circle, so the app stores a second badge drawn on one." FontSize="15" />
+            <Example.Code>
+                Android = new LiveUpdateText(
+                    Title: "Owls 2–1 Foxes",
+                    Body: "P2 · 07:19 · Shots 14–9 · (2)–1 Okafor 06:02",
+                    Chip: "2–1",
+                    Icon: "team-owls-badge.png"),
+            </Example.Code>
+        </Example>
+
+        <Example Title="Ended somewhere else"
+                 Summary="The user can swipe the activity off the lock screen, and iOS ends one after eight hours. The app asks which are running instead of holding one, and hears about the ends it did not make: swipe the activity away and the button above turns back to Start.">
+            <Label Text="An activity also outlives the app: close it and open it again, and the button still says End." FontSize="15" />
+            <Example.Code>
+                LiveActivity? Running =&gt; _activities.Active.FirstOrDefault(a =&gt; a.Kind == "score");
+
+                _activities.ActivitiesChanged += () =&gt; MainThread.BeginInvokeOnMainThread(Refresh);
+            </Example.Code>
+        </Example>
+
+    </SampleLayout>
+
+</SpinePage>
