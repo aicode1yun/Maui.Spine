@@ -6,8 +6,8 @@
     x:DataType="EditSheetPageViewModel">
 
     <ScrollView>
-        <VerticalStackLayout Padding="20,0,20,16" Spacing="4">
-            <Label Text="Save and Cancel are page actions in the sheet's header bar, not buttons at the bottom: they are in the same place at every detent, next to the title."
+        <VerticalStackLayout Margin="{x:Static HeaderBarConstants.PagePadding}" Padding="0,0,0,16" Spacing="4">
+            <Label Text="The checkmark saves and the X cancels. They are page actions in the sheet's header bar, not buttons at the bottom: they are in the same place at every detent, next to the title. A screen reader says Save and Cancel."
                    FontSize="14" Margin="0,0,0,8" />
 
             <VerticalStackLayout BindableLayout.ItemsSource="{Binding Options}" Spacing="4">

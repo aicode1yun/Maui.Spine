@@ -1,6 +1,6 @@
 ---
 name: spine-controls
-description: Use Spine's controls and visual extensions in a .NET MAUI app — HeroCollectionView (collapsing hero header), AnimatedLabel (marquee), Calendar (month calendar with year/decade pickers, week numbers and days marked from an external source), DataGrid (responsive row grid with layouts, sorting, grouping, swipe actions), Shimmer and Skeleton.IsActive (skeleton loading), SpineRow (settings and key/value rows), Tap.Command (press feedback on any view) and Semantic.Merge (one screen-reader element), embedded SVG icons with SvgImageSource and the Plugin.Maui.Spine.Svg.Icons set, Liquid Glass buttons with Glass.Style, material surfaces (glass, blur, tinted) with Material.Kind, and tray/window icons from SVG. Use when laying out a page with these controls or when an SVG does not resolve. Invoke as /spine-controls.
+description: Use Spine's controls and visual extensions in a .NET MAUI app — HeroCollectionView (collapsing hero header), AnimatedLabel (marquee, rolling numbers), Calendar (month calendar with year/decade pickers, week numbers and days marked from an external source), DataGrid (responsive row grid with layouts, sorting, grouping, swipe actions), Shimmer and Skeleton.IsActive (skeleton loading), SpineRow (settings and key/value rows), barcodes (Barcode.Encode and BarcodeView: QR, Data Matrix, fixed sizes) and camera scanning (BarcodeScannerView, a scan sheet, codes on a word clock), Tap.Command (press feedback on any view) and Semantic.Merge (one screen-reader element), embedded SVG icons with SvgImageSource and the Plugin.Maui.Spine.Svg.Icons set, Liquid Glass buttons with Glass.Style, material surfaces (glass, blur, tinted) with Material.Kind, and tray/window icons from SVG. Use when laying out a page with these controls or when an SVG does not resolve. Invoke as /spine-controls.
 ---
 
 You are using Spine's controls in an app built on **Plugin.Maui.Spine**. Each control is its own package with one registration call; SVGs resolve by short file name everywhere. Full docs: https://github.com/jonatansoderberg/Maui.Spine/tree/master/docs/wiki.
@@ -92,6 +92,12 @@ A SkiaSharp label that scrolls (marquee) or fades text that does not fit. `UseSp
 
 Give it a `HeightRequest`; it measures on the Skia canvas, not through MAUI's text layout.
 
+`Mode="RollingNumber"` is for a score, count or clock: on a `Text` change the characters that differ roll vertically (up when the number grows, down when it shrinks), the rest stand still, and the text does not marquee. Digits are tabular (equal width) and paired from the left, so `99` → `100` gains its new digit at the end; `HorizontalTextAlignment="End"` pairs from the right and keeps the ones over the ones. `RollDurationMs` (350) sets the speed; Reduce Motion falls back to the fade. `HorizontalTextAlignment` (`Start`, `Center`, `End`) also places a marquee text that fits.
+
+```xml
+<AnimatedLabel Text="{Binding Score}" Mode="RollingNumber" FontSize="28" />
+```
+
 ## Calendar (`Plugin.Maui.Spine.Controls.Calendar`)
 
 A month calendar from plain MAUI views: swipe or arrows between months, tap the title for a year and then a decade picker, ISO week numbers. No registration: its `Calendar.*` strings register themselves on first use; XAML namespace `Plugin.Maui.Spine.Controls` (assembly `Plugin.Maui.Spine.Controls.Calendar`).
@@ -138,7 +144,7 @@ Skeleton loading; no registration call. `Shimmer` shows a placeholder layout (em
 </VerticalStackLayout>
 ```
 
-Put `Skeleton.IsActive` on a layout (it throws on other views). For a list's first page, fill the items source with empty rows while loading.
+Put `Skeleton.IsActive` on a layout (it throws on other views). For a list's first page, fill the items source with empty rows while loading, or let a `TaskState` with a `placeholder` do it: `Skeleton.IsActive="{Binding People.IsLoading}"` on a layout bound to `People.Value` (see the spine-page skill, Loading data).
 
 ## Rows, Tap.Command and Semantic.Merge (`Plugin.Maui.Spine.Controls.Rows`, `Plugin.Maui.Spine`)
 
@@ -153,6 +159,40 @@ Put `Skeleton.IsActive` on a layout (it throws on other views). For a list's fir
 <Border Tap.Command="{Binding OpenCommand}" Tap.CommandParameter="{Binding .}" Semantic.Merge="True">...</Border>
 ```
 
+## Barcodes (`Plugin.Maui.Spine.Barcodes`, `Plugin.Maui.Spine.Scanner`)
+
+Two packages: **Barcodes** draws codes (no camera, no permissions, nothing to register; also targets `net10.0` for a server or a test), **Scanner** reads them with the camera (`UseSpine()` registers it; `UseSpineScanner()` without Spine, then the view works but not the sheet). XAML namespaces `Plugin.Maui.Spine.Barcodes` and `Plugin.Maui.Spine.Scanner`, each in the assembly of the same name.
+
+`Barcode.Encode(value, BarcodeFormat.QrCode)` or `Barcode.Encode(value, new QrCodeOptions { ErrorCorrection = QrErrorCorrection.High })` returns a `BarcodeMatrix` (`Width`, `Height`, `this[x, y]` true = dark module or lit lamp, `QuietZone`, `IsLinear`, `ToSvg()`). Options records: `QrCodeOptions` (`ErrorCorrection`, `Version`), `DataMatrixOptions` (`Shape`, `Size`), `AztecOptions`, `Pdf417Options`; the linear codes take a plain `BarcodeOptions(format)`. A value the format cannot carry throws `BarcodeEncodingException` naming the format, length and size.
+
+```xml
+<BarcodeView x:Name="Code" Value="{Binding Url}" Format="QrCode" HeightRequest="220" />
+<Label Text="{Binding Error, Source={x:Reference Code}, x:DataType=BarcodeView}" />
+```
+
+`BarcodeView` (a `GraphicsView`): `Value`, `Format`, `Options` (its format wins), `Matrix` (draw one built elsewhere), `ModuleColor`, `BackgroundColor` (white by default, the quiet zone), `IsInverted`, `ModuleShape` (`Square`, `Dot`), read-only `Error` (nothing is drawn while it is set).
+
+```csharp
+var scan = await navigation.NavigateToWithResultAsync<BarcodeScannerPage, BarcodeScanOptions, BarcodeScanResult>(
+    new BarcodeScanOptions { Formats = BarcodeFormat.QrCode, LightGrid = new LightGridOptions(12, 12) });
+if (scan is { IsSuccess: true, Value: { } code }) await PairAsync(code.Value);   // code.Format, code.IsLightGrid
+```
+
+`BarcodeScannerView` for a page of the app's own: `Formats` (flags, default `All`; `None` = light grid only), `LightGrid`, `IsScanning`, `IsTorchOn` (two-way), `IsTorchAvailable`, `RepeatInterval`, `Detected` / `DetectedCommand` (main thread), `Problem` / `ProblemChanged` (`PermissionDenied`, `NoCamera`, `Interrupted`, `NoFrames`, `Failed`, with a localised message; strings `Spine.Scanner.*`, en and sv). The camera runs only while the view is on screen and `IsScanning` is true.
+
+Pitfalls:
+- **iOS and Mac Catalyst need `NSCameraUsageDescription`** in each platform's Info.plist. Without it the view reports `Failed` with "Add NSCameraUsageDescription to Info.plist" instead of iOS ending the app. A sandboxed Mac Catalyst app also needs `com.apple.security.device.camera`.
+- **Android API 23+** for the Scanner (CameraX 1.6): set the app's Android `SupportedOSPlatformVersion` to 23.0 or the manifest merge fails. The package declares `android.permission.CAMERA` itself; do not add it again.
+- **Windows has no scanner handler.** Do not show `BarcodeScannerView` or the sheet there; `BarcodeView` works.
+- **A fixed size** is `new DataMatrixOptions { Size = (12, 12) }`: exactly that size or an exception, never a larger symbol. 12 × 12 holds 10 digits or 6 upper-case letters and digits; for a code people type as 7 letters, carry a number below 26⁷ as its 10 digits.
+- **The light grid reads Data Matrix only**, square sizes 10–26 (even); `LightGridReader` throws `NotSupportedException` for anything else. Platform readers (Vision, ML Kit) cannot read a code made of lit letters; set `LightGrid` for that.
+- **Dedupe:** the camera sees a code many times a second. `RepeatInterval` (default 2 s) reports the same value again only after it has been out of sight that long; to stop at the first hit, set `IsScanning = false` in the command.
+- `LightGridReader` on its own (`reader.Read(yPlane, width, height, stride)`): one instance per camera (it keeps its buffers, not thread-safe); it never throws for a bad frame, and `LightGridResult.Diagnostics` says why a frame missed.
+
+## Haptics (`Plugin.Maui.Spine`)
+
+`Haptics.Success()`, `Warning()`, `Error()`, `Selection()`, `Impact(HapticImpact.Light|Medium|Heavy|Soft|Rigid)` or `Haptics.Play(Haptic.X)`, from any thread; the platform's own generators, so the system haptics setting applies; Mac Catalyst and Windows play nothing. `Haptics.OnTap="Selection"` on a `Button`, `ImageButton`, `SpineRow` or any view with `Tap.Command` plays before the command (ignored on other views). `PageAction.Haptic` / `[PageAction(Haptic = …)]` for header actions. `options.Haptics.TabSwitch` and `options.Haptics.SheetDetent` (off by default) for user tab switches and sheet drags. Android: `options.Android.HapticEngine = AndroidHapticEngine.Vibrator` for composed patterns (needs `android.permission.VIBRATE`, falls back to the view engine with a logcat warning). Semantic, not decorative: Success after a save, Error on a failure, Selection when a choice changes. Verify Android with `adb shell dumpsys vibrator_manager`; the simulator and emulators do not vibrate. See docs/wiki/haptics.md.
+
 ## Menu buttons (`Plugin.Maui.Spine`)
 
 `MenuButton.Items` on a `Button` or `ImageButton` (and `PageAction.Menu` for header actions) opens the platform's menu: `MenuItems` of `MenuAction` (Title, Svg, Command, IsChecked, IsEnabled, IsDestructive, KeepsMenuOpen), `MenuSection`, `SubMenu`, `MenuPicker` (single selection, `Selected`, a command run with the pick). A menu button has no Command. `MenuButton.ShowsSelection` makes the button text follow the pick. See docs/wiki/menus.md.
@@ -165,10 +205,12 @@ A control never hard-codes words. It reads `SpineStrings.Current["Spine.Calendar
 
 - SVG: https://github.com/jonatansoderberg/Maui.Spine/blob/master/docs/wiki/svg.md
 - Glass buttons: https://github.com/jonatansoderberg/Maui.Spine/blob/master/docs/wiki/glass-buttons.md
+- Haptics: https://github.com/jonatansoderberg/Maui.Spine/blob/master/docs/wiki/haptics.md
 - HeroCollectionView: https://github.com/jonatansoderberg/Maui.Spine/blob/master/docs/wiki/hero-collection-view.md
 - AnimatedLabel: https://github.com/jonatansoderberg/Maui.Spine/blob/master/docs/wiki/animated-label.md
 - Calendar: https://github.com/jonatansoderberg/Maui.Spine/blob/master/docs/wiki/calendar.md
 - Rows and taps: https://github.com/jonatansoderberg/Maui.Spine/blob/master/docs/wiki/rows.md
 - DataGrid: https://github.com/jonatansoderberg/Maui.Spine/blob/master/docs/wiki/data-grid.md
 - Shimmer and Skeleton: https://github.com/jonatansoderberg/Maui.Spine/blob/master/docs/wiki/shimmer.md
+- Barcodes and scanning: https://github.com/jonatansoderberg/Maui.Spine/blob/master/docs/wiki/barcodes.md
 - Sample: https://github.com/jonatansoderberg/Maui.Spine/tree/master/samples/MauiSpineSampleApp

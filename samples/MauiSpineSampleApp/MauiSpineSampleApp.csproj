@@ -27,6 +27,8 @@
 
 		<!-- App Identifier -->
 		<ApplicationId>se.cosmomedia.spineshowcase</ApplicationId>
+		<!-- Plugin.Maui.Spine.Scanner uses CameraX, which needs Android 6.0. -->
+		<SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android'">23.0</SupportedOSPlatformVersion>
 
 		<!-- Versions -->
 		<ApplicationDisplayVersion>1.0</ApplicationDisplayVersion>
@@ -48,6 +50,12 @@
 		<!-- Images -->
 		<MauiImage Include="Resources\Images\*" />
 		<MauiImage Update="Resources\Images\dotnet_bot.png" Resize="True" BaseSize="300,185" />
+
+		<!-- Shortcut icons: the home screen draws them, so the build renders these SVGs into the app. -->
+		<SpineShortcutIcon Include="timer" />
+		<SpineShortcutIcon Include="stack" />
+		<SpineShortcutIcon Include="qrcode" />
+		<SpineShortcutIcon Include="theme" />
 		
 		<!-- Custom Fonts -->
 		<MauiFont Include="Resources\Fonts\*" />
@@ -105,6 +113,33 @@
       <DependentUpon>GlassPage.cs</DependentUpon>
     </Compile>
 
+    <MauiXaml Update="Pages\LiveActivities\LiveActivitiesPage.View.xaml">
+      <DependentUpon>LiveActivitiesPage.cs</DependentUpon>
+      <Generator>MSBuild:Compile</Generator>
+    </MauiXaml>
+
+    <Compile Include="Pages\LiveActivities\LiveActivitiesPage.ViewModel.cs">
+      <DependentUpon>LiveActivitiesPage.cs</DependentUpon>
+    </Compile>
+
+    <MauiXaml Update="Pages\Shortcuts\ShortcutsPage.View.xaml">
+      <DependentUpon>ShortcutsPage.cs</DependentUpon>
+      <Generator>MSBuild:Compile</Generator>
+    </MauiXaml>
+
+    <Compile Include="Pages\Shortcuts\ShortcutsPage.ViewModel.cs">
+      <DependentUpon>ShortcutsPage.cs</DependentUpon>
+    </Compile>
+
+    <MauiXaml Update="Pages\Haptics\HapticsPage.View.xaml">
+      <DependentUpon>HapticsPage.cs</DependentUpon>
+      <Generator>MSBuild:Compile</Generator>
+    </MauiXaml>
+
+    <Compile Include="Pages\Haptics\HapticsPage.ViewModel.cs">
+      <DependentUpon>HapticsPage.cs</DependentUpon>
+    </Compile>
+
     <MauiXaml Update="Pages\Theme\ThemePage.View.xaml">
       <DependentUpon>ThemePage.cs</DependentUpon>
       <Generator>MSBuild:Compile</Generator>
@@ -130,6 +165,15 @@
 
     <Compile Include="Pages\HeaderBar\HeaderBarPage.ViewModel.cs">
       <DependentUpon>HeaderBarPage.cs</DependentUpon>
+    </Compile>
+
+    <MauiXaml Update="Pages\State\StatePage.View.xaml">
+      <DependentUpon>StatePage.cs</DependentUpon>
+      <Generator>MSBuild:Compile</Generator>
+    </MauiXaml>
+
+    <Compile Include="Pages\State\StatePage.ViewModel.cs">
+      <DependentUpon>StatePage.cs</DependentUpon>
     </Compile>
 
     <MauiXaml Update="Pages\Lifetime\LifetimePage.View.xaml">
@@ -216,6 +260,15 @@
       <DependentUpon>EditSheetPage.cs</DependentUpon>
     </Compile>
 
+    <MauiXaml Update="Pages\Sheets\LateActionSheet.View.xaml">
+      <DependentUpon>LateActionSheet.cs</DependentUpon>
+      <Generator>MSBuild:Compile</Generator>
+    </MauiXaml>
+
+    <Compile Include="Pages\Sheets\LateActionSheet.ViewModel.cs">
+      <DependentUpon>LateActionSheet.cs</DependentUpon>
+    </Compile>
+
     <MauiXaml Update="Pages\Results\ResultsPage.View.xaml">
       <DependentUpon>ResultsPage.cs</DependentUpon>
       <Generator>MSBuild:Compile</Generator>
@@ -261,6 +314,13 @@
       <DependentUpon>DataGridPage.cs</DependentUpon>
     </Compile>
 
+    <MauiXaml Update="Pages\Barcodes\BarcodesPage.View.xaml">
+      <DependentUpon>BarcodesPage.cs</DependentUpon>
+      <Generator>MSBuild:Compile</Generator>
+    </MauiXaml>
+    <Compile Include="Pages\Barcodes\BarcodesPage.ViewModel.cs">
+      <DependentUpon>BarcodesPage.cs</DependentUpon>
+    </Compile>
     <MauiXaml Update="Pages\Shimmer\ShimmerPage.View.xaml">
       <DependentUpon>ShimmerPage.cs</DependentUpon>
       <Generator>MSBuild:Compile</Generator>
@@ -291,15 +351,6 @@
 		<Compile Include="Pages\PersonDetailPage.ViewModel.cs">
 			<DependentUpon>PersonDetailPage.cs</DependentUpon>
 		</Compile>
-    
-    <Compile Include="Pages\ToggleListSheet.ViewModel.cs">
-      <DependentUpon>ToggleListSheet.cs</DependentUpon>
-    </Compile>
-
-    <MauiXaml Update="Pages\ToggleListSheet.View.xaml">
-      <Generator>MSBuild:Compile</Generator>
-      <DependentUpon>ToggleListSheet.cs</DependentUpon>
-    </MauiXaml>
 
     <Compile Include="Pages\SimpleBottomSheetPage.ViewModel.cs">
       <DependentUpon>SimpleBottomSheetPage.cs</DependentUpon>
@@ -347,9 +398,9 @@
 			<DependentUpon>FullscreenSheetPage.cs</DependentUpon>
 		</Compile>
 
-		<MauiXaml Update="Pages\Settings\SettingsPage.View.xaml">
+		<MauiXaml Update="Pages\Widgets\WidgetsPage.View.xaml">
 	    <Generator>MSBuild:Compile</Generator>
-      <DependentUpon>SettingsPage.cs</DependentUpon>
+      <DependentUpon>WidgetsPage.cs</DependentUpon>
 	  </MauiXaml>
 
 		<MauiXaml Update="Pages\SmallSheetPage.View.xaml">
@@ -358,8 +409,26 @@
 		</MauiXaml>
 
     
-    <Compile Include="Pages\Settings\SettingsPage.ViewModel.cs">
-      <DependentUpon>SettingsPage.cs</DependentUpon>
+    <Compile Include="Pages\Widgets\WidgetsPage.ViewModel.cs">
+      <DependentUpon>WidgetsPage.cs</DependentUpon>
+    </Compile>
+
+    <MauiXaml Update="Pages\Options\OptionsSheet.View.xaml">
+      <DependentUpon>OptionsSheet.cs</DependentUpon>
+      <Generator>MSBuild:Compile</Generator>
+    </MauiXaml>
+
+    <Compile Include="Pages\Options\OptionsSheet.ViewModel.cs">
+      <DependentUpon>OptionsSheet.cs</DependentUpon>
+    </Compile>
+
+    <MauiXaml Update="Pages\SvgIcons\SvgIconSetPage.View.xaml">
+      <DependentUpon>SvgIconSetPage.cs</DependentUpon>
+      <Generator>MSBuild:Compile</Generator>
+    </MauiXaml>
+
+    <Compile Include="Pages\SvgIcons\SvgIconSetPage.ViewModel.cs">
+      <DependentUpon>SvgIconSetPage.cs</DependentUpon>
     </Compile>
 	</ItemGroup>
 
@@ -372,6 +441,8 @@
   
   
 	<ItemGroup>
+		<ProjectReference Include="..\..\src\Plugin.Maui.Spine.Barcodes\Plugin.Maui.Spine.Barcodes.csproj" />
+		<ProjectReference Include="..\..\src\Plugin.Maui.Spine.Scanner\Plugin.Maui.Spine.Scanner.csproj" />
 		<ProjectReference Include="..\..\src\Plugin.Maui.Spine.Controls.AnimatedLabel\Plugin.Maui.Spine.Controls.AnimatedLabel.csproj" />
 		<ProjectReference Include="..\..\src\Plugin.Maui.Spine.Controls.Calendar\Plugin.Maui.Spine.Controls.Calendar.csproj" />
 		<ProjectReference Include="..\..\src\Plugin.Maui.Spine.Controls.DataGrid\Plugin.Maui.Spine.Controls.DataGrid.csproj" />
@@ -383,9 +454,17 @@
 		<ProjectReference Include="..\..\src\Plugin.Maui.Spine.Svg\Plugin.Maui.Spine.Svg.csproj" />
 		<ProjectReference Include="..\..\src\Plugin.Maui.Spine.Svg.Icons\Plugin.Maui.Spine.Svg.Icons.csproj" />
 	</ItemGroup>
-	<!-- Widgets: the kinds below become a WidgetKit extension on iOS; the provider is [Widget("sample")] in Widgets\. -->
+	<!-- Mac Catalyst widgets: macOS blocks a group.* App Group without a provisioning profile, so the Mac
+	     build uses the Team ID form, the same as Platforms/MacCatalyst/Entitlements.plist. The build must be
+	     signed with that team's certificate: set CodesignKey, e.g. in MauiSpineSampleApp.csproj.user. -->
+	<PropertyGroup Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'maccatalyst'">
+		<SpineWidgetsAppGroup>7F2CQZ9T84.se.cosmomedia.spineshowcase</SpineWidgetsAppGroup>
+	</PropertyGroup>
+
+	<!-- Widgets: the kinds below become a WidgetKit extension on iOS and Mac Catalyst; the providers are the [Widget] classes in Widgets\. -->
 	<ItemGroup>
 		<SpineWidget Include="sample" DisplayName="Spine sample" Description="A data-driven widget rendered from a tree the app builds." Families="Small,Medium" />
+		<SpineWidget Include="score" DisplayName="Live score" Description="The game while it is on, then the next game and the latest results." Families="Small,Medium,AccessoryCircular,AccessoryRectangular,AccessoryInline" />
 	</ItemGroup>
 	<Import Project="..\..\src\Plugin.Maui.Spine.Common\build\Plugin.Maui.Spine.Common.targets" />
 	<Import Project="..\..\src\Plugin.Maui.Spine.Widgets\build\Plugin.Maui.Spine.Widgets.targets" />

@@ -1,0 +1,57 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+	<PropertyGroup>
+		<TargetFrameworks>$(SpineMauiTargetFrameworks)</TargetFrameworks>
+
+		<AssemblyName>Plugin.Maui.Spine.Scanner</AssemblyName>
+		<RootNamespace>Plugin.Maui.Spine.Scanner</RootNamespace>
+		<UseMaui>true</UseMaui>
+		<SingleProject>true</SingleProject>
+		<NoWarn>$(NoWarn);CS1591</NoWarn>
+		<AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+	</PropertyGroup>
+
+	<!-- CameraX 1.6 needs Android 6.0; an app below that fails the manifest merge. -->
+	<PropertyGroup>
+		<SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android'">23.0</SupportedOSPlatformVersion>
+	</PropertyGroup>
+
+	<PropertyGroup>
+		<Description>Camera barcode scanning for .NET MAUI: a BarcodeScannerView and a ready-made scan sheet. Vision on iOS and ML Kit on Android read the standard codes; a light-grid reader reads a code shown by a grid of lamps, such as a word clock.</Description>
+		<SpineIcon>scanner.png</SpineIcon>
+		<PackageTags>$(PackageTags);barcode;qr;scanner;camera;vision;mlkit;camerax</PackageTags>
+	</PropertyGroup>
+
+	<ItemGroup>
+		<PackageReference Include="Microsoft.Maui.Controls" />
+	</ItemGroup>
+
+	<ItemGroup Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android'">
+		<PackageReference Include="Xamarin.AndroidX.Camera.Camera2" />
+		<PackageReference Include="Xamarin.AndroidX.Camera.Lifecycle" />
+		<PackageReference Include="Xamarin.AndroidX.Camera.View" />
+		<PackageReference Include="Xamarin.Google.MLKit.BarcodeScanning" />
+		<!--
+			CameraX pulls AndroidX.Fragment 1.9.0 and Collection.Jvm 1.6.0.1 while MAUI's Ktx facades stay a
+			release behind (NU1608); lifting the facades lines them up, as for Plugin.Maui.Spine.PushNotifications.
+		-->
+		<PackageReference Include="Xamarin.AndroidX.Fragment.Ktx" />
+		<PackageReference Include="Xamarin.AndroidX.Collection.Ktx" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<ProjectReference Include="..\Plugin.Maui.Spine\Plugin.Maui.Spine.csproj" />
+		<ProjectReference Include="..\Plugin.Maui.Spine.Barcodes\Plugin.Maui.Spine.Barcodes.csproj" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<EmbeddedResource Include="Resources\Strings\*.xml" WithCulture="false" />
+		<EmbeddedResource Include="Resources\Svg\*.svg" />
+	</ItemGroup>
+
+	<!-- Declares the package to UseSpine(); see Plugin.Maui.Spine's build\Plugin.Maui.Spine.targets. -->
+	<ItemGroup>
+		<None Include="build\**" Pack="true" PackagePath="build\;buildTransitive\" />
+	</ItemGroup>
+
+</Project>

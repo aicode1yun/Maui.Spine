@@ -4,6 +4,16 @@ using Plugin.Maui.Spine.Svg;
 
 namespace Plugin.Maui.Spine.Presentation;
 
+/// <summary>
+/// One header bar action. It draws the action on one of two faces: when the action is replaced by
+/// another (Back by Cancel, Filter by Bell) the new face fades and grows in while the old one fades
+/// and shrinks out, at the same time, as a navigation bar's items do.
+/// </summary>
+/// <remarks>
+/// With Liquid Glass and <see cref="SpineOptions.ApplePlatformOptions.MorphHeaderActions"/> there is one
+/// glass button for icons and text alike, and a replacement changes it inside a UIKit spring
+/// animation, so the glass itself morphs from a circle to a capsule.
+/// </remarks>
 internal sealed class PageActionView : ContentView
 {
     public static readonly BindableProperty ActionProperty = BindableProperty.Create(
@@ -16,7 +26,7 @@ internal sealed class PageActionView : ContentView
     /// <summary>A fixed colour for the text and the icon, or <see langword="null"/> to follow the theme.</summary>
     public static readonly BindableProperty ForegroundProperty = BindableProperty.Create(
         nameof(Foreground), typeof(Color), typeof(PageActionView), null,
-        propertyChanged: static (b, _, _) => ((PageActionView)b).ApplyForeground());
+        propertyChanged: static (b, _, _) => ((PageActionView)b).ForEachFace(f => f.ApplyForeground()));
 
     public Color? Foreground
     {
@@ -29,15 +39,15 @@ internal sealed class PageActionView : ContentView
         typeof(bool),
         typeof(PageActionView),
         false,
-        propertyChanged: OnHideDisabledChanged);
+        propertyChanged: static (b, _, _) => ((PageActionView)b).ForEachFace(f => f.ApplyHideDisabled()));
 
-    readonly Button _textButton;
-    readonly ImageButton _imageButton;
-    Action? _applyTextButtonColor;
-    readonly Border _badge;
-    readonly Label _badgeLabel;
-    readonly bool _glass;
-    string? _currentSvg;
+    /// <summary>
+    /// Width of the slot an icon action takes. A text action sizes to its text; the view itself
+    /// always sizes to its content, so a face that is fading out keeps its own size.
+    /// </summary>
+    public static readonly BindableProperty IconWidthProperty = BindableProperty.Create(
+        nameof(IconWidth), typeof(double), typeof(PageActionView), HeaderBarConstants.Height,
+        propertyChanged: static (b, _, _) => ((PageActionView)b)._front.ApplyIconWidth());
 
     public PageAction? Action
     {
@@ -51,264 +61,619 @@ internal sealed class PageActionView : ContentView
         set => SetValue(HideDisabledProperty, value);
     }
 
+    public double IconWidth
+    {
+        get => (double)GetValue(IconWidthProperty);
+        set => SetValue(IconWidthProperty, value);
+    }
+
+    readonly bool _glass;
+    readonly bool _morph;
+    Face _front;
+    Face _back;
+
     public PageActionView()
     {
-        _textButton = new Button
-        {
-            BackgroundColor = Colors.Transparent,
-            BorderWidth = 0,
-            Margin = new Thickness(12, 0, 12, 0)
-        };
-
-        ButtonExtensions.SetCompact(_textButton, true);
-
-        void ApplyTextButtonColor()
-        {
-            if (Foreground is { } foreground)
-            {
-                _textButton.TextColor = foreground;
-                return;
-            }
-
-            var isDark = Application.Current?.RequestedTheme == AppTheme.Dark
-                || (Application.Current?.RequestedTheme != AppTheme.Light
-                    && Application.Current?.PlatformAppTheme == AppTheme.Dark);
-            _textButton.TextColor = SpineTheme.GetAccent(isDark ? AppTheme.Dark : AppTheme.Light)
-                ?? Color.FromArgb(isDark ? "#0A84FF" : "#007AFF");
-        }
-
-        _applyTextButtonColor = ApplyTextButtonColor;
-
-        ApplyTextButtonColor();
-
-        // Re-apply in HandlerChanged because the implicit Button style is applied when the
-        // view enters the visual tree and can race with the initial assignment.
-        // Direct SetValue (not a binding) definitively wins over any style setter.
-        _textButton.HandlerChanged += (_, _) =>
-        {
-            if (_textButton.Handler is null) return;
-            ApplyTextButtonColor();
-        };
-
-        // Keep the colour in sync when the user switches the theme or the accent at runtime.
-        SpineTheme.Track(this, ApplyTextButtonColor);
-
-        _imageButton = new ImageButton
-        {
-            HorizontalOptions = LayoutOptions.End,
-            VerticalOptions = LayoutOptions.Center,
-            BackgroundColor = Colors.Transparent,
-            BorderWidth = 0,
-            BorderColor = Colors.Transparent,
-            CornerRadius = DeviceInfo.Platform == DevicePlatform.Android ? 24 : 0,
-        };
-        _imageButton.ApplyCommonVisualStates(HideDisabled);
-
-        _imageButton.SetBinding(VisualElement.WidthRequestProperty, new Binding(nameof(WidthRequest), source: this));
-        _imageButton.SetBinding(VisualElement.HeightRequestProperty, new Binding(nameof(HeightRequest), source: this));
-        _imageButton.SetBinding(ImageButton.PaddingProperty, new Binding(nameof(Padding), source: this));
-
         _glass = UseGlassHeaderActions;
-        if (_glass)
-        {
-            // Compact zeroed the padding; the capsule needs some room around the text, and it
-            // sits centred in the 44-point row rather than filling it.
-            _textButton.Padding = new Thickness(14, 8);
-            _textButton.VerticalOptions = LayoutOptions.Center;
-            Glass.SetStyle(_textButton, GlassStyle.Regular);
+        _morph = _glass && OperatingSystem.IsIOSVersionAtLeast(26)
+            && IPlatformApplication.Current?.Services.GetService<SpineOptions>()?.Apple.MorphHeaderActions == true;
+        _front = new Face(this);
+        _back = new Face(this) { Opacity = 0, IsVisible = false, InputTransparent = true };
 
-            // The glass makes the slot visible, so the icon becomes a circle centred in it
-            // rather than a pill hugging the screen edge.
-            _imageButton.HorizontalOptions = LayoutOptions.Center;
-            _imageButton.SetBinding(VisualElement.WidthRequestProperty, new Binding(nameof(HeightRequest), source: this));
-            Glass.SetStyle(_imageButton, GlassStyle.Regular);
-        }
+        Content = new Grid { Children = { _back, _front } };
 
-        _badgeLabel = new Label
-        {
-            FontSize = 11,
-            FontAttributes = FontAttributes.Bold,
-            TextColor = Colors.White,
-            HorizontalTextAlignment = TextAlignment.Center,
-            VerticalTextAlignment = TextAlignment.Center,
-            LineBreakMode = LineBreakMode.NoWrap,
-        };
+        // Keep the colours in sync when the user switches the theme or the accent at runtime.
+        SpineTheme.Track(this, () => ForEachFace(f => f.ApplyForeground()));
 
-        // The same red the native tab badges use, so a count reads the same everywhere.
-        _badge = new Border
-        {
-            Content = _badgeLabel,
-            BackgroundColor = Color.FromArgb("#FF3B30"),
-            StrokeThickness = 0,
-            StrokeShape = new Microsoft.Maui.Controls.Shapes.RoundRectangle { CornerRadius = 8 },
-            Padding = new Thickness(4, 0),
-            MinimumWidthRequest = 16,
-            HeightRequest = 16,
-            HorizontalOptions = LayoutOptions.End,
-            VerticalOptions = LayoutOptions.Start,
-            // On the glass capsule the pill sits inside the slot's corner; on a plain text button
-            // it sits past the text, which ends 12 points short of the edge.
-            Margin = _glass ? new Thickness(0, 2, 6, 0) : new Thickness(0, 0, 0, 0),
-            InputTransparent = true,
-            IsVisible = false,
-        };
-
-        Content = new Grid
-        {
-            Children = { _textButton, _imageButton, _badge }
-        };
-
-        ApplyAction();
+        _front.Apply(null);
     }
 
     // The option is read here rather than passed down: HeaderBarView and PageActionView are built by
     // pages, not by DI, and the attached property is a no-op off Apple anyway.
-    static bool UseGlassHeaderActions =>
+    internal static bool UseGlassHeaderActions =>
         OperatingSystem.IsIOS()
         && IPlatformApplication.Current?.Services.GetService<SpineOptions>()?.Apple.GlassHeaderActions == true;
 
     /// <summary>Raised when the assigned action's <see cref="PageAction.IsVisible"/> changes in place.</summary>
     public event Action? VisibilityChanged;
 
+    /// <summary>
+    /// How long a header bar action takes to swap, show or hide: close to UIKit's navigation bar on
+    /// Apple, Material 3's fade-through on Android. Short and without movement under Reduce Motion.
+    /// </summary>
+    internal static uint TransitionDuration => ReducedMotion.IsOn ? 150u
+        : DeviceInfo.Platform == DevicePlatform.Android ? 150u
+        : DeviceInfo.Platform == DevicePlatform.WinUI ? 200u
+        : 300u;
+
+    /// <summary>How long an action takes to go away: half as long as it takes to arrive.</summary>
+    internal static uint RemovalDuration => TransitionDuration / 2;
+
+    /// <summary>The scale an action grows from and shrinks to; 1 (none) under Reduce Motion.</summary>
+    internal static double TransitionScale => ReducedMotion.IsOn ? 1 : 0.85;
+
+    internal static readonly Easing TransitionEasing = Easing.CubicOut;
+
+    protected override void OnPropertyChanged(string? propertyName = null)
+    {
+        base.OnPropertyChanged(propertyName);
+
+        if (propertyName == HeightRequestProperty.PropertyName && _front is not null)
+            _front.ApplyIconWidth();
+    }
+
+    void ForEachFace(Action<Face> apply)
+    {
+        apply(_front);
+        apply(_back);
+    }
+
     static void OnActionChanged(BindableObject bindable, object oldValue, object newValue)
     {
         var view = (PageActionView)bindable;
-        var oldSvg = (oldValue as PageAction)?.Svg;
-        var newSvg = (newValue as PageAction)?.Svg;
 
         if (oldValue is PageAction oldAction)
             oldAction.PropertyChanged -= view.OnActionPropertyChanged;
         if (newValue is PageAction newAction)
             newAction.PropertyChanged += view.OnActionPropertyChanged;
 
-        var sameSvg = !string.IsNullOrWhiteSpace(oldSvg)
-                   && !string.IsNullOrWhiteSpace(newSvg)
-                   && oldSvg == newSvg;
+        var oldSvg = (oldValue as PageAction)?.Svg;
+        var newSvg = (newValue as PageAction)?.Svg;
+        var sameGlyph = !string.IsNullOrWhiteSpace(oldSvg) && oldSvg == newSvg;
 
-        if (sameSvg)
-            view.ApplyAction();
+        // The same icon under another action (a page's Save after the previous page's Save) is not
+        // a change the user sees; anything else crosses over.
+        if (sameGlyph || view.Opacity == 0 || !view.IsVisible)
+            view._front.Apply((PageAction?)newValue);
+        else if (view._morph)
+            view.Morph((PageAction?)newValue);
         else
-            _ = view.ApplyActionAnimatedAsync();
-    }
-
- 
-
-    void ApplyForeground()
-    {
-        _applyTextButtonColor?.Invoke();
-
-        if (_imageButton.Behaviors.OfType<SvgImageSourceBehavior>().FirstOrDefault() is { } svg)
-        {
-            svg.TintColor = Foreground;
-            svg.UpdateImage();
-        }
+            _ = view.SwapAsync((PageAction?)newValue);
     }
 
     void OnActionPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
     {
         switch (e.PropertyName)
         {
+            case nameof(PageAction.Svg) when _morph:
+                Morph(Action);
+                break;
             case nameof(PageAction.Svg):
-                _ = ApplyActionAnimatedAsync();
+                _ = SwapAsync(Action);
                 break;
             case nameof(PageAction.IsVisible):
-                ApplyAction();
+                _front.Apply(Action);
                 VisibilityChanged?.Invoke();
                 break;
             default:
-                ApplyAction();
+                _front.Apply(Action);
                 break;
         }
     }
 
-    static void OnHideDisabledChanged(BindableObject bindable, object oldValue, object newValue)
+    /// <summary>
+    /// Changes the one glass button to <paramref name="action"/> and lays the bar out again inside a
+    /// spring animation: UIKit animates the new frame and the button's content, and the glass
+    /// reshapes with it.
+    /// </summary>
+    void Morph(PageAction? action)
     {
-        var view = (PageActionView)bindable;
-        view._imageButton.ApplyCommonVisualStates(view.HideDisabled);
-    }
-
-    async Task ApplyActionAnimatedAsync()
-    {
-        var wasVisible = _textButton.IsVisible || _imageButton.IsVisible;
-
-        if (wasVisible)
-            await this.FadeToAsync(0, 60);
-
-        ApplyAction();
-
-        // On Android the new ImageSource is decoded asynchronously after being set;
-        // a short delay lets the platform render the new bitmap before revealing it.
-        await Task.Delay(50);
-
-        if (_textButton.IsVisible || _imageButton.IsVisible)
-            await this.FadeToAsync(1, 60);
-        else
-            Opacity = 1;
-    }
-
-    void ApplyAction()
-    {
-        var action = Action;
-        if (action is null || !action.IsVisible)
+#if IOS || MACCATALYST
+        if (Window?.Handler?.PlatformView is UIKit.UIWindow window)
         {
-            _textButton.IsVisible = false;
-            _imageButton.IsVisible = false;
-            _badge.IsVisible = false;
+            var reduced = ReducedMotion.IsOn;
+
+            // MAUI measures and arranges in the window's layout pass, so that is the pass to run
+            // inside the spring. Whatever else is pending (a page arriving, its title) is laid out
+            // first, without animation, so only this action's change is animated.
+            UIKit.UIView.PerformWithoutAnimation(window.LayoutIfNeeded);
+
+            // Everything starts at once, so this action moves together with the other one and
+            // with the page: the new content goes in invisible and fades in while the glass
+            // grows or shrinks to it inside the spring.
+            UIKit.UIView.PerformWithoutAnimation(() => _front.Apply(action));
+            GlassAppearance.SetContentAlpha(_front, 0);
+            ((IView)this).InvalidateMeasure();
+
+            UIKit.UIView.AnimateNotify(
+                reduced ? 0.2 : 0.45, 0, reduced ? 1f : 0.82f, 0,
+                UIKit.UIViewAnimationOptions.BeginFromCurrentState | UIKit.UIViewAnimationOptions.AllowUserInteraction,
+                window.LayoutIfNeeded,
+                null);
+
+            // The glass starts moving at once; the content follows a beat later, when the
+            // capsule is wide enough not to clip it.
+            _ = GlassAppearance.FadeContentAsync(_front, show: true, reduced ? 150u : 250u, delay: reduced ? 0 : 0.1);
             return;
         }
+#endif
+        _front.Apply(action);
+    }
 
-        var hasSvg = !string.IsNullOrWhiteSpace(action.Svg);
+    /// <summary>Crosses from what the front face shows to <paramref name="action"/> on the other face.</summary>
+    async Task SwapAsync(PageAction? action)
+    {
+        var outgoing = _front;
+        var incoming = _back;
 
-        _imageButton.IsVisible = hasSvg;
-        _textButton.IsVisible = !hasSvg;
-        _imageButton.IsEnabled = action.IsEnabled;
-        _textButton.IsEnabled = action.IsEnabled;
-        // The app's Disabled visual state may not reach a button whose colour is set directly.
-        _imageButton.Opacity = action.IsEnabled ? 1 : 0.4;
-        _textButton.Opacity = action.IsEnabled ? 1 : 0.4;
+        this.AbortAnimation("Swap");
 
-        _badgeLabel.Text = action.Badge ?? string.Empty;
-        SemanticProperties.SetDescription(_imageButton, action.Description);
-        SemanticProperties.SetDescription(_textButton, action.Description);
+        _front = incoming;
+        _back = outgoing;
 
-        MenuButton.SetItems(_imageButton, action.Menu);
-        MenuButton.SetItems(_textButton, action.Menu);
-        MenuButton.SetShowsSelection(_textButton, action.MenuShowsSelection);
-        _badge.IsVisible = !string.IsNullOrEmpty(action.Badge);
+        // The outgoing face keeps the size it has now, whatever the slot does next.
+        outgoing.Freeze();
+        outgoing.InputTransparent = true;
 
-        if (hasSvg)
+        incoming.Apply(action);
+        incoming.InputTransparent = false;
+        incoming.IsVisible = true;
+        incoming.Opacity = 0;
+        incoming.Scale = TransitionScale;
+
+        // Drawn above the outgoing face, so a tap during the swap reaches the new action.
+        incoming.ZIndex = 1;
+        outgoing.ZIndex = 0;
+
+        var duration = TransitionDuration;
+        var shrink = TransitionScale;
+
+#if IOS || MACCATALYST
+        // Glass turns flat grey when its alpha fades: materialize and dissolve it instead.
+        if (_glass && GlassAppearance.Applies(this))
         {
-            if (action.Svg != _currentSvg)
-            {
-                _imageButton.Behaviors.Clear();
-                var behavior = new SvgImageSourceBehavior
-                {
-                    Svg = action.Svg!,
-                    LightTintColor = Colors.Black,
-                    DarkTintColor = Colors.White,
-                    TintColor = Foreground,
-                };
-                // A 24-point glyph in the 44-point glass circle, the size a UIBarButtonItem uses.
-                if (_glass)
-                    behavior.Padding = new Thickness(10);
-                _imageButton.Behaviors.Add(behavior);
-                _currentSvg = action.Svg;
-            }
+            incoming.Opacity = 1;
+            outgoing.Opacity = 1;
 
-            _imageButton.Command = action.Command;
-            _imageButton.CommandParameter = action.CommandParameter;
+            await Task.WhenAll(
+                GlassAppearance.AnimateAsync(incoming, show: true, duration),
+                incoming.ScaleToAsync(1, duration, TransitionEasing),
+                GlassAppearance.AnimateAsync(outgoing, show: false, RemovalDuration),
+                outgoing.ScaleToAsync(shrink, RemovalDuration, TransitionEasing));
+
+            if (ReferenceEquals(_back, outgoing))
+            {
+                outgoing.IsVisible = false;
+                outgoing.Scale = 1;
+                outgoing.Apply(null);
+            }
+            return;
         }
-        else
+#endif
+
+        var tcs = new TaskCompletionSource();
+
+        new Animation
         {
-            if (_currentSvg is not null)
+            { 0, 1, new Animation(v => incoming.Opacity = v, 0, 1) },
+            { 0, 1, new Animation(v => incoming.Scale = v, shrink, 1) },
+            // The old face is gone halfway, well before the new one has settled.
+            { 0, 0.5, new Animation(v => outgoing.Opacity = v, outgoing.Opacity, 0) },
+            { 0, 0.5, new Animation(v => outgoing.Scale = v, 1, shrink) },
+        }.Commit(this, "Swap", 16, duration, TransitionEasing, (_, cancelled) =>
+        {
+            if (!cancelled && ReferenceEquals(_back, outgoing))
             {
-                _imageButton.Behaviors.Clear();
-                _currentSvg = null;
+                outgoing.IsVisible = false;
+                outgoing.Scale = 1;
+                outgoing.Apply(null);
             }
 
-            _textButton.Text = action.Text ?? string.Empty;
+            incoming.Opacity = 1;
+            incoming.Scale = 1;
+            tcs.TrySetResult();
+        });
+
+        await tcs.Task;
+    }
+
+    /// <summary>One way of drawing the action: a text button, an icon button and a badge.</summary>
+    sealed class Face : Grid
+    {
+        readonly PageActionView _owner;
+        readonly Button _textButton;
+        readonly ImageButton _imageButton;
+        readonly Border _badge;
+        readonly Label _badgeLabel;
+        // The icon of a morphing action, drawn over its glass circle; taps go to the button under it.
+        readonly Image _morphIcon = new()
+        {
+            WidthRequest = 24,
+            HeightRequest = 24,
+            HorizontalOptions = LayoutOptions.Center,
+            VerticalOptions = LayoutOptions.Center,
+            InputTransparent = true,
+            IsVisible = false,
+        };
+        string? _currentSvg;
+        // A confirm action leads the screen: tinted glass on iOS 26, a filled accent circle elsewhere. A selected
+        // action (a toggle that is on) is filled the same way, with the foreground instead of the accent.
+        bool _prominent;
+        bool _selected;
+
+        public Face(PageActionView owner)
+        {
+            _owner = owner;
+
+            // Primary actions sit at the leading edge and secondary ones at the trailing edge; two
+            // faces of different widths overlap at that edge.
+            SetBinding(HorizontalOptionsProperty, new Binding(nameof(HorizontalOptions), source: owner));
+
+            _textButton = new Button
+            {
+                BackgroundColor = Colors.Transparent,
+                BorderWidth = 0,
+                Margin = new Thickness(12, 0, 12, 0),
+            };
+
+            ButtonExtensions.SetCompact(_textButton, true);
+
+            // Re-apply in HandlerChanged because the implicit Button style is applied when the
+            // view enters the visual tree and can race with the initial assignment.
+            // Direct SetValue (not a binding) definitively wins over any style setter.
+            _textButton.HandlerChanged += (_, _) =>
+            {
+                if (_textButton.Handler is not null)
+                    ApplyForeground();
+            };
+
+            _imageButton = new ImageButton
+            {
+                HorizontalOptions = LayoutOptions.End,
+                VerticalOptions = LayoutOptions.Center,
+                BackgroundColor = Colors.Transparent,
+                BorderWidth = 0,
+                BorderColor = Colors.Transparent,
+                CornerRadius = DeviceInfo.Platform == DevicePlatform.Android ? 24 : 0,
+            };
+            _imageButton.ApplyCommonVisualStates(owner.HideDisabled);
+
+            _imageButton.SetBinding(VisualElement.HeightRequestProperty, new Binding(nameof(HeightRequest), source: owner));
+            _imageButton.SetBinding(ImageButton.PaddingProperty, new Binding(nameof(Padding), source: owner));
+            ApplyIconWidth();
+
+            if (owner._glass)
+            {
+                // Compact zeroed the padding; the capsule needs some room around the text, and it
+                // sits centred in the 44-point row rather than filling it. The capsule is the
+                // button's edge, so it lines up with the page margin like an icon's circle; the
+                // plain text button's inset would push it 12 points further in.
+                _textButton.Margin = new Thickness(0);
+                _textButton.Padding = new Thickness(14, 8);
+                _textButton.VerticalOptions = LayoutOptions.Center;
+                Glass.SetStyle(_textButton, GlassStyle.Regular);
+
+                // The glass makes the slot visible, so the icon becomes a circle centred in it
+                // rather than a pill hugging the screen edge.
+                _imageButton.HorizontalOptions = LayoutOptions.Center;
+                Glass.SetStyle(_imageButton, GlassStyle.Regular);
+            }
+
+            _badgeLabel = new Label
+            {
+                FontSize = 11,
+                FontAttributes = FontAttributes.Bold,
+                TextColor = Colors.White,
+                HorizontalTextAlignment = TextAlignment.Center,
+                VerticalTextAlignment = TextAlignment.Center,
+                LineBreakMode = LineBreakMode.NoWrap,
+            };
+
+            // The same red the native tab badges use, so a count reads the same everywhere.
+            _badge = new Border
+            {
+                Content = _badgeLabel,
+                BackgroundColor = Color.FromArgb("#FF3B30"),
+                StrokeThickness = 0,
+                StrokeShape = new Microsoft.Maui.Controls.Shapes.RoundRectangle { CornerRadius = 8 },
+                Padding = new Thickness(4, 0),
+                MinimumWidthRequest = 16,
+                HeightRequest = 16,
+                HorizontalOptions = LayoutOptions.End,
+                VerticalOptions = LayoutOptions.Start,
+                // On the glass capsule the pill sits inside the slot's corner; on a plain text button
+                // it sits past the text, which ends 12 points short of the edge.
+                Margin = owner._glass ? new Thickness(0, 2, 6, 0) : new Thickness(0, 0, 0, 0),
+                InputTransparent = true,
+                IsVisible = false,
+            };
+
+            Children.Add(_textButton);
+            Children.Add(_imageButton);
+            Children.Add(_morphIcon);
+            Children.Add(_badge);
+
+            ApplyForeground();
+        }
+
+        /// <summary>
+        /// The one glass button draws icons too: an icon action is an empty circle as tall as the
+        /// row with the SVG drawn over it, a text action a capsule around its text.
+        /// </summary>
+        void ApplyMorphing(PageAction action, bool hasSvg)
+        {
+            _imageButton.IsVisible = false;
+            _textButton.IsVisible = true;
+            _textButton.IsEnabled = action.IsEnabled;
+            _textButton.Opacity = action.IsEnabled ? 1 : 0.4;
+
+            _badgeLabel.Text = action.Badge ?? string.Empty;
+            _badge.IsVisible = !string.IsNullOrEmpty(action.Badge);
+            SemanticProperties.SetDescription(_textButton, action.Description ?? (hasSvg ? null : action.Text));
+            MenuButton.SetItems(_textButton, action.Menu);
+            MenuButton.SetShowsSelection(_textButton, action.MenuShowsSelection);
+            Haptics.SetOnTap(_textButton, action.Haptic);
+
+            _currentSvg = hasSvg ? action.Svg : null;
+            ApplyProminence(action.Role == PageActionRole.Confirm || action.IsSelected, action.IsSelected);
+
+            // The icon is not the glass button's image: a glass configuration that has held an
+            // image draws later titles in the label colour, not the accent.
+            _morphIcon.IsVisible = hasSvg;
+
+            if (hasSvg)
+            {
+                // Not an empty title: a glass button whose title goes empty draws its next one in
+                // the label colour rather than the accent.
+                _textButton.Text = "\u200B";
+                _textButton.Padding = new Thickness(0);
+                _textButton.WidthRequest = _owner.HeightRequest;
+                _textButton.HeightRequest = _owner.HeightRequest;
+                ApplyMorphingImage();
+            }
+            else
+            {
+                _textButton.Padding = new Thickness(14, 8);
+                _textButton.WidthRequest = -1;
+                _textButton.HeightRequest = -1;
+                _textButton.Text = action.Text ?? string.Empty;
+            }
+
             _textButton.Command = action.Command;
             _textButton.CommandParameter = action.CommandParameter;
+        }
+
+        // A 24-point glyph, the size a UIBarButtonItem uses, tinted like the icon buttons.
+        void ApplyMorphingImage()
+        {
+            var names = IPlatformApplication.Current?.Services.GetService<ResourceNameCache>();
+            if (_currentSvg is not { } svg || names?.Resolve(svg) is not { } resource)
+                return;
+
+            var dark = Application.Current?.RequestedTheme == AppTheme.Dark;
+            var tint = _prominent ? OnFill() : _owner.Foreground ?? (dark ? Colors.White : Colors.Black);
+            _morphIcon.Source = SvgBitmapLoader.LoadFromEmbedded(resource, 24, 24, tint);
+        }
+
+        /// <summary>A glass icon is a circle as tall as the row; otherwise it fills the slot the bar gives it.</summary>
+        public void ApplyIconWidth()
+        {
+            _imageButton.RemoveBinding(VisualElement.WidthRequestProperty);
+            _imageButton.WidthRequest = _owner._glass ? _owner.HeightRequest : _prominent ? FilledSize : _owner.IconWidth;
+        }
+
+        const double FilledSize = 40;
+
+        /// <summary>
+        /// The prominent look of a confirm: the glass tinted with the accent (iOS 26's prominent bar button), or
+        /// without glass a filled accent circle; the glyph or text in the colour that reads on the accent. A selected
+        /// action takes the same look in the foreground colour.
+        /// </summary>
+        void ApplyProminence(bool prominent, bool selected)
+        {
+            if (prominent == _prominent && selected == _selected)
+                return;
+
+            _selected = selected;
+            if (prominent == _prominent)
+            {
+                ApplyForeground();
+                return;
+            }
+
+            _prominent = prominent;
+            if (_owner._glass)
+            {
+                var style = prominent ? GlassStyle.Prominent : GlassStyle.Regular;
+                Glass.SetStyle(_imageButton, style);
+                Glass.SetStyle(_textButton, style);
+            }
+            else
+            {
+                // Material 3's filled icon button: a 40-point circle inside the slot, clear of the sheet's edge
+                if (prominent)
+                {
+                    _imageButton.RemoveBinding(VisualElement.HeightRequestProperty);
+                    _imageButton.RemoveBinding(ImageButton.PaddingProperty);
+                    _imageButton.HeightRequest = FilledSize;
+                    _imageButton.Padding = new Thickness(0);
+                    _imageButton.Margin = new Thickness(6, 0);
+                }
+                else
+                {
+                    _imageButton.Margin = new Thickness(0);
+                    _imageButton.SetBinding(VisualElement.HeightRequestProperty, new Binding(nameof(HeightRequest), source: _owner));
+                    _imageButton.SetBinding(ImageButton.PaddingProperty, new Binding(nameof(Padding), source: _owner));
+                }
+                _imageButton.CornerRadius = prominent ? (int)(FilledSize / 2)
+                    : DeviceInfo.Platform == DevicePlatform.Android ? 24 : 0;
+                _textButton.CornerRadius = prominent ? (int)Math.Round(_owner.HeightRequest / 2) : -1;
+                if (!prominent)
+                    _imageButton.ApplyCommonVisualStates(_owner.HideDisabled);
+            }
+            ApplyIconWidth();
+            ApplyForeground();
+        }
+
+        // The common states set the background, and a state's value outranks the fill set on the button,
+        // so a filled button gets states of its own: the fill, lighter while pressed, dimmed when disabled
+        void ApplyFilledStates(Color fill)
+        {
+            var group = new VisualStateGroup { Name = "CommonStates" };
+            void Add(string name, Color background, double opacity)
+            {
+                var state = new VisualState { Name = name };
+                state.Setters.Add(new Setter { Property = VisualElement.BackgroundColorProperty, Value = background });
+                state.Setters.Add(new Setter { Property = VisualElement.OpacityProperty, Value = opacity });
+                group.States.Add(state);
+            }
+            Add("Normal", fill, 1);
+            Add("PointerOver", fill, 1);
+            Add("Pressed", fill.WithAlpha(0.75f), 1);
+            Add("Disabled", fill, _owner.HideDisabled ? 0 : 0.4);
+            VisualStateManager.SetVisualStateGroups(_imageButton, [group]);
+        }
+
+        static bool IsDark => Application.Current?.RequestedTheme == AppTheme.Dark
+            || (Application.Current?.RequestedTheme != AppTheme.Light
+                && Application.Current?.PlatformAppTheme == AppTheme.Dark);
+
+        static Color Accent() => SpineTheme.GetAccent(IsDark ? AppTheme.Dark : AppTheme.Light)
+            ?? Color.FromArgb(IsDark ? "#0A84FF" : "#007AFF");
+
+        Color Fill() => _selected
+            ? _owner.Foreground ?? (IsDark ? Colors.White : Colors.Black)
+            : Accent();
+
+        Color OnFill() => SpineAccent.TextOn(Fill());
+
+        /// <summary>Holds the face at its current size while it fades out.</summary>
+        public void Freeze()
+        {
+            if (Width > 0)
+                WidthRequest = Width;
+        }
+
+        public void ApplyHideDisabled()
+        {
+            if (!_prominent || _owner._glass)
+                _imageButton.ApplyCommonVisualStates(_owner.HideDisabled);
+        }
+
+        public void ApplyForeground()
+        {
+            // Read again on every theme or accent change, so the prominent fill follows the accent
+            var fill = _prominent ? Fill() : Colors.Transparent;
+            _imageButton.BackgroundColor = fill;
+            _textButton.BackgroundColor = fill;
+            if (_prominent && !_owner._glass)
+                ApplyFilledStates(fill);
+
+            if (_prominent)
+                _textButton.TextColor = OnFill();
+            else if (_owner.Foreground is { } foreground)
+                _textButton.TextColor = foreground;
+            else
+                _textButton.TextColor = Accent();
+
+            if (_imageButton.Behaviors.OfType<SvgImageSourceBehavior>().FirstOrDefault() is { } svg)
+            {
+                svg.TintColor = _prominent ? OnFill() : _owner.Foreground;
+                svg.UpdateImage();
+            }
+
+            if (_owner._morph && _morphIcon.IsVisible)
+                ApplyMorphingImage();
+        }
+
+        public void Apply(PageAction? action)
+        {
+            WidthRequest = -1;
+            ApplyIconWidth();
+
+            if (action is null || !action.IsVisible)
+            {
+                _textButton.IsVisible = false;
+                _imageButton.IsVisible = false;
+                _badge.IsVisible = false;
+                return;
+            }
+
+            var hasSvg = !string.IsNullOrWhiteSpace(action.Svg);
+
+            if (_owner._morph)
+            {
+                ApplyMorphing(action, hasSvg);
+                return;
+            }
+
+            _imageButton.IsVisible = hasSvg;
+            _textButton.IsVisible = !hasSvg;
+            _imageButton.IsEnabled = action.IsEnabled;
+            _textButton.IsEnabled = action.IsEnabled;
+            // The app's Disabled visual state may not reach a button whose colour is set directly.
+            _imageButton.Opacity = action.IsEnabled ? 1 : 0.4;
+            _textButton.Opacity = action.IsEnabled ? 1 : 0.4;
+
+            _badgeLabel.Text = action.Badge ?? string.Empty;
+            SemanticProperties.SetDescription(_imageButton, action.Description);
+            SemanticProperties.SetDescription(_textButton, action.Description);
+            ApplyProminence(action.Role == PageActionRole.Confirm || action.IsSelected, action.IsSelected);
+
+            MenuButton.SetItems(_imageButton, action.Menu);
+            MenuButton.SetItems(_textButton, action.Menu);
+            MenuButton.SetShowsSelection(_textButton, action.MenuShowsSelection);
+            Haptics.SetOnTap(_imageButton, action.Haptic);
+            Haptics.SetOnTap(_textButton, action.Haptic);
+            _badge.IsVisible = !string.IsNullOrEmpty(action.Badge);
+
+            if (hasSvg)
+            {
+                if (action.Svg != _currentSvg)
+                {
+                    _imageButton.Behaviors.Clear();
+                    var behavior = new SvgImageSourceBehavior
+                    {
+                        Svg = action.Svg!,
+                        LightTintColor = Colors.Black,
+                        DarkTintColor = Colors.White,
+                        TintColor = _prominent ? OnFill() : _owner.Foreground,
+                    };
+                    // A 24-point glyph in the 44-point glass circle, the size a UIBarButtonItem uses; the same
+                    // in the 40-point filled circle
+                    if (_owner._glass)
+                        behavior.Padding = new Thickness(10);
+                    else if (_prominent)
+                        behavior.Padding = new Thickness(8);
+                    _imageButton.Behaviors.Add(behavior);
+                    _currentSvg = action.Svg;
+                }
+
+                _imageButton.Command = action.Command;
+                _imageButton.CommandParameter = action.CommandParameter;
+            }
+            else
+            {
+                if (_currentSvg is not null)
+                {
+                    _imageButton.Behaviors.Clear();
+                    _currentSvg = null;
+                }
+
+                _textButton.Text = action.Text ?? string.Empty;
+                _textButton.Command = action.Command;
+                _textButton.CommandParameter = action.CommandParameter;
+            }
         }
     }
 }

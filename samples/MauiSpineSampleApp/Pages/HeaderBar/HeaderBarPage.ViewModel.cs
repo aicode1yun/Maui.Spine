@@ -3,7 +3,7 @@ using System.Text;
 
 namespace MauiSpineSampleApp.Pages.HeaderBar;
 
-public partial class HeaderBarPageViewModel : ViewModelBase
+public partial class HeaderBarPageViewModel : SampleViewModel
 {
     static readonly string[] Palette = ["#E4572E", "#F3A712", "#29335C", "#669BBC", "#A8C686", "#7B2D26"];
 
@@ -58,6 +58,9 @@ public partial class HeaderBarPageViewModel : ViewModelBase
 
         Groups = [_layout, _largeTitle, _background, _foreground, _statusBar];
     }
+
+    [RelayCommand]
+    private Task ShowOptions() => ShowOptionsAsync("Header bar", [.. Groups]);
 
     public override Task OnAppearingAsync(NavigationDirection navigationDirection)
     {
@@ -137,38 +140,3 @@ public partial class HeaderBarPageViewModel : ViewModelBase
 }
 
 public sealed record Swatch(string Name, string Text, Color Colour);
-
-public sealed partial class Choice(string label, string description, Action choose) : ObservableObject
-{
-    public string Label { get; } = label;
-
-    public string Description { get; } = description;
-
-    [ObservableProperty]
-    public partial bool IsSelected { get; set; }
-
-    [RelayCommand]
-    private void Choose() => choose();
-}
-
-public sealed partial class ChoiceGroup(string name, IReadOnlyList<Choice> choices) : ObservableObject
-{
-    public string Name { get; } = name;
-
-    public IReadOnlyList<Choice> Choices { get; } = choices;
-
-    [ObservableProperty]
-    public partial Choice? Selected { get; private set; }
-
-    [ObservableProperty]
-    public partial bool IsVisible { get; set; } = true;
-
-    /// <summary>Selects the choice at <paramref name="index"/>; -1 selects none.</summary>
-    public void Select(int index)
-    {
-        for (var i = 0; i < Choices.Count; i++)
-            Choices[i].IsSelected = i == index;
-
-        Selected = index >= 0 ? Choices[index] : null;
-    }
-}

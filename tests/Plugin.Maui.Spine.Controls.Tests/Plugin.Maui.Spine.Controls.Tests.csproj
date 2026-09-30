@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+	<PropertyGroup>
+		<TargetFramework>net10.0</TargetFramework>
+		<IsPackable>false</IsPackable>
+		<RootNamespace>Plugin.Maui.Spine.Controls.Tests</RootNamespace>
+	</PropertyGroup>
+
+	<!--
+		The control packages target only MAUI platforms, which a net10.0 test cannot reference.
+		RollingNumber has no MAUI types, so it is compiled in here directly.
+	-->
+	<ItemGroup>
+		<Compile Include="..\..\src\Plugin.Maui.Spine.Controls.AnimatedLabel\RollingNumber.cs" Link="RollingNumber.cs" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<PackageReference Include="Microsoft.NET.Test.Sdk" />
+		<PackageReference Include="SkiaSharp" />
+		<PackageReference Include="xunit" />
+		<PackageReference Include="xunit.runner.visualstudio" />
+	</ItemGroup>
+
+</Project>

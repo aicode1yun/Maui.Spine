@@ -1,6 +1,6 @@
 ---
 name: spine-page
-description: Add or change a page in a Plugin.Maui.Spine app — the three-file page pattern, [NavigableRegion] / [NavigableSheet] / [NavigableTab], typed navigation parameters and results, page actions in the header bar, lifecycle hooks, dismiss guards, and tab badges. Use when creating pages, navigating between them, or wiring header-bar buttons. Invoke as /spine-page.
+description: Add or change a page in a Plugin.Maui.Spine app — the three-file page pattern, [NavigableRegion] / [NavigableSheet] / [NavigableTab], typed navigation parameters and results, page actions in the header bar, lifecycle hooks, loading data with TaskState and StateView (loading, error with retry, empty), dismiss guards, and tab badges. Use when creating pages, navigating between them, loading their data, or wiring header-bar buttons. Invoke as /spine-page.
 ---
 
 You are adding or changing a page in an app built on **Plugin.Maui.Spine**. Spine discovers pages by attribute (no route tables, no DI registration) and every navigation call is one typed async method. Full docs: https://github.com/jonatansoderberg/Maui.Spine/tree/master/docs/wiki.
@@ -49,7 +49,7 @@ public partial class SettingsPageViewModel(INavigationService _navigation) : Vie
 {
     [ObservableProperty] public partial string? Title { get; set; }
 
-    [PageAction("Save")]
+    [PageAction("Save", Role = PageActionRole.Confirm)]
     [RelayCommand] private async Task Save() => await _navigation.BackAsync();
 }
 ```
@@ -75,7 +75,7 @@ Useful attribute properties, all optional: `Lifetime` (`Transient` default; `Sin
 
 Sheets: `AllowedDetents = [SheetDetent.Compact | Medium | Expanded | FullScreen, "75%", "300px"]`, `InitialDetent`, `BackgroundPageOverlay = None | Dimmed | Blurred`. Override `OnCloseRequestedAsync` to guard dismissal; `OnDismissedAsync` runs when the user closes it without a result.
 
-Buttons in a sheet: Save, Cancel and Done are always page actions in the sheet's header bar (`[PageAction("Save")]`, `[PageAction("Cancel", Placement = PageActionPlacement.Primary)]`), never a button stack at the bottom. A sheet's own primary action (Log in, Continue, Pay) goes in `<SpinePage.Footer>`: outside the scrolling content, pinned to the bottom of the visible sheet at every detent and following it while dragged, with the page's `BindingContext`. Don't pad the top of a sheet page to clear the close button — Spine already starts the content below the handle and the header row.
+Buttons in a sheet: confirm and cancel are always page actions in the sheet's header bar, never a button stack at the bottom, and they are icons, not text: `[PageAction("Save", Role = PageActionRole.Confirm)]` draws a checkmark on the right, `[PageAction("Cancel", Role = PageActionRole.Cancel)]` an X on the left (iOS 26 HIG; the same on Android). The text is only what a screen reader says (default: localised Done/Cancel). A sheet with nothing to discard needs no Cancel — Spine's own X closes it. Text buttons are for actions with no standard icon. A sheet's own primary action (Log in, Continue, Pay) goes in `<SpinePage.Footer>`: outside the scrolling content, pinned to the bottom of the visible sheet at every detent and following it while dragged, with the page's `BindingContext`. Don't pad the top of a sheet page to clear the close button — Spine already starts the content below the handle and the header row.
 
 Tabs: `Order` is effectively required (assembly scan order is random; duplicates fail startup). At most five tabs. `SpineApplication`'s `x:TypeArguments` must be one of the tab pages and picks the initial tab. Re-selecting the active tab pops to root, then raises `OnTabReselectedAsync()` on the root's ViewModel. `ITabBadgeService.SetBadge<TPage>("3")` / `("")` for a dot / `(null)` to clear.
 
@@ -85,7 +85,10 @@ Tabs: `Order` is effectively required (assembly scan order is random; duplicates
 await _navigation.NavigateToAsync<DetailPage>();
 await _navigation.BackAsync();
 await _navigation.SetRootAsync<LoginPage>();          // replaces the stack (logout); with a tab page, resets that tab
+await _navigation.ShowAsync<SettingsPage>();          // from outside the app: goes back to it if it is on the stack, pushes otherwise
 ```
+
+Use `ShowAsync` (and `ShowAsync<TPage, TParam>`) for every way in from outside the app: shortcuts, widget and notification taps, links. `NavigateToAsync` always pushes, so a second tap stacks a second copy. A page already in front gets the parameter in `OnNavigationParameterAsync` but no `OnAppearingAsync`.
 
 ### Typed parameter
 
@@ -136,6 +139,27 @@ Both at once: implement both interfaces and call `NavigateToWithResultAsync<TPag
 
 Load data in `OnAppearingAsync`; keep constructors cheap. For work that lives with the page use `Poll(interval, ct => …)` (runs while shown, pauses in the background), `WhileVisible(h => svc.Changed += h, h => svc.Changed -= h, OnChanged)` (subscribed while shown, UI thread) and `PageLifetime` (a token cancelled when the page is left) instead of timers, tokens and subscribe/unsubscribe pairs. Declare page actions with `[PageAction]` (below) rather than adding them in `OnAppearingAsync`. Refresh in `OnResumedAsync` what may have changed while the app was away (server data, today's date) instead of subscribing to `Window.Activated` in code-behind. Spine has no day-change hook; a page that must turn at midnight runs its own timer.
 
+## Loading data (`TaskState` / `StateView`)
+
+For data a page shows, use `Load(...)` from the constructor instead of hand-written `IsLoading`/`HasError` flags and a try/catch in `OnAppearingAsync`. It loads when the page first appears, is cancelled when the page is left, and loads again on reappearing only if it has nothing to show (never loaded, cancelled, failed):
+
+```csharp
+public TaskState<IReadOnlyList<Game>> Games { get; }
+
+public GamesPageViewModel(IGamesApi api)
+{
+    Games = Load(ct => api.GetTodayAsync(ct), isEmpty: g => g.Count == 0);
+}
+```
+
+```xml
+<StateView State="{Binding Games}" EmptyText="No games today">
+    <CollectionView ItemsSource="{Binding Games.Value}" />
+</StateView>
+```
+
+`StateView` shows a spinner, "Couldn't load" + the exception's message + Try again, or the empty text in the content's place; the content keeps the page's binding context. Custom `LoadingTemplate`/`ErrorTemplate`/`EmptyTemplate` bind to the `TaskState` (`ErrorMessage`, `LoadCommand`); app-wide ones are resources `DefaultStateView…Template`. Pull to refresh: `RefreshView IsRefreshing="{Binding Games.IsRefreshing}" Command="{Binding Games.LoadCommand}"`. Skeleton: pass `placeholder: () => [.. Enumerable.Repeat(Game.Empty, 4)]` and bind `Skeleton.IsActive="{Binding Games.IsLoading}"` on the content. A failed refresh keeps the result and sets `HasError`/`ErrorMessage`. When a filter changes, `Games.Reset()` then `Games.LoadAsync()`. Refresh on return with `OnResumedAsync() => Games.LoadAsync()`.
+
 ## Page actions (header bar)
 
 An action that should open a menu rather than run a command is added in the constructor as `PageActions.Add(new PageAction(null, new MenuItems { new MenuSection("Filter:") { new MenuPicker(FilterCommand) { new MenuAction("All", "house.svg") { IsChecked = true }, … } }, new SubMenu("More") { … } }) { Svg = "more.svg" })`; the same `MenuItems` goes on a page button as `MenuButton.Items="{Binding SortMenu}"` (with `MenuButton.ShowsSelection="True"` for a pop-up whose text follows the pick). See docs/wiki/menus.md.
@@ -144,13 +168,16 @@ Put `[PageAction]` on a `[RelayCommand]` method (or an `ICommand` property); Spi
 
 ```csharp
 [PageAction(Svg = "settings.svg")] [RelayCommand] private Task OpenSettingsAsync() { … }   // icon
-[PageAction("Save")]               [RelayCommand] private Task SaveAsync() { … }           // text
-[PageAction("Cancel", Placement = PageActionPlacement.Primary)] [RelayCommand] private Task CancelAsync() { … } // replaces the back button
+[PageAction("Save", Role = PageActionRole.Confirm)] [RelayCommand] private Task SaveAsync() { … }   // checkmark, says "Save"
+[PageAction("Cancel", Role = PageActionRole.Cancel)] [RelayCommand] private Task CancelAsync() { … } // X on the left, replaces back/close
+[PageAction("Filter")]             [RelayCommand] private Task FilterAsync() { … }         // text: only when there is no standard icon
 ```
 
 Hand-made actions still work (`PageActions.Add(new PageAction("Save", SaveCommand) { Svg = … })`, best from the constructor). The header shows the first visible action per slot (`Primary` left, `Secondary` right). `Svg` is a short file name of an embedded SVG (the app's own or `Plugin.Maui.Spine.Svg.Icons`). On iOS 26 the header bar's buttons are Liquid Glass by default (`options.Apple.GlassHeaderActions = false` turns it off).
 
-`PageAction` is observable: set `Text`, `Svg`, `Badge` ("3", "•"), `IsEnabled` or `IsVisible` on the instance while the page shows and the header follows. Find a declared one with `PageActions.First(a => a.Command == FilterCommand)`. Adding or removing from `PageActions` at runtime also updates the header.
+A tap can play a haptic: `[PageAction("Save", Role = PageActionRole.Confirm, Haptic = Haptic.Success)]` (see docs/wiki/haptics.md).
+
+`PageAction` is observable: set `Text`, `Svg`, `Badge` ("3", "•"), `IsEnabled`, `IsVisible` or `Haptic` on the instance while the page shows and the header follows. Find a declared one with `PageActions.First(a => a.Command == FilterCommand)`. Adding or removing from `PageActions` at runtime also updates the header.
 
 ## Binding to the page from a template
 
@@ -174,5 +201,6 @@ Hand-made actions still work (`PageActions.Add(new PageAction("Save", SaveComman
 
 - Page pattern: https://github.com/jonatansoderberg/Maui.Spine/blob/master/docs/wiki/page-pattern.md
 - Regions / Sheets / Tab host: https://github.com/jonatansoderberg/Maui.Spine/blob/master/docs/wiki/regions.md · https://github.com/jonatansoderberg/Maui.Spine/blob/master/docs/wiki/sheets.md · https://github.com/jonatansoderberg/Maui.Spine/blob/master/docs/wiki/tab-host.md
+- Loading states: https://github.com/jonatansoderberg/Maui.Spine/blob/master/docs/wiki/loading-states.md
 - Parameters / Results / Page actions: https://github.com/jonatansoderberg/Maui.Spine/blob/master/docs/wiki/navigation-parameters.md · https://github.com/jonatansoderberg/Maui.Spine/blob/master/docs/wiki/navigation-results.md · https://github.com/jonatansoderberg/Maui.Spine/blob/master/docs/wiki/page-actions.md
 - Sample: https://github.com/jonatansoderberg/Maui.Spine/tree/master/samples/MauiSpineSampleApp/Pages

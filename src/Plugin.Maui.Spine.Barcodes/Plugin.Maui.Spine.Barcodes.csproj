@@ -1,0 +1,42 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+	<!--
+		net10.0 carries the codec and the light-grid reader, so a server or a test can use them;
+		the MAUI TFMs add BarcodeView on top.
+	-->
+	<PropertyGroup>
+		<TargetFrameworks>net10.0;$(SpineMauiTargetFrameworks)</TargetFrameworks>
+
+		<AssemblyName>Plugin.Maui.Spine.Barcodes</AssemblyName>
+		<RootNamespace>Plugin.Maui.Spine.Barcodes</RootNamespace>
+		<NoWarn>$(NoWarn);CS1591</NoWarn>
+	</PropertyGroup>
+
+	<PropertyGroup Condition="'$(TargetFramework)' != 'net10.0'">
+		<UseMaui>true</UseMaui>
+		<SingleProject>true</SingleProject>
+	</PropertyGroup>
+
+	<PropertyGroup>
+		<Description>Barcodes for .NET: QR, Data Matrix, Aztec, PDF417 and the common 1D codes as a module matrix, SVG or a BarcodeView, with fixed symbol sizes such as a 12 × 12 Data Matrix. Also reads a code shown on a grid of lights, such as a word clock. The codec has no MAUI dependency.</Description>
+		<SpineIcon>barcodes.png</SpineIcon>
+		<PackageTags>$(PackageTags);barcode;qr;qrcode;datamatrix;aztec;pdf417;code128;ean</PackageTags>
+	</PropertyGroup>
+
+	<ItemGroup>
+		<PackageReference Include="ZXing.Net" />
+	</ItemGroup>
+
+	<ItemGroup Condition="'$(TargetFramework)' != 'net10.0'">
+		<PackageReference Include="Microsoft.Maui.Controls" />
+	</ItemGroup>
+
+	<ItemGroup Condition="'$(TargetFramework)' == 'net10.0'">
+		<Compile Remove="Controls\**" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<InternalsVisibleTo Include="Plugin.Maui.Spine.Barcodes.Tests" />
+	</ItemGroup>
+
+</Project>

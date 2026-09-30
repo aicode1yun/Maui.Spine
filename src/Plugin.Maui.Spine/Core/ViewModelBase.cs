@@ -18,7 +18,7 @@ namespace Plugin.Maui.Spine.Core;
 ///     [ObservableProperty]
 ///     private string? _greeting;
 ///
-///     [PageAction("Save")]
+///     [PageAction("Save", Role = PageActionRole.Confirm)]
 ///     [RelayCommand]
 ///     private Task SaveAsync() { ... }
 ///
@@ -264,6 +264,7 @@ public abstract partial class ViewModelBase : ObservableObject
     private CancellationTokenSource? _lifetime;
     private readonly List<PollRegistration> _polls = [];
     private readonly List<(Action Subscribe, Action Unsubscribe)> _whileVisible = [];
+    private readonly List<TaskState> _loads = [];
     private bool _suspended;
 
     /// <summary>
@@ -328,6 +329,38 @@ public abstract partial class ViewModelBase : ObservableObject
     /// </summary>
     protected void WhileVisible(Action subscribe, Action unsubscribe) => Register(subscribe, unsubscribe);
 
+    /// <summary>
+    /// A load that lives with the page: it runs when the page first appears, is cancelled when the
+    /// page disappears, and runs again on the next appearance if it was cancelled before it gave a
+    /// result or if it failed. A page that already shows a result is not loaded again when it
+    /// reappears; call <see cref="TaskState.LoadAsync"/> from <see cref="OnAppearingAsync"/> or
+    /// <see cref="OnResumedAsync"/> for that. Call from the constructor; show the state with a
+    /// <see cref="Presentation.StateView"/>.
+    /// </summary>
+    /// <example>
+    /// <code>
+    /// public TaskState&lt;IReadOnlyList&lt;Competition&gt;&gt; Competitions { get; }
+    ///
+    /// public CompetitionsPageViewModel(ICompetitionsApi api)
+    /// {
+    ///     Competitions = Load(ct => api.GetCompetitionsAsync(ct), isEmpty: list => list.Count == 0);
+    /// }
+    /// </code>
+    /// </example>
+    /// <param name="load">The load, given a token that is cancelled when the page disappears.</param>
+    /// <param name="isEmpty">Whether a result counts as empty, which shows the empty state instead of the content.</param>
+    /// <param name="placeholder">A value to show until the first result, such as a few empty rows for a skeleton.</param>
+    protected TaskState<T> Load<T>(Func<CancellationToken, Task<T>> load, Func<T, bool>? isEmpty = null, Func<T>? placeholder = null)
+    {
+        var state = new TaskState<T>(load, isEmpty, placeholder) { Lifetime = () => PageLifetime };
+        _loads.Add(state);
+
+        if (_appeared)
+            _ = state.LoadAsync();
+
+        return state;
+    }
+
     private void Register(Action subscribe, Action unsubscribe)
     {
         _whileVisible.Add((subscribe, unsubscribe));
@@ -354,6 +387,12 @@ public abstract partial class ViewModelBase : ObservableObject
 
         foreach (var poll in _polls)
             poll.Start();
+
+        foreach (var state in _loads)
+        {
+            if (state.NeedsLoad)
+                _ = state.LoadAsync();
+        }
     }
 
     private void EndLifetime()

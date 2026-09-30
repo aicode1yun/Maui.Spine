@@ -1,0 +1,105 @@
+<SpinePage
+    xmlns="http://schemas.microsoft.com/dotnet/maui/global"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    x:Class="MauiSpineSampleApp.Pages.Haptics.HapticsPage"
+    x:TypeArguments="HapticsPageViewModel"
+    x:DataType="HapticsPageViewModel"
+    BackgroundColor="{AppThemeBinding Light={x:Static SpineSection.PageBackgroundLight}, Dark={x:Static SpineSection.PageBackgroundDark}}">
+
+    <SampleLayout Packages="Plugin.Maui.Spine">
+
+        <Example Title="The vocabulary"
+                 Summary="Say what happened, and the platform picks the feel: success, warning or error when a task ends, a tick when a selection changes, an impact for something landing. They follow the phone's own haptics setting. iOS and Android; the Mac and Windows play nothing.">
+            <VerticalStackLayout Spacing="10">
+                <SpineSection Header="Notifications">
+                    <SpineRow Title="Success" Command="{Binding PlayCommand}" CommandParameter="{x:Static Haptic.Success}" />
+                    <SpineRow Title="Warning" Command="{Binding PlayCommand}" CommandParameter="{x:Static Haptic.Warning}" />
+                    <SpineRow Title="Error" Command="{Binding PlayCommand}" CommandParameter="{x:Static Haptic.Error}" />
+                    <SpineRow Title="Selection" Command="{Binding PlayCommand}" CommandParameter="{x:Static Haptic.Selection}" />
+                </SpineSection>
+                <SpineSection Header="Impacts">
+                    <SpineRow Title="Light" Command="{Binding PlayCommand}" CommandParameter="{x:Static Haptic.Light}" />
+                    <SpineRow Title="Medium" Command="{Binding PlayCommand}" CommandParameter="{x:Static Haptic.Medium}" />
+                    <SpineRow Title="Heavy" Command="{Binding PlayCommand}" CommandParameter="{x:Static Haptic.Heavy}" />
+                    <SpineRow Title="Soft" Command="{Binding PlayCommand}" CommandParameter="{x:Static Haptic.Soft}" />
+                    <SpineRow Title="Rigid" Command="{Binding PlayCommand}" CommandParameter="{x:Static Haptic.Rigid}" />
+                </SpineSection>
+                <Label Text="{Binding Played}" FontSize="15" />
+            </VerticalStackLayout>
+            <Example.Code>
+                Haptics.Success();
+                Haptics.Warning();
+                Haptics.Error();
+                Haptics.Selection();
+                Haptics.Impact(HapticImpact.Light);
+
+                // Or from a value:
+                Haptics.Play(Haptic.Rigid);
+            </Example.Code>
+        </Example>
+
+        <Example Title="On a tap"
+                 Summary="Haptics.OnTap plays on every tap of a Button, an ImageButton, a SpineRow or any view with Tap.Command, before the command runs. On iOS the generator wakes when the finger lands, so the buzz does not lag.">
+            <VerticalStackLayout Spacing="10">
+                <Button Text="{Binding FollowText}" Glass.Style="Regular" HorizontalOptions="Start"
+                        TextColor="{AppThemeBinding Light=Black, Dark=White}"
+                        Command="{Binding FollowCommand}" Haptics.OnTap="Selection" />
+            </VerticalStackLayout>
+            <Example.Code>
+                &lt;Button Text="Follow" Command="{Binding FollowCommand}"
+                        Haptics.OnTap="Selection" /&gt;
+
+                &lt;SpineRow Title="Wi-Fi" Command="{Binding OpenCommand}"
+                          Haptics.OnTap="Light" /&gt;
+            </Example.Code>
+        </Example>
+
+        <Example Title="On a header action"
+                 Summary="A page action carries its haptic: the checkmark at the top right plays Success when tapped.">
+            <Label Text="{Binding Saved}" FontSize="15" />
+            <Example.Code>
+                [PageAction("Save", Role = PageActionRole.Confirm, Haptic = Haptic.Success)]
+                [RelayCommand]
+                private Task SaveAsync() { ... }
+
+                // or
+                PageActions.Add(new PageAction("Save", SaveCommand)
+                {
+                    Role = PageActionRole.Confirm,
+                    Haptic = Haptic.Success,
+                });
+            </Example.Code>
+        </Example>
+
+        <Example Title="Tabs and sheets"
+                 Summary="Spine can play one when the user switches tabs, drags a sheet to another height, or tries to close a sheet that will not close. All are off by default, like the platform's own. This app turns on the sheet ones: drag a sheet on the Bottom sheets page between heights, or tick Prevent dismiss and swipe it down.">
+            <Label Text="Switching tabs in code, a sheet snapping back by itself, or a guard that asks first, plays nothing." FontSize="15" />
+            <Example.Code>
+                builder.UseSpine(options =&gt;
+                {
+                    options.Haptics.TabSwitch = Haptic.Selection;
+                    options.Haptics.SheetDetent = Haptic.Selection;
+                    options.Haptics.DismissBlocked = Haptic.Warning;
+                });
+            </Example.Code>
+        </Example>
+
+        <Example Title="Android: the vibrator"
+                 Summary="By default Android plays through the view: no permission, and it follows the touch-feedback setting. The vibrator engine composes richer patterns on Android 11 and later and needs the VIBRATE permission; without it Spine logs a warning and uses the view.">
+            <SpineSection>
+                <SpineRow Title="Use the vibrator">
+                    <SpineRow.Accessory>
+                        <Switch IsToggled="{Binding UseVibrator}" />
+                    </SpineRow.Accessory>
+                </SpineRow>
+            </SpineSection>
+            <Example.Code>
+                options.Android.HapticEngine = AndroidHapticEngine.Vibrator;
+
+                &lt;!-- AndroidManifest.xml --&gt;
+                &lt;uses-permission android:name="android.permission.VIBRATE" /&gt;
+            </Example.Code>
+        </Example>
+
+    </SampleLayout>
+</SpinePage>

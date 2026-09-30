@@ -92,6 +92,9 @@ public sealed class SpineOptions
     /// <summary>User-facing text: providers and the stored culture; see <see cref="Plugin.Maui.Spine.Common.ISpineStrings"/>.</summary>
     public SpineStringsOptions Strings { get; } = new SpineStringsOptions();
 
+    /// <summary>Haptics Spine plays by itself, on a tab switch or a sheet detent; all off by default. See <see cref="Extensions.Haptics"/>.</summary>
+    public SpineHapticsOptions Haptics { get; } = new SpineHapticsOptions();
+
     /// <summary>
     /// Adds <paramref name="assembly"/> to the list of assemblies Spine will scan for navigable pages.
     /// Returns <see langword="this"/> for fluent chaining.
@@ -323,6 +326,11 @@ public sealed class SpineOptions
     {
         /// <summary>When true, page content respects Android safe area insets (status bar, navigation bar).</summary>
         public bool UseSafeArea { get; set; } = true;
+
+        /// <summary>
+        /// How <see cref="Extensions.Haptics"/> plays on Android. Defaults to <see cref="AndroidHapticEngine.View"/>.
+        /// </summary>
+        public AndroidHapticEngine HapticEngine { get; set; } = AndroidHapticEngine.View;
     }
 
     /// <summary>Android-specific layout settings.</summary>
@@ -337,6 +345,14 @@ public sealed class SpineOptions
         /// no effect on earlier versions or other platforms.
         /// </summary>
         public bool GlassHeaderActions { get; set; } = true;
+
+        /// <summary>
+        /// With <see cref="GlassHeaderActions"/>, lets UIKit morph a header action's glass when the
+        /// action is replaced (Back into Cancel, an icon into a text capsule): one glass button whose
+        /// content and size change inside a spring animation, as a <c>UINavigationBar</c>'s items do.
+        /// <see langword="false"/> crossfades two buttons instead. Default <see langword="true"/>.
+        /// </summary>
+        public bool MorphHeaderActions { get; set; } = true;
     }
 
     /// <summary>Options that apply on iOS and Mac Catalyst.</summary>
@@ -410,6 +426,23 @@ public sealed class SpineOptions
         /// <summary>The concrete handler type registered via <see cref="UseHandler{THandler}"/>.</summary>
         internal Type? HandlerType { get; private set; }
     }
+}
+
+/// <summary>How <see cref="Extensions.Haptics"/> plays on Android.</summary>
+public enum AndroidHapticEngine
+{
+    /// <summary>
+    /// <c>View.PerformHapticFeedback</c>: no permission needed and it follows the system's touch-feedback
+    /// setting. Success and Error use <c>CONFIRM</c> and <c>REJECT</c> on API 30+, the nearest constant before.
+    /// </summary>
+    View,
+
+    /// <summary>
+    /// <c>VibrationEffect</c>: composed patterns on API 30+, predefined effects on API 29. Needs
+    /// <c>android.permission.VIBRATE</c> in the app's manifest; without it, below API 29 or on a device
+    /// without a vibrator, Spine logs a warning and plays through <see cref="View"/> instead.
+    /// </summary>
+    Vibrator,
 }
 
 /// <summary>

@@ -90,6 +90,8 @@ You can also specify:
 - A percentage string: `"75%"`
 - An absolute pixel string: `"300px"`
 
+`options.Haptics.SheetDetent = Haptic.Selection` plays a haptic when the user drags a sheet to another detent (iOS and Android); a sheet that springs back, or moves from code, stays silent. See [Haptics](haptics.md#tabs-and-sheets).
+
 ### Examples
 
 ```csharp
@@ -111,6 +113,32 @@ You can also specify:
     AllowedDetents = [SheetDetent.Medium, SheetDetent.FullScreen])]
 ```
 
+### Sizes chosen per navigation
+
+The attribute fixes a sheet's sizes when the app is built. When the caller should choose them, for example a
+picker that opens small for a few items and full screen for many, implement `ISheetDetentsProvider` on the
+sheet's view model. Spine asks it after the view model has received its navigation parameter, so the choice can
+come in with the parameter; `null` keeps the attribute's value.
+
+```csharp
+public partial class PickerSheetViewModel : ViewModelBase,
+    IReceivesNavigationParameter<PickerOptions>, ISheetDetentsProvider
+{
+    public IReadOnlyList<string>? AllowedDetents { get; private set; }
+    public string? InitialDetent => null;
+
+    public Task OnNavigationParameterAsync(PickerOptions options)
+    {
+        AllowedDetents = options.Items.Count > 5
+            ? [SheetDetent.FullScreen]
+            : [SheetDetent.Medium, SheetDetent.FullScreen];
+        return Task.CompletedTask;
+    }
+}
+```
+
+`Plugin.Maui.Spine.Scanner`'s scan sheet uses it for `BarcodeScanOptions.Detents`.
+
 ---
 
 ## Layout inside a sheet
@@ -124,18 +152,25 @@ and Spine keeps the page out of it: the content starts below the drag handle
 top padding to clear the close button (`Padding="16,36,16,16"` and the like) — padding you add is
 spacing of your own, on top of that.
 
-### Buttons: page actions for Save and Cancel, the footer for a primary action
+### Buttons: a checkmark and an X in the header, the footer for a primary action
 
-- **Save, Cancel, Done** — confirming or dismissing the sheet — are page actions in the sheet's header
-  bar, never a button stack at the bottom of the sheet. They are in the same place at every detent:
+- **Confirming or cancelling the sheet** (save, done, cancel) is a page action in the sheet's header bar,
+  never a button stack at the bottom of the sheet, so it is in the same place at every detent. Give it a
+  role rather than text: a sheet confirms with a **checkmark** and cancels with an **X**, as the iOS 26
+  Human Interface Guidelines ask, and Spine draws the same on Android. The checkmark is prominent: glass tinted
+  with the accent on iOS 26, a filled accent circle elsewhere. The text you pass is what a screen
+  reader says; without one it says the localised Done or Cancel.
 
   ```csharp
-  [PageAction("Cancel", Placement = PageActionPlacement.Primary)]   // replaces the close button
+  [PageAction("Cancel", Role = PageActionRole.Cancel)]   // an X on the left, in place of the close button
   [RelayCommand] private Task Cancel() => _navigation.CloseAsync();
 
-  [PageAction("Save")]
+  [PageAction("Save", Role = PageActionRole.Confirm)]    // a checkmark on the right
   [RelayCommand] private Task Save() => _navigation.ReturnAsync(_draft);
   ```
+
+  A sheet with nothing to cancel needs no Cancel: Spine's own X closes it. Use a text button only for an
+  action with no standard icon.
 
 - **The sheet's own primary action** — *Log in* on a login sheet, *Continue* in a flow, *Pay* — goes in
   `SpinePage.Footer`:
@@ -210,6 +245,8 @@ public override async Task<bool> OnCloseRequestedAsync()
 ```
 
 Return `false` to prevent dismissal; `true` to allow it.
+
+With `options.Haptics.DismissBlocked = Haptic.Warning`, a guard that refuses at once (`Task.FromResult(false)`) plays a warning haptic on iOS and Android. A guard that awaits a prompt, like the one above, plays nothing. See [Haptics](haptics.md#tabs-and-sheets).
 
 ---
 

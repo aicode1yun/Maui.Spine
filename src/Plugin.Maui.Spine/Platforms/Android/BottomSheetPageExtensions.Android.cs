@@ -49,13 +49,27 @@ internal static class BottomSheetPageExtensions
                 && region.BindingContext is NavigationRegionViewModel regionVm
                 && regionVm.CurrentRegionViewModel is ViewModelBase currentVm)
             {
-                return await currentVm.OnCloseRequestedAsync();
+                return await AskAsync(currentVm);
             }
 
             if (bottomSheetContent is BindableObject bo && bo.BindingContext is ViewModelBase vm)
-                return await vm.OnCloseRequestedAsync();
+                return await AskAsync(vm);
 
             return true;
+        }
+
+        // A guard that answers at once gets the refusal haptic; one that awaits (a "discard changes?"
+        // prompt) has already given the user its answer.
+        static async Task<bool> AskAsync(ViewModelBase vm)
+        {
+            var request = vm.OnCloseRequestedAsync();
+            var immediate = request.IsCompleted;
+            var allowed = await request;
+
+            if (!allowed && immediate)
+                Haptics.Play(Haptics.Options.Haptics.DismissBlocked);
+
+            return allowed;
         }
 
         // ── Back guard ────────────────────────────────────────────────────────────
@@ -147,6 +161,7 @@ internal static class BottomSheetPageExtensions
             behavior.Hideable      = true;
 
             var lastSettledState = BottomSheetBehavior.StateHalfExpanded;
+            var dragged = false;
 
             if (sortedDetents.Count == 1)
             {
@@ -222,10 +237,19 @@ internal static class BottomSheetPageExtensions
             behavior.AddBottomSheetCallback(new SheetStateCallback(
                 onStateChanged: (_, state) =>
                 {
-                    if (state == BottomSheetBehavior.StateExpanded
+                    if (state == BottomSheetBehavior.StateDragging)
+                    {
+                        dragged = true;
+                    }
+                    else if (state == BottomSheetBehavior.StateExpanded
                         || state == BottomSheetBehavior.StateHalfExpanded
                         || state == BottomSheetBehavior.StateCollapsed)
                     {
+                        // Only a drag the user let go of; a programmatic snap-back plays nothing.
+                        if (dragged && state != lastSettledState)
+                            Haptics.Play(Haptics.Options.Haptics.SheetDetent);
+
+                        dragged = false;
                         lastSettledState = state;
                     }
                 },

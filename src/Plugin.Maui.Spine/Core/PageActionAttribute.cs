@@ -1,3 +1,5 @@
+using Plugin.Maui.Spine.Extensions;
+
 namespace Plugin.Maui.Spine.Core;
 
 /// <summary>
@@ -13,7 +15,7 @@ namespace Plugin.Maui.Spine.Core;
 /// </remarks>
 /// <example>
 /// <code>
-/// [PageAction("Save")]
+/// [PageAction("Save", Role = PageActionRole.Confirm)]
 /// [RelayCommand]
 /// private Task SaveAsync() { ... }
 ///
@@ -40,8 +42,30 @@ public sealed class PageActionAttribute : Attribute
     /// <summary>SVG resource name rendered instead of the text, e.g. <c>"settings.svg"</c>.</summary>
     public string? Svg { get; init; }
 
-    /// <summary>Which header-bar slot the button takes. Defaults to <see cref="PageActionPlacement.Secondary"/>.</summary>
-    public PageActionPlacement Placement { get; init; } = PageActionPlacement.Secondary;
+    /// <summary>
+    /// Which header-bar slot the button takes. Defaults to <see cref="PageActionPlacement.Secondary"/>, or
+    /// <see cref="PageActionPlacement.Primary"/> for a <see cref="PageActionRole.Cancel"/>.
+    /// </summary>
+    public PageActionPlacement Placement
+    {
+        get => _placement ?? (Role == PageActionRole.Cancel ? PageActionPlacement.Primary : PageActionPlacement.Secondary);
+        init => _placement = value;
+    }
+
+    private readonly PageActionPlacement? _placement;
+
+    /// <summary>
+    /// What the action does: <see cref="PageActionRole.Confirm"/> for a checkmark, <see cref="PageActionRole.Cancel"/>
+    /// for an X, each with a screen-reader description; the text, if given, is what a screen reader says.
+    /// </summary>
+    /// <example>
+    /// <code>
+    /// [PageAction(Role = PageActionRole.Confirm)]
+    /// [RelayCommand]
+    /// private Task SaveAsync() { ... }
+    /// </code>
+    /// </example>
+    public PageActionRole Role { get; init; }
 
     /// <summary>Order among the page's declared actions; lower comes first. Defaults to 0.</summary>
     public int Order { get; init; }
@@ -51,6 +75,9 @@ public sealed class PageActionAttribute : Attribute
 
     /// <summary>Initial <see cref="PageAction.IsVisible"/>. Defaults to <see langword="true"/>.</summary>
     public bool IsVisible { get; init; } = true;
+
+    /// <summary>Initial <see cref="PageAction.Haptic"/>: the haptic a tap plays. Defaults to <see cref="Haptic.None"/>.</summary>
+    public Haptic Haptic { get; init; }
 
     /// <summary>
     /// Name of the command property on the view model, when it does not follow the

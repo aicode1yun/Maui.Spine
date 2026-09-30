@@ -1,0 +1,66 @@
+<SpinePage
+    xmlns="http://schemas.microsoft.com/dotnet/maui/global"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    x:Class="MauiSpineSampleApp.Pages.OptionsSheet"
+    x:TypeArguments="OptionsSheetViewModel"
+    x:DataType="OptionsSheetViewModel">
+
+    <SpinePage.Resources>
+        <OptionTemplateSelector x:Key="OptionTemplate">
+            <OptionTemplateSelector.Choice>
+                <DataTemplate x:DataType="ChoiceGroup">
+                    <VerticalStackLayout Spacing="6" IsVisible="{Binding IsVisible}">
+                        <Label Text="{Binding Name}" FontAttributes="Bold" FontSize="15" />
+                        <FlexLayout Wrap="Wrap" BindableLayout.ItemsSource="{Binding Choices}">
+                            <BindableLayout.ItemTemplate>
+                                <DataTemplate x:DataType="Choice">
+                                    <Button Text="{Binding Label}" Margin="0,0,6,6" Padding="12,4" MinimumHeightRequest="32" HeightRequest="32" FontSize="14" CornerRadius="16"
+                                            BackgroundColor="#22808080" TextColor="{AppThemeBinding Light=Black, Dark=White}"
+                                            Command="{Binding ChooseCommand}">
+                                        <Button.Triggers>
+                                            <DataTrigger TargetType="Button" Binding="{Binding IsSelected}" Value="True">
+                                                <Setter Property="BackgroundColor" Value="{DynamicResource Accent}" />
+                                                <Setter Property="TextColor" Value="{DynamicResource OnAccent}" />
+                                            </DataTrigger>
+                                        </Button.Triggers>
+                                    </Button>
+                                </DataTemplate>
+                            </BindableLayout.ItemTemplate>
+                        </FlexLayout>
+                        <Label Text="{Binding Selected.Description}" FontSize="14" TextColor="Gray" />
+                    </VerticalStackLayout>
+                </DataTemplate>
+            </OptionTemplateSelector.Choice>
+            <OptionTemplateSelector.Toggle>
+                <DataTemplate x:DataType="ToggleOption">
+                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                        <VerticalStackLayout Spacing="2" VerticalOptions="Center">
+                            <Label Text="{Binding Name}" FontAttributes="Bold" FontSize="15" />
+                            <Label Text="{Binding Description}" FontSize="14" TextColor="Gray"
+                                   IsVisible="{Binding HasDescription}" />
+                        </VerticalStackLayout>
+                        <Switch Grid.Column="1" IsToggled="{Binding IsOn}" VerticalOptions="Center" />
+                    </Grid>
+                </DataTemplate>
+            </OptionTemplateSelector.Toggle>
+            <OptionTemplateSelector.Slider>
+                <DataTemplate x:DataType="SliderOption">
+                    <VerticalStackLayout Spacing="2">
+                        <Grid ColumnDefinitions="*,Auto">
+                            <Label Text="{Binding Name}" FontAttributes="Bold" FontSize="15" />
+                            <Label Grid.Column="1" Text="{Binding ValueText}" FontSize="15" Text.FontFeatures="TabularFigures" />
+                        </Grid>
+                        <Slider Maximum="{Binding Maximum}" Minimum="{Binding Minimum}" Value="{Binding Value}" />
+                    </VerticalStackLayout>
+                </DataTemplate>
+            </OptionTemplateSelector.Slider>
+        </OptionTemplateSelector>
+    </SpinePage.Resources>
+
+    <ScrollView>
+        <VerticalStackLayout Margin="{x:Static HeaderBarConstants.PagePadding}" Padding="0,4,0,20" Spacing="22"
+                             BindableLayout.ItemsSource="{Binding Options}"
+                             BindableLayout.ItemTemplateSelector="{StaticResource OptionTemplate}" />
+    </ScrollView>
+
+</SpinePage>

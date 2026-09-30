@@ -1,0 +1,91 @@
+<SpinePage
+    xmlns="http://schemas.microsoft.com/dotnet/maui/global"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    x:Class="MauiSpineSampleApp.Pages.Barcodes.BarcodesPage"
+    x:TypeArguments="BarcodesPageViewModel"
+    x:DataType="BarcodesPageViewModel">
+
+    <SampleLayout Packages="Plugin.Maui.Spine.Barcodes, Plugin.Maui.Spine.Scanner">
+
+        <Example Title="A code from any text"
+                 Summary="QR, Data Matrix, Aztec, PDF417 and the common linear codes. Pick a format and edit the text; a value the format cannot carry says why instead of drawing."
+                 OptionsCommand="{Binding ShowCodeOptionsCommand}">
+            <VerticalStackLayout Spacing="12">
+                <Picker Title="Format" ItemsSource="{Binding Formats}" SelectedItem="{Binding Format}" />
+                <Entry Text="{Binding Value}" Placeholder="Text to encode" ClearButtonVisibility="WhileEditing" />
+                <BarcodeView x:Name="Code" Value="{Binding Value}" Format="{Binding Format}"
+                             IsInverted="{Binding IsInverted}" ModuleShape="{Binding Shape}"
+                             HeightRequest="220" />
+                <Label Text="{Binding Error, Source={x:Reference Code}, x:DataType=BarcodeView}" TextColor="OrangeRed" FontSize="13" />
+            </VerticalStackLayout>
+            <Example.Code>
+                &lt;BarcodeView Value="{Binding Url}" Format="QrCode"
+                             HeightRequest="220" /&gt;
+
+                // Or the modules themselves, for SVG or your own drawing
+                var qr = Barcode.Encode(url, new QrCodeOptions
+                {
+                    ErrorCorrection = QrErrorCorrection.High,
+                });
+                string svg = qr.ToSvg();
+            </Example.Code>
+        </Example>
+
+        <Example Title="A pairing code on a word clock"
+                 Summary="A 12 × 12 Data Matrix fits a 12 × 12 letter grid exactly and holds ten digits. The lit letters are the code: scan it below from another phone, or from this screen with a second device.">
+            <VerticalStackLayout Spacing="12">
+                <WordClockView Matrix="{Binding ClockMatrix}" />
+                <Label HorizontalTextAlignment="Center" FontSize="15">
+                    <Label.FormattedText>
+                        <FormattedString>
+                            <Span Text="Code: " />
+                            <Span Text="{Binding PairingCode}" FontAttributes="Bold" />
+                        </FormattedString>
+                    </Label.FormattedText>
+                </Label>
+                <Button Text="New code" Command="{Binding NextPairingCodeCommand}" HorizontalOptions="Center" />
+            </VerticalStackLayout>
+            <Example.Code>
+                // Exactly 12 × 12, or an exception that says why not
+                var code = Barcode.Encode("4711081542",
+                    new DataMatrixOptions { Size = (12, 12) });
+
+                for (int y = 0; y &lt; 12; y++)
+                    for (int x = 0; x &lt; 12; x++)
+                        clock.SetLetter(x, y, lit: code[x, y]);
+            </Example.Code>
+        </Example>
+
+        <Example Title="Scan with the camera"
+                 Summary="A ready-made sheet that returns the first code it reads: Vision on iOS, ML Kit on Android, and the light-grid reader for a code shown by lamps, such as the word clock above."
+                 OptionsCommand="{Binding ShowScanOptionsCommand}">
+            <VerticalStackLayout Spacing="12">
+                <Button Text="Scan a code" Command="{Binding ScanCommand}" HorizontalOptions="Start" />
+                <Label Text="{Binding ScanResult}" FontSize="15" />
+            </VerticalStackLayout>
+            <Example.Code>
+                var scan = await navigation.NavigateToWithResultAsync&lt;
+                    BarcodeScannerPage, BarcodeScanOptions, BarcodeScanResult&gt;(
+                    new BarcodeScanOptions
+                    {
+                        Formats = BarcodeFormat.QrCode,
+                        LightGrid = new LightGridOptions(12, 12),
+                        // All optional; these are the defaults
+                        Detents = [SheetDetent.Medium, SheetDetent.FullScreen],
+                        ShowReticle = true,
+                        ShowDetection = true,
+                        ShowTorch = true,
+                        ShowPrompt = false,
+                    });
+
+                if (scan is { IsSuccess: true, Value: { } code })
+                    await PairAsync(code.Value);
+
+                // Or a view of your own
+                &lt;BarcodeScannerView Formats="QrCode"
+                    DetectedCommand="{Binding FoundCommand}" /&gt;
+            </Example.Code>
+        </Example>
+
+    </SampleLayout>
+</SpinePage>

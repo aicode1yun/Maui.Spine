@@ -5,7 +5,7 @@ The repository ships a set of **skills** for AI coding agents (Claude Code and c
 | Skill | Use it when |
 |---|---|
 | `spine-setup` | Adding Spine to an app: which packages, `MauiProgram` registration order, `SpineApplication`, project-file entries, platform minimums, iOS App Group and push setup |
-| `spine-page` | Creating or changing a page: the three-file pattern, regions, sheets, tabs, typed parameters and results, page actions, lifecycle hooks |
+| `spine-page` | Creating or changing a page: the three-file pattern, regions, sheets, tabs, typed parameters and results, page actions, lifecycle hooks, loading states |
 | `spine-widgets` | Building a widget or a Live Activity: the provider, the `W` tree, timelines, pictures and Lock Screen widgets, buttons, activity layouts |
 | `spine-notifications` | Push and local notifications on the client and the `Plugin.Maui.Spine.Server` backend |
 | `spine-controls` | `HeroCollectionView`, `AnimatedLabel`, `Calendar`, `Shimmer` and `Skeleton.IsActive`, `SpineRow` / `Tap` / `Semantic.Merge`, SVG icons, Liquid Glass buttons |

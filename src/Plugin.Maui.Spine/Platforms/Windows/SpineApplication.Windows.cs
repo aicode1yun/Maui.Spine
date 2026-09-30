@@ -59,7 +59,7 @@ public partial class SpineApplication<TNavigable> where TNavigable : INavigable
     {
         _primaryPageActionView = new PageActionView
         {
-            WidthRequest = 46,
+            IconWidth = 46,
             HeightRequest = 32,
             HorizontalOptions = LayoutOptions.Start,
             VerticalOptions = LayoutOptions.Center,
@@ -68,7 +68,7 @@ public partial class SpineApplication<TNavigable> where TNavigable : INavigable
 
         _secondaryPageActionView = new PageActionView
         {
-            WidthRequest = 46,
+            IconWidth = 46,
             HeightRequest = 32,
             HorizontalOptions = LayoutOptions.End,
             VerticalOptions = LayoutOptions.Center
@@ -295,6 +295,9 @@ public partial class SpineApplication<TNavigable> where TNavigable : INavigable
                 foreach (var shortcut in shortcuts.Where(s => s.ShowInTray))
                 {
                     var item = new MenuFlyoutItem { Text = shortcut.Title };
+                    // Monochrome: the menu's own text colour, in light and dark.
+                    if (ShortcutIcons.ForTray(_services, shortcut) is { } icon)
+                        item.Icon = new Microsoft.UI.Xaml.Controls.BitmapIcon { UriSource = new Uri(icon.GetPngFilePath(32)), ShowAsMonochrome = true };
                     var id = shortcut.Id;
                     item.Click += (s, e) =>
                     {

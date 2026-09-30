@@ -2,7 +2,7 @@
 
 **GitHub:** _issue ej skapad än_
 **Branch:** issue/153-hem-ritas-om-hjalte-live-yta-och-sektionsrubriker
-**Status:** In Progress
+**Status:** Completed
 
 ## Plan
 

@@ -2,7 +2,7 @@
 
 **GitHub:** https://github.com/jonatansoderberg/Maui.Spine/issues/136
 **Branch:** issue/136-results-analysis
-**Status:** In Progress
+**Status:** Completed — fynd 5 och årsrubrikerna står kvar, se Kvar
 
 ## Changes
 

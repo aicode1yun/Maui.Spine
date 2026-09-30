@@ -1,0 +1,181 @@
+<SpinePage
+    xmlns="http://schemas.microsoft.com/dotnet/maui/global"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    x:Class="MauiSpineSampleApp.Pages.State.StatePage"
+    x:TypeArguments="StatePageViewModel"
+    x:DataType="StatePageViewModel">
+
+    <SampleLayout Packages="Plugin.Maui.Spine">
+
+        <Example Title="Loading, error and empty from one load"
+                 Summary="Load() runs when the page appears and is cancelled when it is left. StateView puts a spinner, the error with a retry button, or an empty line in the content's place.">
+            <VerticalStackLayout Spacing="12">
+                <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto" RowSpacing="4">
+                    <Label Text="Fail with a 503" VerticalOptions="Center" />
+                    <Switch Grid.Column="1" IsToggled="{Binding Fail}" />
+                    <Label Grid.Row="1" Text="Return nothing" VerticalOptions="Center" />
+                    <Switch Grid.Row="1" Grid.Column="1" IsToggled="{Binding ReturnEmpty}" />
+                </Grid>
+                <Button Text="Load again" Command="{Binding Names.LoadCommand}" HorizontalOptions="Start" />
+                <Border StrokeShape="RoundRectangle 12" StrokeThickness="1" MinimumHeightRequest="200"
+                        BackgroundColor="{DynamicResource CardBackground}" Stroke="{DynamicResource CardOutline}">
+                    <StateView State="{Binding Names}" EmptyText="No names today">
+                        <VerticalStackLayout Padding="14" Spacing="8" BindableLayout.ItemsSource="{Binding Names.Value}">
+                            <BindableLayout.ItemTemplate>
+                                <DataTemplate x:DataType="x:String">
+                                    <Label Text="{Binding .}" FontSize="16" TextColor="{DynamicResource CardText}" />
+                                </DataTemplate>
+                            </BindableLayout.ItemTemplate>
+                        </VerticalStackLayout>
+                    </StateView>
+                </Border>
+                <Label FontSize="13" Opacity="0.7"
+                       Text="{Binding Names.Status, StringFormat='Status: {0}'}" />
+            </VerticalStackLayout>
+            <Example.Code>
+                public TaskState&lt;IReadOnlyList&lt;string&gt;&gt; Names { get; }
+
+                public NamesPageViewModel(INamesApi api)
+                {
+                    // Runs when the page appears,
+                    // cancelled when it is left
+                    Names = Load(ct =&gt; api.GetAsync(ct),
+                        isEmpty: names =&gt; names.Count == 0);
+                }
+
+                &lt;StateView State="{Binding Names}"
+                           EmptyText="No names today"&gt;
+                    &lt;!-- The content keeps the page's
+                         binding context --&gt;
+                    &lt;VerticalStackLayout
+                        BindableLayout.ItemsSource=
+                            "{Binding Names.Value}"&gt;
+                        …
+                    &lt;/VerticalStackLayout&gt;
+                &lt;/StateView&gt;
+            </Example.Code>
+        </Example>
+
+        <Example Title="A skeleton, then the list, in the same view"
+                 Summary="With a placeholder the content shows from the start, as a skeleton with the rows it will have. Refresh keeps the list; if it fails, the list stays and the error is there to show. Load from scratch forgets the list with Reset() and shows the skeleton again.">
+            <VerticalStackLayout Spacing="12">
+                <Grid ColumnDefinitions="*,Auto">
+                    <Label Text="Fail the next refresh" VerticalOptions="Center" />
+                    <Switch Grid.Column="1" IsToggled="{Binding FailRefresh}" />
+                </Grid>
+                <HorizontalStackLayout Spacing="12">
+                    <Button Text="Refresh" Command="{Binding People.LoadCommand}" />
+                    <Button Text="Load from scratch" Command="{Binding LoadPeopleFromScratchCommand}" />
+                    <ActivityIndicator IsRunning="{Binding People.IsRefreshing}" IsVisible="{Binding People.IsRefreshing}"
+                                       VerticalOptions="Center" HeightRequest="24" WidthRequest="24" />
+                </HorizontalStackLayout>
+                <Label Text="{Binding People.ErrorMessage, StringFormat='Could not refresh: {0}'}" IsVisible="{Binding People.HasError}"
+                       TextColor="{AppThemeBinding Light=#C62828, Dark=#FF6B6B}" FontSize="14" />
+                <StateView State="{Binding People}">
+                    <VerticalStackLayout Spacing="12"
+                                         Skeleton.IsActive="{Binding People.IsLoading}"
+                                         BindableLayout.ItemsSource="{Binding People.Value}">
+                        <BindableLayout.ItemTemplate>
+                            <DataTemplate x:DataType="PersonRow">
+                                <Grid ColumnDefinitions="44,*" ColumnSpacing="12">
+                                    <Border StrokeShape="Ellipse" StrokeThickness="0" WidthRequest="44" HeightRequest="44">
+                                        <Image Source="{Binding Photo}" Aspect="AspectFill" />
+                                    </Border>
+                                    <VerticalStackLayout Grid.Column="1" VerticalOptions="Center" Spacing="2">
+                                        <Label Text="{Binding Name}" FontSize="15" FontAttributes="Bold" />
+                                        <Label Text="{Binding Role}" FontSize="13" Opacity="0.7" Skeleton.Width="0.4" />
+                                    </VerticalStackLayout>
+                                </Grid>
+                            </DataTemplate>
+                        </BindableLayout.ItemTemplate>
+                    </VerticalStackLayout>
+                </StateView>
+            </VerticalStackLayout>
+            <Example.Code>
+                // Four empty rows until the real ones arrive
+                People = Load(ct =&gt; api.GetPeopleAsync(ct),
+                    placeholder: () =&gt; [.. Enumerable.Repeat(
+                        Person.Empty, 4)]);
+
+                &lt;StateView State="{Binding People}"&gt;
+                    &lt;VerticalStackLayout
+                        Skeleton.IsActive=
+                            "{Binding People.IsLoading}"
+                        BindableLayout.ItemsSource=
+                            "{Binding People.Value}"&gt;
+                        …
+                &lt;/StateView&gt;
+
+                // Refresh keeps the list. To show the
+                // skeleton again, forget the result first:
+                People.Reset();
+                await People.LoadAsync();
+
+                &lt;!-- Pull to refresh on a list page --&gt;
+                &lt;RefreshView
+                    IsRefreshing="{Binding People.IsRefreshing}"
+                    Command="{Binding People.LoadCommand}"&gt;
+                    &lt;CollectionView
+                        ItemsSource="{Binding People.Value}" /&gt;
+                &lt;/RefreshView&gt;
+            </Example.Code>
+        </Example>
+
+        <Example Title="Templates of your own"
+                 Summary="Any state can have a template of its own, here or app-wide as a resource. The templates are bound to the TaskState: ErrorMessage for the text, LoadCommand to retry. This service fails every other time.">
+            <VerticalStackLayout Spacing="12">
+                <Button Text="Ask again" Command="{Binding Forecast.LoadCommand}" HorizontalOptions="Start" />
+                <Border StrokeShape="RoundRectangle 12" StrokeThickness="1" MinimumHeightRequest="120" Padding="14"
+                        BackgroundColor="{DynamicResource CardBackground}" Stroke="{DynamicResource CardOutline}">
+                    <StateView State="{Binding Forecast}">
+                        <StateView.LoadingTemplate>
+                            <DataTemplate>
+                                <HorizontalStackLayout Spacing="10" VerticalOptions="Center">
+                                    <Image SvgImageSource.Svg="hourglass.svg" WidthRequest="24" HeightRequest="24" SvgImageSource.Padding="1"
+                                           SvgImageSource.TintColor="{DynamicResource Accent}" />
+                                    <Label Text="Asking the weather service…" VerticalOptions="Center" TextColor="{DynamicResource CardText}" />
+                                </HorizontalStackLayout>
+                            </DataTemplate>
+                        </StateView.LoadingTemplate>
+                        <StateView.ErrorTemplate>
+                            <DataTemplate x:DataType="TaskState">
+                                <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto" ColumnSpacing="10" RowSpacing="8">
+                                    <Image SvgImageSource.Svg="warning.svg" WidthRequest="24" HeightRequest="24" SvgImageSource.Padding="1" VerticalOptions="Start"
+                                           SvgImageSource.TintColor="{DynamicResource Accent}" />
+                                    <Label Grid.Column="1" Text="{Binding ErrorMessage}" TextColor="{DynamicResource CardText}" />
+                                    <Button Grid.Row="1" Grid.Column="1" Text="Try once more" Command="{Binding LoadCommand}" HorizontalOptions="Start" />
+                                </Grid>
+                            </DataTemplate>
+                        </StateView.ErrorTemplate>
+                        <HorizontalStackLayout Spacing="10">
+                            <Image SvgImageSource.Svg="weather1.svg" WidthRequest="24" HeightRequest="24" SvgImageSource.Padding="1"
+                                   SvgImageSource.TintColor="{DynamicResource Accent}" />
+                            <Label Text="{Binding Forecast.Value}" VerticalOptions="Center" TextColor="{DynamicResource CardText}" />
+                        </HorizontalStackLayout>
+                    </StateView>
+                </Border>
+            </VerticalStackLayout>
+            <Example.Code>
+                &lt;StateView State="{Binding Forecast}"&gt;
+                    &lt;StateView.ErrorTemplate&gt;
+                        &lt;DataTemplate x:DataType="TaskState"&gt;
+                            &lt;VerticalStackLayout&gt;
+                                &lt;Label Text="{Binding ErrorMessage}" /&gt;
+                                &lt;Button Text="Try once more"
+                                    Command="{Binding LoadCommand}" /&gt;
+                            &lt;/VerticalStackLayout&gt;
+                        &lt;/DataTemplate&gt;
+                    &lt;/StateView.ErrorTemplate&gt;
+                    &lt;Label Text="{Binding Forecast.Value}" /&gt;
+                &lt;/StateView&gt;
+
+                &lt;!-- The same for every StateView, in App.xaml --&gt;
+                &lt;DataTemplate x:Key="DefaultStateViewErrorTemplate"&gt;
+                    …
+                &lt;/DataTemplate&gt;
+            </Example.Code>
+        </Example>
+
+    </SampleLayout>
+
+</SpinePage>

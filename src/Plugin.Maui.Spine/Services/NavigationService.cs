@@ -108,6 +108,52 @@ internal sealed class NavigationService : INavigationService
     }
 
     /// <inheritdoc/>
+    public Task ShowAsync<TPage>() where TPage : INavigable =>
+        ShowCoreAsync(typeof(TPage), deliverParameter: null, NavigateToAsync<TPage>);
+
+    /// <inheritdoc/>
+    public Task ShowAsync<TPage, TParam>(TParam param)
+        where TPage : INavigable, INavigableWithParameter<TParam> =>
+        ShowCoreAsync(typeof(TPage),
+            viewModel => viewModel is IReceivesNavigationParameter<TParam> receiver ? receiver.OnNavigationParameterAsync(param) : Task.CompletedTask,
+            () => NavigateToAsync<TPage, TParam>(param));
+
+    /// <summary>
+    /// Finds the page where it would be pushed and goes back to it, or navigates when it is not there.
+    /// A tab needs nothing of its own: navigating to one already switches to it.
+    /// </summary>
+    private async Task ShowCoreAsync(Type pageType, Func<object?, Task>? deliverParameter, Func<Task> navigate)
+    {
+        if (_registry.IsTab(pageType))
+        {
+            await navigate();
+            return;
+        }
+
+        var active = _host.ActiveRegionViewModel;
+        var isSheetPage = _registry.Get(pageType).Presentation is NavigationPresentation.Sheet;
+        var region = isSheetPage
+            ? (active.Presentation is NavigationPresentation.Sheet ? active : null)
+            : _host.RootNavigationRegion.BindingContext as NavigationRegionViewModel ?? active;
+
+        // A region page, found or pushed, lies under an open sheet, where it would not be seen; the
+        // sheet goes first.
+        if (!isSheetPage && active.Presentation is NavigationPresentation.Sheet)
+            await active.CloseAsync();
+
+        if (region?.Find(pageType) is not { } existing)
+        {
+            await navigate();
+            return;
+        }
+
+        if (deliverParameter is not null)
+            await deliverParameter(existing.BindingContext);
+
+        await region.PopToAsync(existing);
+    }
+
+    /// <inheritdoc/>
     public Task<NavigationResult<TResult>> NavigateToWithResultAsync<TPage, TResult>()
         where TPage : INavigable, INavigableWithResult<TResult>
         => NavigateToWithResultCoreAsync<TPage, TResult>(deliverParameter: null);
@@ -346,6 +392,28 @@ internal sealed class NavigationService : INavigationService
 
             if (SheetDetent.TryParse(sheetMeta.InitialDetent, out var initial))
                 message.SelectedDetent = initial!;
+        }
+
+        // The view model's choice for this navigation wins over the attribute
+        if (view.BindingContext is ISheetDetentsProvider provider)
+        {
+            if (provider.AllowedDetents is { Count: > 0 } allowed)
+            {
+                var parsed = allowed
+                    .Select(s => SheetDetent.TryParse(s, out var d) ? d : null)
+                    .Where(d => d is not null)
+                    .Select(d => d!)
+                    .ToArray();
+
+                if (parsed.Length > 0)
+                {
+                    message.AllowedDetents = parsed;
+                    message.SelectedDetent = parsed[0];
+                }
+            }
+
+            if (SheetDetent.TryParse(provider.InitialDetent, out var chosen))
+                message.SelectedDetent = chosen!;
         }
 
         return message;

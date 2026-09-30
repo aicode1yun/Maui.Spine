@@ -5,9 +5,8 @@
     x:TypeArguments="SamplePage2ViewModel"
     x:DataType="SamplePage2ViewModel">
 
-    <VerticalStackLayout Padding="24" Spacing="5">
-        <Label Text="Hello"/>
-        <Label Text="{Binding UserName}"/>
+    <VerticalStackLayout Margin="{x:Static HeaderBarConstants.PagePadding}" Padding="0,24" Spacing="5">
+        <Label Text="A second page in the same sheet. Back returns to the first." />
     </VerticalStackLayout>
     
 </SpinePage>

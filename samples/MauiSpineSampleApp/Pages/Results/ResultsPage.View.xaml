@@ -5,17 +5,61 @@
     x:TypeArguments="ResultsPageViewModel"
     x:DataType="ResultsPageViewModel">
 
-    <VerticalStackLayout Padding="20,16" Spacing="10">
-            <PackageChips Packages="Plugin.Maui.Spine" />
-        <Label Text="Navigation is typed: a page declares the parameter it takes and the result it returns, and the caller awaits NavigateToWithResultAsync."
-               FontSize="14" />
+    <SampleLayout Packages="Plugin.Maui.Spine">
 
-        <Label Text="Result" FontAttributes="Bold" Margin="0,8,0,0" />
-        <Button Text="Open a sheet that returns a result" Command="{Binding ShowFullscreenSheetWithResultCommand}" />
-        <Label Text="{Binding SheetResult}" FontSize="14" HorizontalTextAlignment="Center" />
+        <Example Title="Hand a page its data"
+                 Summary="A page says which parameter it takes, and the caller passes it along with the navigation. The compiler checks the type: no query strings, no casts.">
+            <Button Text="Open Alice's details" Command="{Binding ShowPersonDetailCommand}" />
+            <Example.Code>
+                record PersonData(string Name, string Email, int Age);
 
-        <Label Text="Parameter" FontAttributes="Bold" Margin="0,8,0,0" />
-        <Button Text="Open a page with a PersonData parameter" Command="{Binding ShowPersonDetailCommand}" />
-    </VerticalStackLayout>
+                public partial class PersonDetailPage
+                    : INavigableWithParameter&lt;PersonData&gt; { … }
+
+                public partial class PersonDetailPageViewModel
+                    : ViewModelBase,
+                      IReceivesNavigationParameter&lt;PersonData&gt;
+                {
+                    // Called before the page appears
+                    public Task OnNavigationParameterAsync(PersonData p)
+                    {
+                        Name = p.Name;
+                        return Task.CompletedTask;
+                    }
+                }
+
+                await _navigation
+                    .NavigateToAsync&lt;PersonDetailPage, PersonData&gt;(
+                        new("Alice Smith", "alice@example.com", 30));
+            </Example.Code>
+        </Example>
+
+        <Example Title="Wait for an answer"
+                 Summary="Open a page or a sheet and await what it returns, like a dialog. Closing it without an answer, with a swipe down or Close, comes back as canceled.">
+            <VerticalStackLayout Spacing="10">
+                <Button Text="Open a sheet that answers" Command="{Binding ShowFullscreenSheetWithResultCommand}" />
+                <Label Text="{Binding SheetResult}" FontSize="15" HorizontalTextAlignment="Center" />
+            </VerticalStackLayout>
+            <Example.Code>
+                record FullscreenSheetResult(string Message);
+
+                public partial class FullscreenSheetPage
+                    : INavigableWithResult&lt;FullscreenSheetResult&gt; { … }
+
+                // In the sheet's view model
+                await _navigation.ReturnAsync(
+                    new FullscreenSheetResult("Confirmed!"));
+
+                // The caller
+                var result = await _navigation.NavigateToWithResultAsync&lt;
+                    FullscreenSheetPage, FullscreenSheetResult&gt;();
+
+                Answer = result is { IsSuccess: true, Value: { } value }
+                    ? value.Message
+                    : "Canceled";
+            </Example.Code>
+        </Example>
+
+    </SampleLayout>
 
 </SpinePage>

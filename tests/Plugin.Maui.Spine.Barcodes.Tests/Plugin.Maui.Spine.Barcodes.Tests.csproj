@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+	<PropertyGroup>
+		<TargetFramework>net10.0</TargetFramework>
+		<IsPackable>false</IsPackable>
+		<RootNamespace>Plugin.Maui.Spine.Barcodes.Tests</RootNamespace>
+	</PropertyGroup>
+
+	<!-- Plugin.Maui.Spine.Barcodes has a net10.0 target for the codec, so it is referenced rather than linked. -->
+	<ItemGroup>
+		<ProjectReference Include="..\..\src\Plugin.Maui.Spine.Barcodes\Plugin.Maui.Spine.Barcodes.csproj" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<PackageReference Include="Microsoft.NET.Test.Sdk" />
+		<PackageReference Include="SkiaSharp" />
+		<PackageReference Include="xunit" />
+		<PackageReference Include="xunit.runner.visualstudio" />
+		<PackageReference Include="ZXing.Net" />
+	</ItemGroup>
+
+</Project>

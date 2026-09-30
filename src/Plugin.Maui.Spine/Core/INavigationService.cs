@@ -23,6 +23,27 @@ public interface INavigationService
         where TPage : INavigable, INavigableWithParameter<TParam>;
 
     /// <summary>
+    /// Shows <typeparamref name="TPage"/> without stacking a second copy: when it is already on the
+    /// stack, Spine goes back to it (closing an open sheet and the pages above it); when it is the
+    /// front page, nothing moves. Otherwise it is pushed as <see cref="NavigateToAsync{TPage}"/> does.
+    /// Use it for every way into the app from outside: shortcuts, widget and notification taps, links.
+    /// </summary>
+    /// <remarks>
+    /// A region page is looked for on the current region's stack (with tabs, the selected tab's), a
+    /// sheet page on the open sheet's. A <see cref="NavigableTabAttribute"/> page is switched to.
+    /// </remarks>
+    Task ShowAsync<TPage>() where TPage : INavigable;
+
+    /// <summary>
+    /// <see cref="ShowAsync{TPage}"/> with a parameter. A page found on the stack gets it through
+    /// <see cref="IReceivesNavigationParameter{TParam}.OnNavigationParameterAsync"/> before Spine
+    /// goes back to it; a page already in front gets it too, but no <c>OnAppearingAsync</c>, since
+    /// nothing appeared, so act on the parameter in <c>OnNavigationParameterAsync</c> when it matters.
+    /// </summary>
+    Task ShowAsync<TPage, TParam>(TParam param)
+        where TPage : INavigable, INavigableWithParameter<TParam>;
+
+    /// <summary>
     /// Navigates to <typeparamref name="TPage"/> and asynchronously waits for it to produce a
     /// <typeparamref name="TResult"/> value via <see cref="ReturnAsync"/>, or a canceled outcome
     /// when the page is dismissed without returning a value.

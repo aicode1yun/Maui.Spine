@@ -2,7 +2,7 @@
 
 **GitHub:** https://github.com/jonatansoderberg/Maui.Spine/issues/138
 **Branch:** issue/138-session-refresh
-**Status:** In Progress
+**Status:** Completed — kapplöpningen vid återkomsten står kvar, se Kvar
 
 ## Vad som faktiskt saknades
 

@@ -28,6 +28,12 @@ public static class MauiProgram
                 options.Theme.UseTokens<LightTokens, DarkTokens>();
                 options.RegionDefaults.IsTitleBarVisible = false;
                 options.RegionDefaults.IsHeaderBarVisible = true;
+                options.Haptics.TabSwitch = Haptic.Selection;
+                options.Haptics.SheetDetent = Haptic.Selection;
+                options.Haptics.DismissBlocked = Haptic.Warning;
+                // Pages run to the bottom of the screen; their scroll view keeps the last row clear of the home indicator.
+                options.RegionDefaults.SafeAreaEdges = Plugin.Maui.Spine.Core.SafeAreaEdges.Top | Plugin.Maui.Spine.Core.SafeAreaEdges.Left | Plugin.Maui.Spine.Core.SafeAreaEdges.Right;
+                options.RegionDefaults.ScrollInset = Plugin.Maui.Spine.Core.SafeAreaEdges.Bottom;
                 options.RegionDefaults.TitleAlignment = PlatformValue
                     .ForAndroid(TitleAlignment.Left)
                     .ForWindows(TitleAlignment.Left)
@@ -60,6 +66,9 @@ public static class MauiProgram
                 fonts.AddFont("JosefinSans-Bold.ttf", "JosefinSansBold");
             });
 
+
+        // The live-score demo's one game, shared by the Widgets and Live Activities pages and the widget.
+        builder.Services.AddSingleton<MauiSpineSampleApp.Widgets.Hockey.LiveScore>();
 
 #if DEBUG
         builder.Logging.AddDebug();

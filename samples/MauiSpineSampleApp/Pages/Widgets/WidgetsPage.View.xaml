@@ -1,0 +1,108 @@
+<SpinePage
+    xmlns="http://schemas.microsoft.com/dotnet/maui/global"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    x:Class="MauiSpineSampleApp.Pages.Widgets.WidgetsPage"
+    x:TypeArguments="WidgetsPageViewModel"
+    x:DataType="WidgetsPageViewModel">
+
+    <SampleLayout Packages="Plugin.Maui.Spine.Widgets">
+
+        <Example Title="A live score"
+                 Summary="A widget written in C#: the app describes it as a tree, and the home screen draws it natively, even while the app is closed. Add the Live score widget, small or medium, then play the game here. Each change is saved and the app asks for the widget to be built again. Between games it shows the next game and the latest results.">
+            <VerticalStackLayout Spacing="10">
+                <Scoreboard BindingContext="{Binding Score}" />
+                <Grid ColumnDefinitions="*,*" RowDefinitions="Auto,Auto" ColumnSpacing="10" RowSpacing="10">
+                    <Button Text="{Binding Score.GoalHomeText}" Command="{Binding Score.GoalHomeCommand}" IsEnabled="{Binding Score.Game.IsRunning}" />
+                    <Button Grid.Column="1" Text="{Binding Score.GoalAwayText}" Command="{Binding Score.GoalAwayCommand}" IsEnabled="{Binding Score.Game.IsRunning}" />
+                    <Button Grid.Row="1" Text="{Binding Score.StepButton}" Command="{Binding Score.StepCommand}" />
+                    <Button Grid.Row="1" Grid.Column="1" Text="Face-off in 2 min" Command="{Binding Score.CountdownCommand}" />
+                </Grid>
+            </VerticalStackLayout>
+            <Example.Code>
+                [Widget("score")]
+                public sealed class ScoreWidget(LiveScore _score) : IWidgetProvider
+                {
+                    public Task&lt;WidgetTimeline&gt; BuildTimelineAsync(WidgetContext context, CancellationToken ct) =&gt;
+                        Task.FromResult(new WidgetTimeline()
+                            .Add(DateTimeOffset.Now, new Dictionary&lt;WidgetFamily, WidgetNode&gt;
+                            {
+                                [WidgetFamily.Small] = SmallLive(_score.Game),
+                                [WidgetFamily.Medium] = MediumLive(_score.Game),
+                            })
+                            .Background(new WidgetGradient([top, bottom], WidgetGradientDirection.Diagonal)));
+                }
+
+                // A goal: save it, then build the widget again
+                await _widgets.RefreshAsync("score");
+            </Example.Code>
+        </Example>
+
+        <Example Title="Buttons that run without opening the app"
+                 Summary="While the game is on, the ↻ beside the clock rebuilds the widget with a fresh clock; the clock dims until it is back. At the final whistle, Next game › turns the widget to the next fixture. Both run in the app's process, which the platform starts in the background when it has to.">
+            <Label Text="Home-screen widgets may only reload a few times an hour by themselves, so a clock that ticks belongs in the Live Activity; the widget shows a moment, and a tap brings it up to date." FontSize="15" />
+            <Example.Code>
+                W.HStack(4,
+                    W.Text("P2 · 07:19").Caption().Pending(),
+                    W.Button("refresh", W.Icon("refresh")))
+
+                W.Button("next", W.Text("Next game ›").Caption().Bold())
+
+                public async Task OnActionAsync(WidgetAction action)
+                {
+                    if (action.ActionId == "next") await _score.NextGameAsync();
+                    // Spine builds the widget again when this returns.
+                }
+            </Example.Code>
+        </Example>
+
+        <Example Title="A timeline that turns by itself"
+                 Summary="The widget holds two entries before a game: the countdown to face-off now, and the scoreboard at face-off. The platform switches to the second at its time without the app. Tap Face-off in 2 min, close the app and watch the widget.">
+            <Label Text="The countdown is a timer the system runs; the app never rewrites it." FontSize="15" />
+            <Example.Code>
+                new WidgetTimeline()
+                    .Add(DateTimeOffset.Now, NextGame(game))       // W.Timer(faceOff, prefix: "Face-off in ")
+                    .Add(game.FaceOffAt, Scoreboard(game))         // 0–0, P1
+                    .Refresh(TimeSpan.FromHours(1));
+            </Example.Code>
+        </Example>
+
+        <Example Title="On the Lock Screen"
+                 Summary="The same widget declares the Lock Screen families: a line beside the date, a round one and a rectangle under the clock. iOS draws them in one tint over the wallpaper, so they are text only.">
+            <Label Text="Long-press the Lock Screen, tap Customize, and add Live score under the clock." FontSize="15" />
+            <Example.Code>
+                &lt;SpineWidget Include="score" DisplayName="Live score"
+                             Families="Small,Medium,AccessoryCircular,AccessoryRectangular,AccessoryInline" /&gt;
+
+                [WidgetFamily.AccessoryInline] = W.Text("· NPO 2–1 RVF · P2"),
+                [WidgetFamily.AccessoryCircular] = W.VStack(0, W.Text("2–1").Headline().Bold(), W.Text("P2").Caption()),
+                [WidgetFamily.AccessoryRectangular] = W.VStack(2,
+                    W.Text("NPO 2–1 RVF").Headline().Bold(),
+                    W.Text("P2 · 07:19").Caption(),
+                    W.Text("(2)–1 Okafor 06:02").Caption()),
+            </Example.Code>
+        </Example>
+
+        <Example Title="One tree for every size"
+                 Summary="The Spine sample widget is a single tree: W.Adaptive swaps the parts that differ between small and medium. Its Bump button counts taps, and at the event's start the timeline switches to a surface of its own.">
+            <VerticalStackLayout Spacing="10">
+                <Button Text="Refresh widgets" Command="{Binding RefreshWidgetsCommand}" />
+                <Label Text="{Binding Refreshed}" FontSize="15" />
+            </VerticalStackLayout>
+            <Example.Code>
+                W.Adaptive(W.Text("Spine").Headline(), new Dictionary&lt;WidgetFamily, WidgetNode&gt;
+                {
+                    [WidgetFamily.Medium] = W.Text("Spine sample").Headline(),
+                })
+
+                WidgetTimeline.Single(tree)
+                    .Add(nextEvent, tree, new WidgetSurface(gradient))
+                    .Background(surface);
+
+                // When the data changes
+                await _widgets.RefreshAllAsync();
+            </Example.Code>
+        </Example>
+
+    </SampleLayout>
+
+</SpinePage>

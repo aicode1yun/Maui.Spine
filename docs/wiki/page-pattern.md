@@ -87,14 +87,14 @@ public partial class MyPageViewModel(INavigationService _navigation) : ViewModel
     [RelayCommand]
     private async Task DoSomething() => await _navigation.NavigateToAsync<OtherPage>();
 
-    // A header-bar button, created by Spine before the page first appears
-    [PageAction("Save")]
+    // A header-bar button, created by Spine before the page first appears: a checkmark that saves
+    [PageAction("Save", Role = PageActionRole.Confirm)]
     [RelayCommand]
     private async Task Save() { /* ... */ }
 }
 ```
 
-The lifecycle hooks a ViewModel can override (`OnAppearingAsync`, `OnDisappearingAsync`, `OnResumedAsync`, and the back and close guards) are described in [Regions](regions.md#lifecycle-hooks). Work that should run, pause and stop with the page (`Poll`, `WhileVisible`, `PageLifetime`) is described in [Work that lives with the page](regions.md#work-that-lives-with-the-page).
+The lifecycle hooks a ViewModel can override (`OnAppearingAsync`, `OnDisappearingAsync`, `OnResumedAsync`, and the back and close guards) are described in [Regions](regions.md#lifecycle-hooks). Work that should run, pause and stop with the page (`Poll`, `WhileVisible`, `PageLifetime`) is described in [Work that lives with the page](regions.md#work-that-lives-with-the-page). A load with a loading, error and empty state (`Load`, `TaskState`, `StateView`) is described in [Loading states](loading-states.md).
 
 ---
 

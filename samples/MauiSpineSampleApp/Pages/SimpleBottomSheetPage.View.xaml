@@ -5,8 +5,8 @@
     x:TypeArguments="SimpleBottomSheetPageViewModel"
     x:DataType="SimpleBottomSheetPageViewModel">
 
-    <VerticalStackLayout Padding="24" Spacing="5">
-        <Label Text="Simple bottom sheet with close as secondary page action (top-right)"/>
+    <VerticalStackLayout Margin="{x:Static HeaderBarConstants.PagePadding}" Padding="0,24" Spacing="5">
+        <Label Text="The page behind is blurred. Tick Prevent dismiss, then swipe down: the sheet springs back." />
 
         <HorizontalStackLayout Spacing="0">
             <CheckBox IsChecked="{Binding PreventDismiss}" />

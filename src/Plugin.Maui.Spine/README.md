@@ -36,7 +36,8 @@ var result = await navigation.NavigateToWithResultAsync<PickerSheet, Choice>();
 - **Typed parameters and results** — `NavigateToAsync<TPage, TParam>` and `NavigateToWithResultAsync<TPage, TResult>`.
 - **Header bar and page actions** — back button, title, and ViewModel-driven action buttons.
 - **Glass** — `Glass.Style` on any `Button` or `ImageButton`; Liquid Glass on iOS 26, a normal button elsewhere.
-- **Shortcuts** — dock, jump list and tray menu through one handler interface.
+- **Haptics** — `Haptics.Success()`, `Selection()`, `Impact()` and `Haptics.OnTap` from the platform's own generators, on iOS and Android.
+- **Shortcuts** — the app-icon menu, jump list and tray menu through one handler interface, with icons from SVG.
 - **Windows** — window size and position, tray icon, single instance, custom title bar.
 
 Platforms: Android, iOS, Mac Catalyst, Windows.
@@ -45,5 +46,5 @@ Platforms: Android, iOS, Mac Catalyst, Windows.
 
 - [Getting started](https://github.com/jonatansoderberg/Maui.Spine/blob/master/docs/wiki/getting-started.md)
 - [Regions](https://github.com/jonatansoderberg/Maui.Spine/blob/master/docs/wiki/regions.md), [Sheets](https://github.com/jonatansoderberg/Maui.Spine/blob/master/docs/wiki/sheets.md), [Tab host](https://github.com/jonatansoderberg/Maui.Spine/blob/master/docs/wiki/tab-host.md)
-- [Page actions](https://github.com/jonatansoderberg/Maui.Spine/blob/master/docs/wiki/page-actions.md), [Glass buttons](https://github.com/jonatansoderberg/Maui.Spine/blob/master/docs/wiki/glass-buttons.md), [Shortcuts](https://github.com/jonatansoderberg/Maui.Spine/blob/master/docs/wiki/shortcuts.md), [Windows options](https://github.com/jonatansoderberg/Maui.Spine/blob/master/docs/wiki/windows-options.md)
+- [Page actions](https://github.com/jonatansoderberg/Maui.Spine/blob/master/docs/wiki/page-actions.md), [Glass buttons](https://github.com/jonatansoderberg/Maui.Spine/blob/master/docs/wiki/glass-buttons.md), [Haptics](https://github.com/jonatansoderberg/Maui.Spine/blob/master/docs/wiki/haptics.md), [Shortcuts](https://github.com/jonatansoderberg/Maui.Spine/blob/master/docs/wiki/shortcuts.md), [Windows options](https://github.com/jonatansoderberg/Maui.Spine/blob/master/docs/wiki/windows-options.md)
 - [All packages](https://github.com/jonatansoderberg/Maui.Spine#packages)

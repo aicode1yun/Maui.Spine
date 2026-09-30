@@ -13,5 +13,10 @@ public interface IShortcutBuilder
     /// When <c>true</c> (default) and the Windows tray icon is enabled, this shortcut is also
     /// projected as a menu item in the tray context menu.
     /// </param>
-    IShortcutBuilder Add(string id, string title, bool showInTray = true);
+    /// <param name="icon">
+    /// An SVG by name (<c>qrcode</c>, <c>figure.run</c>) shown beside the title; declare it to the build
+    /// with <c>&lt;SpineShortcutIcon Include="qrcode" /&gt;</c> so the app carries it as an image.
+    /// </param>
+    /// <param name="subtitle">A second line under the title on iOS; the long label on Android.</param>
+    IShortcutBuilder Add(string id, string title, bool showInTray = true, string? icon = null, string? subtitle = null);
 }

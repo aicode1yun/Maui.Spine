@@ -27,7 +27,8 @@
 - **Typed navigation results** — await a page and receive a typed result when it closes
 - **Header bar & page actions** — built-in header bar with back button, title, and pluggable action buttons (text or SVG icon)
 - **Liquid Glass buttons** — `Glass.Style` turns any `Button` or `ImageButton` into glass on iOS 26; the header bar's own buttons are glass by default
-- **App shortcuts** — register OS-level shortcuts (dock, jump list, tray menu) with a single handler interface
+- **Haptics** — success, warning, error, selection and impacts from the platform's own generators, on a tap, a header action, a tab switch or a sheet detent
+- **App shortcuts** — the app-icon menu on iOS and Android, the jump list and the tray menu, with icons from SVG, through a single handler interface
 - **Windows desktop support** — window size, position persistence, tray icon, single-instance enforcement, and custom title bar
 - **Platform-aware defaults** — mobile defaults differ from desktop defaults out of the box; override per-page or globally
 - **Zero route registration** — Spine scans your assembly for `[NavigableRegion]` and `[NavigableSheet]` attributes at startup
@@ -60,7 +61,7 @@
 
 ## Packages
 
-One version, thirteen packages, all on [nuget.org](https://www.nuget.org/packages?q=Plugin.Maui.Spine). Install what the app needs; see [Packages](docs/wiki/packages.md) for the dependency graph and [Releasing](docs/wiki/releasing.md) for how a version is published.
+One version, fifteen packages, all on [nuget.org](https://www.nuget.org/packages?q=Plugin.Maui.Spine). Install what the app needs; see [Packages](docs/wiki/packages.md) for the dependency graph and [Releasing](docs/wiki/releasing.md) for how a version is published.
 
 | Group | Package | What it is |
 |---|---|---|
@@ -75,6 +76,8 @@ One version, thirteen packages, all on [nuget.org](https://www.nuget.org/package
 | Controls | `Plugin.Maui.Spine.Controls.DataGrid` | Responsive row grid: named layouts, sorting, grouping, swipe actions, load more |
 | Controls | `Plugin.Maui.Spine.Controls.Shimmer` | Skeleton loading: a shimmer over placeholders, `Skeleton.IsActive` on real layouts |
 | Controls | `Plugin.Maui.Spine.Controls.Rows` | `SpineRow`: settings and key/value rows with icon, detail, value, accessory and chevron |
+| Controls | `Plugin.Maui.Spine.Barcodes` | QR, Data Matrix, Aztec, PDF417 and linear codes as a matrix, SVG or `BarcodeView`, with fixed sizes such as 12 × 12 |
+| Controls | `Plugin.Maui.Spine.Scanner` | Camera barcode scanning: a scanner view and a scan sheet, including codes shown by a grid of lamps |
 | Server | `Plugin.Maui.Spine.Common` | Contracts shared by app and server, and the string store; no MAUI |
 | Server | `Plugin.Maui.Spine.Server` | The push backend for ASP.NET Core and Azure Functions |
 
@@ -169,13 +172,14 @@ public partial class MySheetPage { public MySheetPage() => InitializeComponent()
 | **Navigation parameters** | Pass typed data into a page | [Navigation Parameters](docs/wiki/navigation-parameters.md) |
 | **Navigation results** | Await a typed result from a page | [Navigation Results](docs/wiki/navigation-results.md) |
 | **Page actions** | Header bar buttons driven by the ViewModel | [Page Actions](docs/wiki/page-actions.md) |
-| **Shortcuts** | OS dock/jump-list/tray menu integration | [Menu buttons](docs/wiki/menus.md) | A button or header action that opens the platform's own menu: sections, pickers, submenus, toggles, destructive rows |
-| [Shortcuts](docs/wiki/shortcuts.md) |
+| **Shortcuts** | OS dock/jump-list/tray menu integration | [Shortcuts](docs/wiki/shortcuts.md) |
+| **Menu buttons** | A button or header action that opens the platform's own menu: sections, pickers, submenus, toggles, destructive rows | [Menu buttons](docs/wiki/menus.md) |
 | **Windows options** | Window chrome, tray, single-instance | [Windows Options](docs/wiki/windows-options.md) |
 | **Custom transitions** | Replace the built-in slide animation | [Custom Transitions](docs/wiki/custom-transitions.md) |
 | **Widgets** | Home-screen widgets and Live Activities built from C# | [Widgets](docs/wiki/widgets.md) |
 | **Glass buttons** | `Button`/`ImageButton` as Liquid Glass on iOS 26, normal buttons elsewhere | [Glass buttons](docs/wiki/glass-buttons.md) |
 | **Materials** | Glass, blur, tinted and solid surfaces for any `Border`: system materials on iOS, a real blur on Android 12+, acrylic on Windows | [Materials](docs/wiki/materials.md) |
+| **Haptics** | Success, warning, error, selection and impacts from the platform's own generators, on a tap, a header action, a tab switch or a sheet detent | [Haptics](docs/wiki/haptics.md) |
 
 ---
 
@@ -200,15 +204,18 @@ public partial class MySheetPage { public MySheetPage() => InitializeComponent()
 | [AnimatedLabel](docs/wiki/animated-label.md) | SkiaSharp marquee label with scroll and fade |
 | [Calendar](docs/wiki/calendar.md) | Month calendar: swipe between months, year and decade pickers, ISO week numbers, marked days, theme and culture aware |
 | [DataGrid](docs/wiki/data-grid.md) | Row grid on `CollectionView`: Wide/Narrow layouts, sorting, grouping, swipe actions, load more, pull-to-refresh |
+| [Loading states](docs/wiki/loading-states.md) | `TaskState` and `StateView`: loading, error with retry, empty and content from one load that lives with the page |
 | [Shimmer and Skeleton](docs/wiki/shimmer.md) | Skeleton loading that follows the theme and Reduce Motion; `Skeleton.IsActive` turns a real layout into its own skeleton |
 | [Rows and taps](docs/wiki/rows.md) | `SpineRow` settings and key/value rows; `Tap.Command` with native press feedback on any view; `Semantic.Merge` for one screen-reader element |
+| [Barcodes and scanning](docs/wiki/barcodes.md) | `Barcode.Encode` and `BarcodeView` for QR, Data Matrix and more; `BarcodeScannerView` and a scan sheet; reading a code shown on a word clock |
 | [SVG](docs/wiki/svg.md) | SVG-to-bitmap rendering with theme-aware tinting, and SVG-to-icon files for tray and window icons |
 | [Glass buttons](docs/wiki/glass-buttons.md) | `Glass.Style` on `Button` and `ImageButton`: Liquid Glass on iOS 26, no-op elsewhere |
 | [Materials](docs/wiki/materials.md) | `Material.Kind` on a `Border`, `ContentView` or layout: glass, blur, tinted, solid; `MaterialContainer` for glass that merges |
+| [Haptics](docs/wiki/haptics.md) | `Haptics.Success()` … `Impact()`, `Haptics.OnTap` on buttons and rows, `PageAction.Haptic`, opt-in haptics for tab switches and sheet detents |
 | [Theming](docs/wiki/theming.md) | `IThemeService`: a stored light/dark choice, token dictionaries, tab bar colours from keys, a repaint hook for code-drawn views |
 | [Strings](docs/wiki/strings.md) | `ISpineStrings`: embedded XML per culture, `{String}` with arguments and plurals, a runtime language switch, overridable control text |
 | [Typography](docs/wiki/typography.md) | `Text.FontFeatures` (tabular digits and other OpenType features) and `Text.TrimToCapHeight` on `Label` |
-| [Packages](docs/wiki/packages.md) | The thirteen packages, what depends on what, which to install |
+| [Packages](docs/wiki/packages.md) | The fifteen packages, what depends on what, which to install |
 | [Releasing](docs/wiki/releasing.md) | Tag-driven releases to nuget.org from GitHub Actions |
 | [Agent skills](docs/wiki/agent-skills.md) | Skills for AI coding agents: set up and use Spine from NuGet the way the samples do |
 
@@ -220,16 +227,17 @@ The `samples/MauiSpineSampleApp` project demonstrates all of the above features:
 
 | Demo | Page |
 |---|---|
-| Region navigation | `MainPage` → `SettingsPage` |
+| Region navigation | `MainPage` → any sample page |
 | Bottom sheet with multiple detents | `MainPage` → `SamplePage` (medium + 75% + fullscreen) |
 | Singleton sheet with blur overlay | `MainPage` → `SimpleBottomSheetPage` |
 | Fullscreen sheet | `MainPage` → `FullscreenSheetPage` |
 | Compact (small) sheet | `MainPage` → `SmallSheetPage` |
 | Navigation parameter | `MainPage` → `PersonDetailPage` |
 | Navigation result | `MainPage` → `FullscreenSheetPage` (awaits `FullscreenSheetResult`) |
-| App shortcut → navigation | `ShortcutHandler` → `SettingsPage` |
+| App shortcuts → navigation | `ShortcutHandler` → `ShortcutsPage`, `LiveActivitiesPage`, `WidgetsPage`, the scanner sheet on `BarcodesPage`, `ThemePage` |
 | Windows tray icon + close-to-background | `MauiProgram.cs` options |
-| Home-screen widget + Live Activity (iOS, Android) | `Widgets/SampleWidget.cs`, `SettingsPage` |
+| Home-screen and Lock Screen widgets with buttons (iOS, Android) | `Widgets/Hockey/ScoreWidget.cs`, `Widgets/SampleWidget.cs`, `WidgetsPage` |
+| Live Activity updated from the app, with a lock-screen button (iOS, Android 16) | `Widgets/Hockey/ScoreActivity.cs`, `LiveActivitiesPage` |
 | Liquid Glass buttons (iOS 26) | `MainPage` → `GlassPage` (second item in the list) |
 
 ### Push sample

@@ -2,7 +2,7 @@
 
 **GitHub:** https://github.com/jonatansoderberg/Maui.Spine/issues/154
 **Branch:** issue/154-hem-ritas-i-fyra-lagen
-**Status:** In Progress
+**Status:** Completed
 
 ## Plan
 

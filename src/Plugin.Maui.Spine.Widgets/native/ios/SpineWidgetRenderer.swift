@@ -1,6 +1,8 @@
 import WidgetKit
 import SwiftUI
+#if !targetEnvironment(macCatalyst)
 import ActivityKit
+#endif
 
 // MARK: - Manifest (written by the build from the <SpineWidget> items)
 
@@ -577,6 +579,8 @@ struct Slot: View {
     }
 }
 
+// ActivityKit does not exist on Mac Catalyst; the build leaves the activity out of the bundle there.
+#if !targetEnvironment(macCatalyst)
 struct SpineLiveActivity: Widget {
     var body: some WidgetConfiguration {
         ActivityConfiguration(for: SpineActivityAttributes.self) { context in
@@ -608,3 +612,4 @@ struct SpineLiveActivity: Widget {
         }
     }
 }
+#endif

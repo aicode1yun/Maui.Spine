@@ -5,7 +5,7 @@
     x:TypeArguments="FullscreenSheetPageViewModel"
     x:DataType="FullscreenSheetPageViewModel">
 
-    <VerticalStackLayout Padding="24" Spacing="16" VerticalOptions="Center">
+    <VerticalStackLayout Margin="{x:Static HeaderBarConstants.PagePadding}" Padding="0,24" Spacing="16" VerticalOptions="Center">
         <Label
             Text="Welcome!"
             FontSize="32"

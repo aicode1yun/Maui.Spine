@@ -1,5 +1,6 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Plugin.Maui.Spine.Extensions;
 using System.Windows.Input;
 
 namespace Plugin.Maui.Spine.Core;
@@ -30,7 +31,7 @@ public enum PageActionPlacement
 /// </summary>
 /// <example>
 /// <code>
-/// [PageAction("Save")]
+/// [PageAction("Save", Role = PageActionRole.Confirm)]
 /// [RelayCommand]
 /// private Task SaveAsync() { ... }
 ///
@@ -109,19 +110,66 @@ public sealed partial class PageAction : ObservableObject
     /// </summary>
     public IAsyncRelayCommand? AsyncCommand { get; }
 
+    /// <summary>The haptic a tap on the button plays. See <see cref="Haptics"/>.</summary>
+    [ObservableProperty]
+    public partial Haptic Haptic { get; set; }
+
     /// <summary>Optional parameter forwarded to <see cref="Command"/> when it is executed.</summary>
     [ObservableProperty]
     public partial object? CommandParameter { get; set; }
 
     /// <summary>
-    /// Where in the header bar the button is placed.
-    /// Defaults to <see cref="PageActionPlacement.Secondary"/> (trailing/right side).
+    /// Where in the header bar the button is placed. Defaults to <see cref="PageActionPlacement.Secondary"/>
+    /// (trailing/right side), or <see cref="PageActionPlacement.Primary"/> for a <see cref="PageActionRole.Cancel"/>.
     /// </summary>
-    public PageActionPlacement Placement { get; init; } = PageActionPlacement.Secondary;
+    public PageActionPlacement Placement
+    {
+        get => _placement ?? (Role == PageActionRole.Cancel ? PageActionPlacement.Primary : PageActionPlacement.Secondary);
+        init => _placement = value;
+    }
+
+    private readonly PageActionPlacement? _placement;
+
+    /// <summary>
+    /// What the action does: <see cref="PageActionRole.Confirm"/> shows a checkmark and <see cref="PageActionRole.Cancel"/>
+    /// an X, each with a screen-reader description (the action's <see cref="Text"/>, or Spine's localised Done and Cancel).
+    /// An <see cref="Svg"/> or <see cref="Description"/> set as well is kept.
+    /// </summary>
+    /// <example>
+    /// <code>
+    /// PageActions.Add(new PageAction("Save", SaveCommand) { Role = PageActionRole.Confirm });
+    /// </code>
+    /// </example>
+    public PageActionRole Role
+    {
+        get;
+        init
+        {
+            field = value;
+            if (value == PageActionRole.None) return;
+            Svg ??= value == PageActionRole.Confirm ? ConfirmGlyph : CancelGlyph;
+            Description ??= Text ?? Common.SpineStrings.Current[value == PageActionRole.Confirm ? "Spine.Header.Done" : "Spine.Header.Cancel"];
+        }
+    }
+
+    internal const string ConfirmGlyph = "check.svg";
+    internal const string CancelGlyph = "close.svg";
 
     /// <summary>Whether this action is currently shown in the header bar. Defaults to <see langword="true"/>.</summary>
     [ObservableProperty]
     public partial bool IsVisible { get; set; } = true;
+
+    /// <summary>
+    /// Whether a toggle the button stands for is on, such as a torch. A selected button is filled with the header
+    /// bar's foreground colour and draws its glyph or text in the colour that reads on it.
+    /// </summary>
+    /// <example>
+    /// <code>
+    /// partial void OnIsTorchOnChanged(bool value) => _torch.IsSelected = value;
+    /// </code>
+    /// </example>
+    [ObservableProperty]
+    public partial bool IsSelected { get; set; }
 
     /// <summary>Whether the button responds to taps. Defaults to <see langword="true"/>.</summary>
     [ObservableProperty]
