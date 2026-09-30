@@ -11,14 +11,23 @@ public partial class MainPageViewModel(INavigationService _navigation) : SampleV
     // The collapsed hero: a bar below the status bar with the title and the theme button centred on one line.
     private const double CompactBar = 36;
 
-    public double HeaderMinHeight => SystemBarInsets.Top + CompactBar;
+    // On the Mac the theme button mirrors the close button, whose centre is this far in from the
+    // window's top-left corner (in the iPad idiom's points, which the Mac draws at 77 %). The
+    // collapsed bar is centred on the window buttons, so the title shares their line.
+    private const double MacCloseButtonCentre = 20;
+
+    public double HeaderMinHeight => DeviceInfo.Platform == DevicePlatform.MacCatalyst
+        ? 2 * MacCloseButtonCentre
+        : SystemBarInsets.Top + CompactBar;
 
     // Tall enough that the photo's S starts below the status bar (and the Dynamic Island) rather than behind it.
     public double HeaderMaxHeight => SystemBarInsets.Top + 270;
 
     public Thickness GearMargin => DeviceInfo.Platform == DevicePlatform.WinUI
         ? new Thickness(0, 0, 144, 0)
-        : new Thickness(0, SystemBarInsets.Top + (CompactBar - 44) / 2, HeaderBarConstants.PageMargin + SystemBarInsets.Right, 0);
+        : DeviceInfo.Platform == DevicePlatform.MacCatalyst
+            ? new Thickness(0, MacCloseButtonCentre - 44 / 2, MacCloseButtonCentre - 44 / 2, 0)
+            : new Thickness(0, SystemBarInsets.Top + (CompactBar - 44) / 2, HeaderBarConstants.PageMargin + SystemBarInsets.Right, 0);
 
     // The photo runs edge to edge; the title and the rows keep clear of the Dynamic Island and the
     // rounded corners in landscape.
@@ -76,7 +85,9 @@ public partial class MainPageViewModel(INavigationService _navigation) : SampleV
         new("Rows", "Settings and key/value rows in one control, any view as a button with press feedback, one screen-reader element per row", "list.svg", "Plugin.Maui.Spine.Controls.Rows, Plugin.Maui.Spine", n => n.NavigateToAsync<Rows.RowsPage>()),
         new("Shimmer", "Loading placeholders: a shimmer over empty blocks, or the real layout as its own skeleton", "lightstrip.svg", "Plugin.Maui.Spine.Controls.Shimmer", n => n.NavigateToAsync<Shimmer.ShimmerPage>()),
         new("Theming", "Light, dark or the system, an app-wide accent, colours that follow the theme, a repaint hook for code-drawn views", "theme.svg", "Plugin.Maui.Spine", n => n.NavigateToAsync<Theme.ThemePage>()),
-        new("Widgets", "A home-screen widget and a Live Activity written in C#", "stack.svg", "Plugin.Maui.Spine.Widgets", n => n.NavigateToAsync<Widgets.WidgetsPage>()),
+        new("Widgets", "A live score on the home screen and the Lock Screen, written in C#: buttons that run without opening the app, a timeline that turns at face-off", "stack.svg", "Plugin.Maui.Spine.Widgets", n => n.NavigateToAsync<Widgets.WidgetsPage>()),
+        new("Live Activities", "A game on the lock screen and in the Dynamic Island, updated from the app: a countdown to face-off, the score, a button at the final whistle", "timer.svg", "Plugin.Maui.Spine.Widgets", n => n.NavigateToAsync<LiveActivities.LiveActivitiesPage>()),
+        new("Shortcuts", "Straight to a page from the app icon, the jump list or the tray menu, through one handler", "next.svg", "Plugin.Maui.Spine", n => n.NavigateToAsync<Shortcuts.ShortcutsPage>()),
         new("Strings", "Text per language from embedded XML: values and plurals in XAML, the same store from C#, a live language switch", "globe.svg", "Plugin.Maui.Spine, Plugin.Maui.Spine.Common", n => n.NavigateToAsync<Strings.StringsPage>()),
         new("SVG icons", "Sharp, theme-tinted icons from SVG: tint only the outline, dark tones for coloured art, line weight per size, 220 bundled icons", "fish.svg", "Plugin.Maui.Spine.Svg, Plugin.Maui.Spine.Svg.Icons", n => n.NavigateToAsync<SvgIcons.SvgIconsPage>()),
     ];

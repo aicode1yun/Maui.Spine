@@ -2,6 +2,7 @@ using SkiaSharp;
 using SkiaSharp.Views.Maui;
 using SkiaSharp.Views.Maui.Controls;
 using System.Diagnostics;
+using System.Globalization;
 
 namespace Plugin.Maui.Spine.Controls;
 
@@ -115,6 +116,26 @@ public sealed class AnimatedLabel : SKCanvasView
         8d,
         propertyChanged: static (b, _, _) => ((AnimatedLabel)b).OnFadeEdgeWidthChanged());
 
+    public static readonly BindableProperty ModeProperty = BindableProperty.Create(
+        nameof(Mode),
+        typeof(AnimatedLabelMode),
+        typeof(AnimatedLabel),
+        AnimatedLabelMode.Marquee,
+        propertyChanged: static (b, _, _) => ((AnimatedLabel)b).OnModeChanged());
+
+    public static readonly BindableProperty HorizontalTextAlignmentProperty = BindableProperty.Create(
+        nameof(HorizontalTextAlignment),
+        typeof(TextAlignment),
+        typeof(AnimatedLabel),
+        TextAlignment.Start,
+        propertyChanged: static (b, _, _) => ((AnimatedLabel)b).OnAlignmentChanged());
+
+    public static readonly BindableProperty RollDurationMsProperty = BindableProperty.Create(
+        nameof(RollDurationMs),
+        typeof(int),
+        typeof(AnimatedLabel),
+        350);
+
     // -------------------------------------------------------------------------
     // Public API
     // -------------------------------------------------------------------------
@@ -214,6 +235,34 @@ public sealed class AnimatedLabel : SKCanvasView
         set => SetValue(FadeEdgeWidthDpProperty, value);
     }
 
+    /// <summary>
+    /// <see cref="AnimatedLabelMode.Marquee"/> scrolls text that does not fit and fades between texts;
+    /// <see cref="AnimatedLabelMode.RollingNumber"/> rolls the characters that change, like an odometer.
+    /// </summary>
+    public AnimatedLabelMode Mode
+    {
+        get => (AnimatedLabelMode)GetValue(ModeProperty);
+        set => SetValue(ModeProperty, value);
+    }
+
+    /// <summary>
+    /// Where a text that fits is placed in the label: start, centre or end. A text that is too wide
+    /// starts at the start. In <see cref="AnimatedLabelMode.RollingNumber"/>, <see cref="TextAlignment.End"/>
+    /// also keeps the ones over the ones when the number gains a digit.
+    /// </summary>
+    public TextAlignment HorizontalTextAlignment
+    {
+        get => (TextAlignment)GetValue(HorizontalTextAlignmentProperty);
+        set => SetValue(HorizontalTextAlignmentProperty, value);
+    }
+
+    /// <summary>How long a change takes to roll in <see cref="AnimatedLabelMode.RollingNumber"/>.</summary>
+    public int RollDurationMs
+    {
+        get => (int)GetValue(RollDurationMsProperty);
+        set => SetValue(RollDurationMsProperty, value);
+    }
+
     // -------------------------------------------------------------------------
     // Rendering / animation state
     // -------------------------------------------------------------------------
@@ -227,6 +276,7 @@ public sealed class AnimatedLabel : SKCanvasView
     private SKImage? _textImage;
     private int _textImageWidthPx;
     private int _textImageHeightPx;
+    private float _textWidthPx;
 
     private float _scale = MinScale;
     private float _scrollOffsetDp;
@@ -251,6 +301,9 @@ public sealed class AnimatedLabel : SKCanvasView
     private FontAttributes _cachedFontAttributes = (FontAttributes)(-1);
 
     private string? _pendingText;
+
+    private RollingNumber? _roll;
+    private double _rollElapsedMs;
 
     // Reused paint object: no per-frame allocation.
     private readonly SKPaint _imagePaint = new()
@@ -363,17 +416,42 @@ public sealed class AnimatedLabel : SKCanvasView
         if (Width > 0.5)
         {
             var refinedScale = info.Width / (float)Width;
-            if (refinedScale > 0.01f)
+
+            // The text image is rasterised at _scale, so a new density (the window moved to a
+            // screen with another scale factor) needs a new image, not just a new scale.
+            // The pixel-width tolerance ignores rounding of info.Width.
+            if (refinedScale > 0.01f && Math.Abs(refinedScale - _scale) * Width > 1d)
+            {
                 _scale = refinedScale;
+                EndRoll();
+                RebuildAndRecalculate();
+                ClampScrollStateAfterOverflowChange();
+                UpdateAnimationRegistration();
+
+                if (_textImage is null)
+                    return;
+            }
+        }
+
+        if (_roll is not null)
+        {
+            canvas.Save();
+            canvas.ClipRect(SKRect.Create(0, 0, info.Width, info.Height));
+            canvas.Translate(0, MathF.Floor((info.Height - _roll.HeightPx) * 0.5f));
+            _roll.Draw(canvas, RollDurationMs <= 0 ? 1f : (float)(_rollElapsedMs / RollDurationMs), info.Width, AlignmentFactor);
+            canvas.Restore();
+            return;
         }
 
         float scrollPx = _scrollOffsetDp * _scale;
-        float yPx = (info.Height - _textImageHeightPx) * 0.5f;
+        // Whole pixels: at a half pixel the image is resampled and blurs, while a roll's glyphs snap
+        // to the pixel grid, so the text would shift when a roll hands over to the image.
+        float yPx = MathF.Floor((info.Height - _textImageHeightPx) * 0.5f);
 
         byte alpha = (byte)Math.Clamp((int)Math.Round(_opacity * 255f), 0, 255);
         _imagePaint.Color = SKColors.White.WithAlpha(alpha);
 
-        bool applyEdgeFade = EnableScrolling && _cachedOverflowDp > (float)ScrollThresholdDp;
+        bool applyEdgeFade = EnableScrolling && Mode == AnimatedLabelMode.Marquee && _cachedOverflowDp > (float)ScrollThresholdDp;
         float fadeEdgePx = applyEdgeFade ? (float)(FadeEdgeWidthDp * _scale) : 0f;
 
         if (applyEdgeFade && fadeEdgePx > 0.5f)
@@ -384,7 +462,7 @@ public sealed class AnimatedLabel : SKCanvasView
 
         canvas.Save();
         canvas.ClipRect(SKRect.Create(0, 0, info.Width, info.Height));
-        canvas.Translate(-scrollPx, yPx);
+        canvas.Translate(RollingNumber.Left(info.Width, _textWidthPx, AlignmentFactor) - scrollPx, yPx);
         canvas.DrawImage(_textImage, 0, 0, Sampling, _imagePaint);
         canvas.Restore();
 
@@ -410,6 +488,19 @@ public sealed class AnimatedLabel : SKCanvasView
 
         if (oldValue == next)
             return;
+
+        if (Mode == AnimatedLabelMode.RollingNumber &&
+            RollDurationMs > 0 &&
+            Handler is not null &&
+            !string.IsNullOrEmpty(_bufferedText) &&
+            next.Length > 0 &&
+            !ReduceMotion.IsEnabled)
+        {
+            StartRoll(next);
+            return;
+        }
+
+        EndRoll();
 
         if (!EnableFadeOnTextChange || string.IsNullOrEmpty(oldValue))
         {
@@ -441,6 +532,21 @@ public sealed class AnimatedLabel : SKCanvasView
         RecalculateOverflow();
         ClampScrollStateAfterOverflowChange();
         UpdateAnimationRegistration();
+    }
+
+    private void OnModeChanged()
+    {
+        EndRoll();
+        RebuildAndRecalculate();
+        ResetScrollState();
+        InvalidateSurface();
+        UpdateAnimationRegistration();
+    }
+
+    private void OnAlignmentChanged()
+    {
+        EndRoll();
+        InvalidateSurface();
     }
 
     private void OnFadeEdgeWidthChanged()
@@ -488,23 +594,17 @@ public sealed class AnimatedLabel : SKCanvasView
         {
             _textImageWidthPx = 0;
             _textImageHeightPx = 0;
+            _textWidthPx = 0f;
             InvalidateSurface();
             return;
         }
 
-        var typeface = GetOrCreateTypeface();
-        float fontSizePx = (float)FontSize * _scale;
-        if (fontSizePx <= 0f)
-            fontSizePx = 14f * _scale;
-
-        using var font = new SKFont(typeface, fontSizePx)
-        {
-            Subpixel = true
-        };
+        using var font = CreateFont();
 
         font.GetFontMetrics(out var metrics);
 
-        float rawTextWidthPx = font.MeasureText(_bufferedText);
+        bool rolling = Mode == AnimatedLabelMode.RollingNumber;
+        float rawTextWidthPx = rolling ? RollingNumber.Measure(_bufferedText, font) : font.MeasureText(_bufferedText);
         float endPaddingPx = Math.Max(0f, (float)(EndPaddingDp * _scale));
 
         int widthPx = Math.Max(1, (int)Math.Ceiling(rawTextWidthPx + endPaddingPx + 2));
@@ -521,11 +621,15 @@ public sealed class AnimatedLabel : SKCanvasView
         };
 
         float baselineY = -metrics.Ascent;
-        canvas.DrawText(_bufferedText, 0, baselineY, font, textPaint);
+        if (rolling)
+            RollingNumber.DrawLine(canvas, _bufferedText, baselineY, font, textPaint);
+        else
+            canvas.DrawText(_bufferedText, 0, baselineY, font, textPaint);
 
         _textImage = SKImage.FromBitmap(bitmap);
         _textImageWidthPx = widthPx;
         _textImageHeightPx = heightPx;
+        _textWidthPx = rawTextWidthPx;
 
         InvalidateSurface();
     }
@@ -535,6 +639,25 @@ public sealed class AnimatedLabel : SKCanvasView
         RebuildBuffer();
         RecalculateOverflow();
     }
+
+    private SKFont CreateFont()
+    {
+        float fontSizePx = (float)FontSize * _scale;
+        if (fontSizePx <= 0f)
+            fontSizePx = 14f * _scale;
+
+        return new SKFont(GetOrCreateTypeface(), fontSizePx)
+        {
+            Subpixel = true
+        };
+    }
+
+    private float AlignmentFactor => HorizontalTextAlignment switch
+    {
+        TextAlignment.Center => 0.5f,
+        TextAlignment.End => 1f,
+        _ => 0f
+    };
 
     private Color ResolveEffectiveTextColor()
     {
@@ -581,12 +704,59 @@ public sealed class AnimatedLabel : SKCanvasView
     }
 
     // -------------------------------------------------------------------------
+    // Rolling numbers
+    // -------------------------------------------------------------------------
+
+    private void StartRoll(string next)
+    {
+        // _bufferedText is what is on screen, or the target of a roll still in progress.
+        var from = _bufferedText;
+        _roll?.Dispose();
+
+        _needsFadeOut = false;
+        _needsFadeIn = false;
+        _silentFadeIn = false;
+        _fadeElapsedMs = 0d;
+        _pendingText = null;
+        _opacity = 1f;
+
+        _bufferedText = next;
+        RebuildAndRecalculate();
+
+        _roll = new RollingNumber(from, next, CreateFont(), ResolveEffectiveTextColor().ToSKColor(), CultureInfo.CurrentCulture,
+            fromEnd: HorizontalTextAlignment == TextAlignment.End);
+        _rollElapsedMs = 0d;
+        RegisterWithTicker();
+    }
+
+    private void EndRoll()
+    {
+        if (_roll is null)
+            return;
+
+        _roll.Dispose();
+        _roll = null;
+        _rollElapsedMs = 0d;
+        InvalidateSurface();
+    }
+
+    // -------------------------------------------------------------------------
     // Animation engine
     // -------------------------------------------------------------------------
 
     internal void AdvanceFrame(double deltaMs)
     {
         bool needsRedraw = false;
+
+        if (_roll is not null)
+        {
+            _rollElapsedMs += deltaMs;
+
+            if (_rollElapsedMs >= RollDurationMs)
+                EndRoll();
+            else
+                needsRedraw = true;
+        }
 
         if (_needsFadeOut)
         {
@@ -709,12 +879,13 @@ public sealed class AnimatedLabel : SKCanvasView
 
     private bool IsAnimationActive()
     {
-        return _needsFadeOut || _needsFadeIn || ShouldScroll();
+        return _roll is not null || _needsFadeOut || _needsFadeIn || ShouldScroll();
     }
 
     private bool ShouldScroll()
     {
         return EnableScrolling &&
+               Mode == AnimatedLabelMode.Marquee &&
                IsVisible &&
                Handler is not null &&
                Width > 0 &&
@@ -1002,6 +1173,7 @@ public sealed class AnimatedLabel : SKCanvasView
         _textImage = null;
         _textImageWidthPx = 0;
         _textImageHeightPx = 0;
+        _textWidthPx = 0f;
     }
 
     private void EnsureFadePaints(int widthPx, float edgePx)
@@ -1052,6 +1224,7 @@ public sealed class AnimatedLabel : SKCanvasView
 
     private void DisposeSkiaResources()
     {
+        EndRoll();
         DisposeTextImage();
         DisposeFadePaints();
 

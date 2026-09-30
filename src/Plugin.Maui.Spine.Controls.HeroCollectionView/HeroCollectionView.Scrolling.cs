@@ -61,6 +61,7 @@ public partial class HeroCollectionView
 
                 ResetHeader();
                 ScheduleDragRegionUpdate();
+                UpdateWindowButtonClearance();
             }
 
             ApplyStretch(Math.Max(0, -offset) + _topPull);
@@ -136,6 +137,7 @@ public partial class HeroCollectionView
         if (_headerBottomActionsLayout != null) _headerBottomActionsLayout.TranslationY = translation;
         if (_overlayView != null && opacityChanged) _overlayView.Opacity = t;
         ScheduleDragRegionUpdate();
+        UpdateWindowButtonClearance();
     }
 
     // Scales the whole header uniformly from its top edge, so the image keeps its aspect ratio while

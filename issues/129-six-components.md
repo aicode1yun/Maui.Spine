@@ -2,7 +2,7 @@
 
 **GitHub:** https://github.com/jonatansoderberg/Maui.Spine/issues/129
 **Branch:** issue/129-six-components
-**Status:** In Progress
+**Status:** Completed
 
 ## Plan
 

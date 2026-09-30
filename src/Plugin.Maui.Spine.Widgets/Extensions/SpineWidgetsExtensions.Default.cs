@@ -2,7 +2,7 @@ using Plugin.Maui.Spine.Common;
 
 namespace Plugin.Maui.Spine.Widgets.Extensions;
 
-#if !IOS && !ANDROID
+#if !IOS && !ANDROID && !MACCATALYST
 public static partial class SpineWidgetsExtensions
 {
     static partial void ConfigurePlatform(MauiAppBuilder builder, SpineWidgetsOptions options)

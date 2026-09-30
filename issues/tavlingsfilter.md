@@ -2,7 +2,7 @@
 
 **GitHub:** _issue ej skapad än_
 **Branch:** issue/tavlingsfilter
-**Status:** In Progress — arket och listan klara, Start/Live/Resultat kvar
+**Status:** Completed för arket och listan — Start, Live och Resultat står kvar, se Kvar
 
 ## Uppdraget
 

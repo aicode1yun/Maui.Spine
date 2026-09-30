@@ -1,3 +1,5 @@
+#if IOS || MACCATALYST
+
 using AsyncAwaitBestPractices;
 using BackgroundTasks;
 using CoreFoundation;
@@ -164,3 +166,5 @@ public static partial class SpineWidgetsExtensions
             Services().GetRequiredService<ILogger<IWidgetService>>().LogWarning("Background refresh could not be scheduled: {Error}", error.LocalizedDescription);
     }
 }
+
+#endif

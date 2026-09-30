@@ -25,4 +25,5 @@
   <Project Path="tests/Plugin.Maui.Spine.Server.Tests/Plugin.Maui.Spine.Server.Tests.csproj" />
   <Project Path="tests/Plugin.Maui.Spine.Svg.Tests/Plugin.Maui.Spine.Svg.Tests.csproj" />
   <Project Path="tests/Plugin.Maui.Spine.Barcodes.Tests/Plugin.Maui.Spine.Barcodes.Tests.csproj" />
+  <Project Path="tests/Plugin.Maui.Spine.Controls.Tests/Plugin.Maui.Spine.Controls.Tests.csproj" />
 </Solution>

@@ -177,6 +177,13 @@ public sealed partial class NavigationRegion : ContentView
             _container.Margin = fullBleed
                 ? new Thickness(0, -titleBarH, 0, 0)
                 : Thickness.Zero;
+
+            // A full-bleed page draws its own top, so the window's title would sit on the page.
+            if (ViewModel.Presentation is NavigationPresentation.Region
+                && (Window?.Handler?.PlatformView as UIKit.UIWindow)?.WindowScene?.Titlebar is { } titlebar)
+            {
+                titlebar.TitleVisibility = fullBleed ? UIKit.UITitlebarTitleVisibility.Hidden : UIKit.UITitlebarTitleVisibility.Visible;
+            }
         }
 #endif
 

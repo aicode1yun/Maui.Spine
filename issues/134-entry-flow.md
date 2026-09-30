@@ -2,7 +2,7 @@
 
 **GitHub:** https://github.com/jonatansoderberg/Maui.Spine/issues/134
 **Branch:** issue/131-competition-detail (samma gren som steg 1 — se Decisions)
-**Status:** In Progress
+**Status:** Completed — mergad med steg 1 i PR #132
 
 ## Plan
 

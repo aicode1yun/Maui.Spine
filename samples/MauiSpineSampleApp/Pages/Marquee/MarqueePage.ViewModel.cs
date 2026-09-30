@@ -20,6 +20,20 @@ public partial class MarqueePageViewModel : SampleViewModel
     [ObservableProperty]
     public partial bool RestartOnChange { get; set; }
 
+    [ObservableProperty]
+    public partial int Score { get; set; } = 98;
+
+    [ObservableProperty]
+    public partial string Countdown { get; set; } = "0:15";
+
+    [ObservableProperty]
+    public partial int RollDuration { get; set; } = 350;
+
+    [ObservableProperty]
+    public partial TextAlignment RollAlignment { get; set; } = TextAlignment.Start;
+
+    private CancellationTokenSource? _countdown;
+
     private static readonly string[] _latinWords =
     [
         "lorem", "ipsum", "dolor", "sit", "amet", "consectetur", "adipiscing", "elit",
@@ -40,6 +54,29 @@ public partial class MarqueePageViewModel : SampleViewModel
     }
 
     [RelayCommand]
+    private void Add(string amount) => Score += int.Parse(amount);
+
+    [RelayCommand]
+    private async Task CountDown()
+    {
+        _countdown?.Cancel();
+        var cts = _countdown = new CancellationTokenSource();
+
+        for (var left = TimeSpan.FromSeconds(15); left >= TimeSpan.Zero; left -= TimeSpan.FromSeconds(1))
+        {
+            Countdown = $"{(int)left.TotalMinutes}:{left.Seconds:00}";
+            try
+            {
+                await Task.Delay(1000, cts.Token);
+            }
+            catch (OperationCanceledException)
+            {
+                return;
+            }
+        }
+    }
+
+    [RelayCommand]
     private Task ShowScrollOptions() => ShowOptionsAsync("Scrolling",
         new SliderOption("Speed, points per second", 10, 150, () => ScrollSpeed, v => ScrollSpeed = v, "0"),
         new SliderOption("Pause at each end, ms", 0, 5000, () => PauseAtEnds, v => PauseAtEnds = (int)v, "0"),
@@ -49,4 +86,20 @@ public partial class MarqueePageViewModel : SampleViewModel
     private Task ShowChangeOptions() => ShowOptionsAsync("Changing text",
         new ToggleOption("Fade", "The old text fades out and the new text in.", () => FadeOnChange, v => FadeOnChange = v),
         new ToggleOption("Start over", "Scrolling restarts from the beginning of the new text. Off, it carries on from where it was.", () => RestartOnChange, v => RestartOnChange = v));
+
+    [RelayCommand]
+    private Task ShowRollOptions()
+    {
+        var alignment = new ChoiceGroup("Alignment",
+        [
+            new("Start", "A digit the number gains comes in at the end; the rest stay where they are.", () => RollAlignment = TextAlignment.Start),
+            new("Center", "The number stays centred, so it shifts half a digit when it gains one.", () => RollAlignment = TextAlignment.Center),
+            new("End", "The ones stay over the ones; a digit the number gains comes in at the front.", () => RollAlignment = TextAlignment.End),
+        ]);
+        alignment.Select((int)RollAlignment);
+
+        return ShowOptionsAsync("Rolling",
+            alignment,
+            new SliderOption("Duration, ms", 100, 1500, () => RollDuration, v => RollDuration = (int)v, "0"));
+    }
 }
