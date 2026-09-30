@@ -1,6 +1,6 @@
 # Delade element och zoom mellan sidor i Spine (förstudie, rev 1)
 
-**Status:** Förstudie. Inget implementerat; spiken återstår. Issue: [#304](https://github.com/jonatansoderberg/Maui.Spine/issues/304) (P1 i backloggen [#317](https://github.com/jonatansoderberg/Maui.Spine/issues/317), som föreslår en spik för just den här idén eftersom den bär mest designrisk). Studien är gjord i en Linux-container utan Mac, Windows eller enhet: Spines kod, plattformsdokumentationen och bindningarna är lästa, inget är kört.
+**Status:** Förstudie, med ägarens beslut från 2026-09-30 i avsnittet [Beslut](#beslut-2026-09-30). Inget implementerat; spiken återstår. Issue: [#304](https://github.com/jonatansoderberg/Maui.Spine/issues/304) (P1 i backloggen [#317](https://github.com/jonatansoderberg/Maui.Spine/issues/317), som föreslår en spik för just den här idén eftersom den bär mest designrisk). Studien är gjord i en Linux-container utan Mac, Windows eller enhet: Spines kod, plattformsdokumentationen och bindningarna är lästa, inget är kört.
 **Fråga:** Kan Spine ge delade element (en bild eller ett kort som flyger från listan till detaljsidan) och zoom (sidan växer ur det tryckta kortet och krymper tillbaka med back-swipen) mellan sidor — med ett attribut på käll- och målvyn, utan animationskod i appen — och kan plattformarnas egna API:er (iOS 18 `.zoom`, Androids shared elements och container transform, Windows `ConnectedAnimationService`) göra jobbet?
 **Svar:** Ja, men för regionsidor måste Spine rita övergången själv. Spines stack är virtuell: alla sidor i en region är MAUI-vyer i samma `ContentPage`, i två `ContentView`-värdar, så det finns ingen `UIViewController`, inget `Fragment` och ingen `Frame`-navigering per sida att hänga `.zoom` eller fragmentövergångar på. Förslaget är en attached property `Hero.Tag`, ett överläggslager i `NavigationRegion` som flyger en ögonblicksbild av källan till målet (och zoomar hela sidan när taggen sitter på målsidans rot), samma koreografi på alla plattformar, driven av den back-swipe som redan finns — och på Android av den prediktiva bakåtgestens förlopp. Native används där Spine redan har en native presentation: iOS 18+ `.zoom` på arkets `UIViewController`, och på den helskärmspresentation som lightboxen ([#311](https://github.com/jonatansoderberg/Maui.Spine/issues/311)) behöver. Windows kan använda `ConnectedAnimationService` som motor för flygningen, eftersom den arbetar på vynivå.
 
@@ -255,6 +255,25 @@ Inte verifierat, och avgörande: allt i §10, särskilt layouttimingen (1, 2), �
 6. **iOS 18+ native zoom på ark**, därefter lightboxen (#311) på samma grund.
 7. **Windows:** `ConnectedAnimation` eller C, efter mätning på Windows.
 8. **Dokumentation:** `docs/wiki/custom-transitions.md` (nya medlemmar), en wiki-sida om `Hero.Tag`, `spine-page`-skillen. Förstudien blir därefter historik.
+
+---
+
+## Beslut (2026-09-30)
+
+Jonatan gick igenom studiens frågor 2026-09-30 och följde rekommendationerna. Rader märkta **Förslag** saknade rekommendation i studien; där står ett förslag med skäl, som gäller tills han säger annat.
+
+- **Motor.** Spine ritar övergången själv för regionsidor (alternativ C). Native `.zoom` (iOS 18+) används bara för ark och lightbox (alternativ D).
+- **Läge.** Taggens plats väljer läge: på målsidans rot blir det zoom, på en vy inuti blir det delat element (§5.1).
+- **Ingen parameter på `NavigateToAsync`.** Övergången slås av med en brytare i `SpineOptions.Transitions.SharedElements` eller med `Tag = null`.
+- **Namnet** — **Förslag.** `Transition.Tag` i stället för `Hero.Tag`. "Hero" betyder redan den kollapsande rubriken i Spine (`HeroCollectionView`), och två betydelser av samma ord i samma XAML blir svårlästa. `Transition` hör ihop med `ISpineTransitions` och täcker både zoom och delat element. Studiens text säger fortfarande `Hero.Tag`.
+- **Header-baren** — **Förslag.** Flygningen går under header-baren, som i §5.2 steg 5. Baren flyter över innehållet i vila (överlägg, Liquid Glass), så en bild som landar under den hamnar direkt i sitt slutläge; över baren skulle baren dyka upp ovanpå bilden när ögonblicksbilden tas bort. Spiken bekräftar.
+- **`ISpineTransitions`.** Två nya medlemmar med standardimplementation: `AnimateSharedAsync` och `AnimateZoomAsync` (§5.4).
+- **Vakten** — **Förslag.** `OnBackRequestedAsync` frågas som i dag, när draget är fullbordat. Vakten är asynkron och får visa en dialog, vilket inte går att vänta på när ett finger just börjat dra. Om spiken visar att en nekad zoom ser fel ut när sidan fjädrar tillbaka, får en sida med vakt den vanliga avslöjande-gesten i stället för zoomens.
+- **Android prediktiv bakåt.** Egen issue för vanliga pop, skild från #304.
+- **Windows.** `ConnectedAnimationService` om spiken visar att den hinner starta, annars Spines egen flygning.
+- **Region till ark.** Inte i v1. Native `.zoom` på iOS 18+ blir steg 2.
+- **Dra nedåt för att stänga.** Inte i v1.
+- **Ordningen.** Spiken (§10, iOS och Android först) körs före issue-planen.
 
 ---
 

@@ -1,6 +1,6 @@
 # Kontextmenyer i Spine — `ContextMenu.Items` på valfri vy (förstudie, rev 1)
 
-**Status:** Förstudie. Inget implementerat. Issue: [#306](https://github.com/jonatansoderberg/Maui.Spine/issues/306), prioriterad som P2 i [#317](https://github.com/jonatansoderberg/Maui.Spine/issues/317) med frågorna "Sharing the `PageAction` model, preview support".
+**Status:** Förstudie, med ägarens beslut från 2026-09-30 i avsnittet [Beslut](#beslut-2026-09-30). Inget implementerat. Issue: [#306](https://github.com/jonatansoderberg/Maui.Spine/issues/306), prioriterad som P2 i [#317](https://github.com/jonatansoderberg/Maui.Spine/issues/317) med frågorna "Sharing the `PageAction` model, preview support".
 **Fråga:** Kan Spine ge valfri vy en systemets egen kontextmeny (long-press på pekskärm, högerklick på desktop) med ikoner, destruktiva rader, undermenyer och på iOS en förhandsvisning, deklarerad med samma modell som header-barens menyknappar, och fungera i list-rader?
 **Svar:** Ja, men modellen som ska delas är **`MenuItems`, inte `PageAction`**. #318 byggde redan den delade menymodellen (`MenuAction`, `MenuSection`, `SubMenu`, `MenuPicker`) och en menybyggare per plattform. Kontextmenyn blir en attached property, `ContextMenu.Items`, som följer vyns handler på samma sätt som `Tap.Command`, och som på varje plattform återanvänder #318:s byggare: `UIContextMenuInteraction` på iOS och Mac Catalyst, `PopupMenu` vid long-click på Android och `UIElement.ContextFlyout` på Windows. Förhandsvisning finns bara på iOS/iPadOS. v1 lyfter vyn själv, med rundade hörn. En egen förhandsvisning (`ContextMenu.Preview`) är ett andra steg. Android och Windows får ingen förhandsvisning, eftersom plattformarna inte har någon.
 
@@ -282,6 +282,23 @@ Studien är gjord i en Linux-container utan Mac, simulator, emulator eller enhet
 6. **Apparna.** Orientera (Följ, Lägg till i kalendern, Dela), Puckkoll (Bevaka, Öppna i SHL-appen), Almanacka (Kopiera namn, Dela). Beviset på att en deklaration räcker för header och rad.
 
 Beslut som behöver ägaren före steg 2: att `PageAction` inte blir radmodellen (§1); `IsVisible` i den delade modellen (§6.5); och om `DataGrid`s kopiering ska flytta in i menyn när en meny finns (§7).
+
+---
+
+## Beslut (2026-09-30)
+
+Jonatan gick igenom studiens frågor 2026-09-30 och följde rekommendationerna. Rader märkta **Förslag** saknade rekommendation i studien; där står ett förslag med skäl, som gäller tills han säger annat.
+
+- **Modellen.** `MenuItems` från #318 delas mellan header, menyknapp och kontextmeny. `PageAction` blir inte radmodellen (§1).
+- **`IsVisible`.** Läggs till på `MenuAction` och `SubMenu` i den delade modellen, och gäller då även menyknappar (§6.5).
+- **`DataGrid`.** När `RowContextMenu` är satt flyttar long-press-kopieringen in i menyn som en rad "Copy <kolumn>" (§7).
+- **Ytan.** En egen attached property `ContextMenu.Items` (alternativ A), inte MAUI:s `FlyoutBase.ContextFlyout`, ett tredjepartspaket eller delegater på listnivå.
+- **Förhandsvisning.** Vyn själv lyfts i v1 (iOS 16+, standardlyft på iOS 15). `ContextMenu.Preview` och `PreviewCommand` blir steg 2 när en app behöver dem.
+- **Andra plattformar.** Ingen egenritad förhandsvisning på Android, Windows eller Mac.
+- **Android.** `PopupMenu` ankrad till vyn. Om ankaret ska vara en 1×1-vy i tryckpunkten avgörs på enhet.
+- **Knapp med både `MenuButton.Items` och `ContextMenu.Items`.** Menyknappen vinner.
+- **`ContextMenu.Opening`.** Utelämnas tills en app behöver det.
+- **Dokumentation.** I `docs/wiki/menus.md`, ingen ny wikisida.
 
 ---
 

@@ -1,6 +1,6 @@
 # Bakgrundsuppgifter i Spine (förstudie, rev 1)
 
-**Status:** Förstudie. Inget implementerat. Issue: [#308](https://github.com/jonatansoderberg/Maui.Spine/issues/308), prioriterad i [#317](https://github.com/jonatansoderberg/Maui.Spine/issues/317) som P2 med frågorna *registreringstidpunkten på iOS* och *Windows*.
+**Status:** Förstudie, med ägarens beslut från 2026-09-30 i avsnittet [Beslut](#beslut-2026-09-30). Inget implementerat. Issue: [#308](https://github.com/jonatansoderberg/Maui.Spine/issues/308), prioriterad i [#317](https://github.com/jonatansoderberg/Maui.Spine/issues/317) som P2 med frågorna *registreringstidpunkten på iOS* och *Windows*.
 **Fråga:** Kan Spine erbjuda attributupptäckta bakgrundsuppgifter (`[BackgroundTask]` + `IBackgroundTask`) över BGTaskScheduler och Androids schemaläggare, så att widgetar och Live Activities hålls färska utan att appen är i förgrunden — och hur löser man att iOS kräver registrering innan appen har startat klart?
 **Svar:** Ja, som ett eget paket `Plugin.Maui.Spine.BackgroundTasks`, med attributet upptäckt vid körning precis som `[Widget]`. Men **inte med en iOS-identifierare per uppgift**: iOS tillåter en enda väntande refresh-begäran per app och kräver att varje identifierare i `Info.plist` har en handler registrerad innan `didFinishLaunching` returnerar. Spine registrerar därför två fasta identifierare (`<ApplicationId>.spine.refresh` och `.spine.processing`) i MAUI:s `FinishedLaunching`-händelse och väljer själv, i C#, vilka uppgifter som står på tur. Då behövs ingen byggtidsupptäckt, registreringstidpunkten blir Spines ansvar i stället för appens, och Widgets befintliga bakgrundskörning flyttar in som en uppgift bland andra. Android: `JobScheduler` direkt, inte WorkManager. Windows och Mac Catalyst får inget OS-schema i v1. Där körs uppgifterna bara medan appen kör, och det ska stå i klartext.
 
@@ -267,6 +267,24 @@ Studien gjordes i en Linux-container, utan Mac, utan enhet och utan Windows. **I
 5. **Widgets flyttar in**: `spine.widgets` som inbyggd uppgift, `IBackgroundRefreshHandler` som adapter, `SpineBackgroundReceiver` och BGTask-koden bort, samt `Widgets = [...]` på attributet.
 6. **Push**: `spine.task` i `HandleInternallyAsync`, och på sikt `IPushSender.RunTaskAsync` i `Plugin.Maui.Spine.Server`.
 7. **Sampel, wiki, skill och enhet**: en uppgift i push-samplet som skriver en stämpel i widgeten. På iPhone via LLDB `_simulateLaunchForTaskWithIdentifier:` och `_simulateExpirationForTaskWithIdentifier:`, på Android via `adb shell cmd jobscheduler run -f <paket> <id>`. Därefter ett dygn i Puckkoll med `StatusOf` loggat, för att få verkliga siffror på hur ofta iOS faktiskt kör.
+
+---
+
+## Beslut (2026-09-30)
+
+Jonatan gick igenom studiens frågor 2026-09-30 och följde rekommendationerna. Rader märkta **Förslag** saknade rekommendation i studien; där står ett förslag med skäl, som gäller tills han säger annat.
+
+- **Placering.** Eget paket `Plugin.Maui.Spine.BackgroundTasks`, med kontrakten i Common (§5.1).
+- **Android.** `JobScheduler`, inte WorkManager, i linje med #171 (§5.4).
+- **Widgets gamla ytor** — **Förslag.** `SpineWidgetsBackgroundRefresh` och `.spine-widgets.refresh` ligger kvar ett varv som alias, med en byggvarning som pekar på det nya, och tas bort i versionen efter. Paketen ligger på nuget.org och Puckkoll, Almanacka och Orientera följer dem via `SpineVersion`; en identifierare som försvinner i en minor slutar köra tyst i bakgrunden i stället för att ge ett byggfel.
+- **`RequestAsync` i förgrunden.** Kör uppgiften direkt, utan omväg via plattformen.
+- **iOS-identifierare.** Två fasta (`.spine.refresh` och `.spine.processing`) som Spine multiplexar, inte en per uppgift (§5.3).
+- **Deklaration.** Attribut för identitet och standardvärden, options för ändringar i körtid. `IntervalMinutes = 15` i stället för issuens `Interval = "00:15"` (§5.2).
+- **Windows och Mac Catalyst.** Timer i processen och ikappkörning vid start, synligt som `RunsWhileClosed = false`.
+- **`processing`-läget.** Opt-in: `SpineBackgroundTasksProcessing=false` som standard.
+- **`UIBackgroundModes`.** Rättas först, oavsett resten (steg 1). Felet är bekräftat på ett bygge av push-samplet 2026-09-30: [#435](https://github.com/jonatansoderberg/Maui.Spine/issues/435).
+- **Push.** Nyckeln `spine.task=<namn>` triggar en uppgift; `IPushSender.RunTaskAsync` kommer senare.
+- **`BGContinuedProcessingTask`.** Inte i v1.
 
 ---
 

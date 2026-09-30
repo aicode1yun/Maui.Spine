@@ -1,6 +1,6 @@
 # Sökning i header-baren (förstudie, rev 1)
 
-**Status:** Förstudie. Inget implementerat. Issue: [#307](https://github.com/jonatansoderberg/Maui.Spine/issues/307), prioriterad som P2 i [#317](https://github.com/jonatansoderberg/Maui.Spine/issues/317), beroende av [#269](https://github.com/jonatansoderberg/Maui.Spine/issues/269).
+**Status:** Förstudie, med ägarens beslut från 2026-09-30 i avsnittet [Beslut](#beslut-2026-09-30). Inget implementerat. Issue: [#307](https://github.com/jonatansoderberg/Maui.Spine/issues/307), prioriterad som P2 i [#317](https://github.com/jonatansoderberg/Maui.Spine/issues/317), beroende av [#269](https://github.com/jonatansoderberg/Maui.Spine/issues/269).
 **Fråga:** Ska sökfältet i en Spine-sida ritas av Spine (som `HeaderBarView`) eller vara UIKit:s eget (`UISearchController`), givet att iOS 26 flyttat sökningen till skärmens nederkant, och hur deklarerar en sida sökning?
 **Svar:** Spine ritar det. `UISearchController` hamnar i verktygsraden längst ner bara när dess `UINavigationItem` sitter i en `UINavigationController` med verktygsrad. En Spine-app har ingen sådan: alla sidor bor i en MAUI-`ContentPage`, och header-baren är en MAUI-`Grid`. Den nativa vägen skulle kräva att Spine gömmer en `UINavigationController` bakom sin egen header-bar och byter `searchController` vid varje virtuell navigering. Det är mer kod och mer risk än att rita fältet själv. Spine ritar i stället en glaskapsel (`Material.Kind="Glass"` från #300) runt MAUI:s `SearchBar`, som redan ger plattformens returtangent och rensa-knapp på iOS, Android och Windows. Placeringen följer HIG: längst ner på iPhone med iOS 26 när nederkanten är ledig, som en sökknapp i header-baren när en flikrad eller en footer tar nederkanten, och överst på alla andra plattformar. Sidan deklarerar sökningen som den deklarerar page actions, med ett attribut på en egenskap i vy-modellen. Sökfliken i iOS 26:s flikrad (`UISearchTab`) blir en egen issue, eftersom MAUI:s `TabbedPage` bygger flikarna med `ViewControllers` och inte med `UITab`.
 
@@ -233,6 +233,24 @@ Studien är gjord i en Linux-container utan Mac, simulator eller enhet. **Inget 
 6. **Sample och docs:** en sida "Search" i `MauiSpineSampleApp` (lista som filtreras, förslag, placeringsval), `docs/wiki/search.md`, en rad i `page-actions.md`, skillen `/spine-page`.
 7. **I apparna:** Orienteras fritextsökning (#94), Almanackas namnsök, Puckkoll.
 8. **Egna issues:** `UISearchTab` (sökflik i iOS 26, kräver `UITab` under MAUI:s `TabbedPage`), scopes via #318 och en grupp med två knappar i header-baren (§9 punkt 5).
+
+---
+
+## Beslut (2026-09-30)
+
+Jonatan gick igenom studiens frågor 2026-09-30 och följde rekommendationerna. Rader märkta **Förslag** saknade rekommendation i studien; där står ett förslag med skäl, som gäller tills han säger annat.
+
+- **Fältet.** Spine ritar det: MAUI:s `SearchBar` i en glaskapsel (alternativ A), inte `UISearchController` i en dold `UINavigationController`.
+- **Placering.** `SearchPlacement.Automatic` enligt §5: nederst på iPhone med iOS 26 när nederkanten är fri, en sökknapp när en flikrad eller footer tar den, överst överallt annars och i ark.
+- **Deklaration.** `[PageSearch]` på en strängegenskap i vymodellen, inte issuens `ISearchable` med `[NavigableRegion(Search = true)]`.
+- **Ordningen.** #269 (tangentbordsobservatören) levereras först och sökningen byggs på den.
+- **Scopes.** En menyknapp (`MenuPicker`) bredvid fältet, inte i v1 (§9 punkt 4).
+- **Tredje platsen i header-baren.** I v1 ersätter sökknappen sidans högra action. En grupp med två knappar blir en egen issue (§9 punkt 5).
+- **`UISearchTab`.** Egen issue.
+- **Sökrad som glider undan vid scroll.** Inte i v1; avgörs i steg 3.
+- **Resultat.** Spine ritar ingen resultatvy. Sidan filtrerar sin egen lista, och förslag är en lista med strängar.
+- **Senare steg.** ⌘F på Mac Catalyst och M3 `SearchView` i helskärm på Android.
+- **Spiken.** iOS 26-spiken mot en native referens körs innan bottenkapseln byggs.
 
 ---
 

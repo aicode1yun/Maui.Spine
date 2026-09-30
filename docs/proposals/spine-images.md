@@ -1,6 +1,6 @@
 # Spine.Images — bildcache, förhämtning, nedskalning och blurhash (förstudie, rev 1)
 
-**Status:** Förstudie. Inget implementerat. Issue: [#305](https://github.com/jonatansoderberg/Maui.Spine/issues/305), prioriterad som P2 i [#317](https://github.com/jonatansoderberg/Maui.Spine/issues/317). Studien är gjord i en Linux-container utan Mac och utan enhet: inget i den är byggt eller kört. Den bygger på källkod (Spine, MAUI `main`, Nuke 13.2.0, Glide 4.16.0), paketinnehåll från nuget.org och dokumentation.
+**Status:** Förstudie, med ägarens beslut från 2026-09-30 i avsnittet [Beslut](#beslut-2026-09-30). Inget implementerat. Issue: [#305](https://github.com/jonatansoderberg/Maui.Spine/issues/305), prioriterad som P2 i [#317](https://github.com/jonatansoderberg/Maui.Spine/issues/317). Studien är gjord i en Linux-container utan Mac och utan enhet: inget i den är byggt eller kört. Den bygger på källkod (Spine, MAUI `main`, Nuke 13.2.0, Glide 4.16.0), paketinnehåll från nuget.org och dokumentation.
 **Fråga:** #317 ställer två frågor. Hur ska Nuke bindas? Kan widget-extensionen dela bildcachen med appen? Bakom dem finns en tredje fråga: vad saknas egentligen i MAUI, plattform för plattform?
 **Svar:** Nuke ska inte bindas i v1, och cachen ska inte delas. Det som saknas på iOS är ett minnesdiskcache, avkodning i visningsstorlek och avkodning utanför huvudtråden. Allt det finns i Microsoft.iOS (`NSCache`, ImageIO:s `CGImageSource.CreateThumbnail`) och kan skrivas i C#. Samma C#-kärna (diskcache, sammanslagning av samtidiga hämtningar, förhämtning) behövs ändå på Windows, där MAUI inte cachar alls. Android har redan Glide via MAUI och behöver bara förhämtning och rensning. Widget-extensionen får en **kopia** av bilden, nedskalad och skriven till den assetbutik den redan läser (`IWidgetService.StoreAssetAsync`), och ingen delad cache. Om mätningar på enhet visar att C#-vägen inte räcker blir Nuke plan B. Den ska då byggas som en egen Swift-brygga med Nukes källor, kompilerade med `swiftc` vid appbygget på samma sätt som Widgets gör. Den ska aldrig byggas via `ImageCaching.Nuke`.
 
@@ -265,6 +265,22 @@ Issuen kallar Windows för "Partial", men det stämmer inte längre. Windows få
 8. **Senare, vid behov:** bild-URL:er i fjärrdokument för widgets (§6 sista raden) och Nuke-vägen B om steg 1 kräver den.
 
 **Beslut som ägaren behöver fatta:** D eller B efter steg 1. BlurHash, ThumbHash eller båda i v1. Om `Downsample` ska vara på som standard på iOS, vilket vore i linje med vad Android redan gör. Om `HeroCollectionView` ska känna till `IImageCache`.
+
+---
+
+## Beslut (2026-09-30)
+
+Jonatan gick igenom studiens frågor 2026-09-30 och följde rekommendationerna. Rader märkta **Förslag** saknade rekommendation i studien; där står ett förslag med skäl, som gäller tills han säger annat.
+
+- **iOS-vägen.** C#-kärna med ImageIO och `NSCache` (D) i v1. Nuke-bryggan (B) bara om mätningen i steg 1 visar att D inte scrollar mjukt med cirka 200 bilder.
+- **Platshållare** — **Förslag.** BlurHash i v1, ThumbHash senare bakom samma `ImageOptions`-yta. BlurHash är det som bildtjänster och servrar redan levererar (§3.4), och en avkodare med testvektorer räcker för första versionen. ThumbHash läggs till när en app har egna bilder med alfa eller vill ha sidförhållandet ur hashen.
+- **`Downsample` på iOS** — **Förslag.** På som standard. Android skalar redan ned till vyns storlek, så samma standard ger samma minnesbild på båda plattformarna, och att avkoda i visningsstorlek är Apples egen rekommendation för listor med bilder. Den som vill ha full upplösning slår av det per bild.
+- **`HeroCollectionView`.** Får känna till `IImageCache` genom en valfri tjänst, så att kontrollpaketet inte beror på Images.
+- **Widget-extensionen.** Får en kopia via `LoadPngAsync` → `StoreAssetAsync`, ingen delad cache (§6).
+- **`IImageCache`.** Injiceras. Ingen statisk `ImageCache` som i issuens skiss.
+- **`BlurHash.Encode`.** Ligger i `Plugin.Maui.Spine.Common`, så att Server-paketet slipper ett bildbibliotek.
+- **`FadeIn`.** Bara om platshållarspiken håller (§8 punkt 4), annars v2.
+- **Bild-URL:er i fjärrdokument för widgets.** Eget, senare steg när en app behöver det.
 
 ---
 
