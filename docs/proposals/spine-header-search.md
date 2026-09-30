@@ -1,117 +1,117 @@
-# Sökning i header-baren (förstudie, rev 1)
+# Search in the header bar (study, rev 1)
 
-**Status:** Förstudie, med ägarens beslut från 2026-09-30 i avsnittet [Beslut](#beslut-2026-09-30). Inget implementerat. Issue: [#307](https://github.com/jonatansoderberg/Maui.Spine/issues/307), prioriterad som P2 i [#317](https://github.com/jonatansoderberg/Maui.Spine/issues/317), beroende av [#269](https://github.com/jonatansoderberg/Maui.Spine/issues/269).
-**Fråga:** Ska sökfältet i en Spine-sida ritas av Spine (som `HeaderBarView`) eller vara UIKit:s eget (`UISearchController`), givet att iOS 26 flyttat sökningen till skärmens nederkant, och hur deklarerar en sida sökning?
-**Svar:** Spine ritar det. `UISearchController` hamnar i verktygsraden längst ner bara när dess `UINavigationItem` sitter i en `UINavigationController` med verktygsrad. En Spine-app har ingen sådan: alla sidor bor i en MAUI-`ContentPage`, och header-baren är en MAUI-`Grid`. Den nativa vägen skulle kräva att Spine gömmer en `UINavigationController` bakom sin egen header-bar och byter `searchController` vid varje virtuell navigering. Det är mer kod och mer risk än att rita fältet själv. Spine ritar i stället en glaskapsel (`Material.Kind="Glass"` från #300) runt MAUI:s `SearchBar`, som redan ger plattformens returtangent och rensa-knapp på iOS, Android och Windows. Placeringen följer HIG: längst ner på iPhone med iOS 26 när nederkanten är ledig, som en sökknapp i header-baren när en flikrad eller en footer tar nederkanten, och överst på alla andra plattformar. Sidan deklarerar sökningen som den deklarerar page actions, med ett attribut på en egenskap i vy-modellen. Sökfliken i iOS 26:s flikrad (`UISearchTab`) blir en egen issue, eftersom MAUI:s `TabbedPage` bygger flikarna med `ViewControllers` och inte med `UITab`.
+**Status:** Study, with the owner's decisions from 2026-09-30 in the section [Decisions](#decisions-2026-09-30). Nothing implemented. Issue: [#307](https://github.com/jonatansoderberg/Maui.Spine/issues/307), prioritized as P2 in [#317](https://github.com/jonatansoderberg/Maui.Spine/issues/317), depends on [#269](https://github.com/jonatansoderberg/Maui.Spine/issues/269).
+**Question:** Should the search field on a Spine page be drawn by Spine (like `HeaderBarView`) or be UIKit's own (`UISearchController`), given that iOS 26 has moved search to the bottom edge of the screen, and how does a page declare search?
+**Answer:** Spine draws it. `UISearchController` ends up in the bottom toolbar only when its `UINavigationItem` sits in a `UINavigationController` with a toolbar. A Spine app has none: every page lives in a MAUI `ContentPage`, and the header bar is a MAUI `Grid`. The native route would require Spine to hide a `UINavigationController` behind its own header bar and swap `searchController` on every virtual navigation. That is more code and more risk than drawing the field itself. Spine instead draws a glass capsule (`Material.Kind="Glass"` from #300) around MAUI's `SearchBar`, which already provides the platform's return key and clear button on iOS, Android and Windows. The placement follows the HIG: at the bottom on iPhone with iOS 26 when the bottom edge is free, as a search button in the header bar when a tab bar or a footer takes the bottom edge, and at the top on all other platforms. The page declares search the way it declares page actions, with an attribute on a property in the view model. The search tab in the iOS 26 tab bar (`UISearchTab`) becomes an issue of its own, because MAUI's `TabbedPage` builds the tabs with `ViewControllers` and not with `UITab`.
 
 ---
 
-## 1. Slutsatsen i korthet
+## 1. The conclusion in short
 
-| Fråga | Svar | Belägg |
+| Question | Answer | Evidence |
 |---|---|---|
-| Spine-ritat eller `UISearchController`? | **Spine-ritat.** Verktygsradsplaceringen kräver att navigeringsraden tillhör en `UINavigationController` ("On iPhone, when the navigation bar belongs to a UINavigationController, the search bar may be integrated into the toolbar"). Spine har ingen: `SpineHostPage` och `SpineTabPage` är `ContentPage`, och ingen `UINavigationController` förekommer i paketet. | Apple-dok. `SearchBarPlacement.integrated`; `SpineHostPage.cs:13`, `SpineTabPage.cs:8`; §3.1, §4 |
-| Var hamnar fältet på iOS 26? | **Nederst** för en regionsida utan flikrad och utan footer: en glaskapsel som vilar ovanför hemindikatorn och följer med upp ovanför tangentbordet när den fokuseras. **I header-baren som en sökknapp** när nederkanten är upptagen (flikrad, footer). Knappen expanderar till ett fält ovanför tangentbordet, som HIG beskriver för en sökknapp i den övre verktygsraden. **Överst** i sheets. | HIG *Search fields*, §5 |
-| Och på övriga plattformar? | **Överst**, i en rad under header-baren: iOS 15–18 som `UISearchController` i läget *stacked*, Android som Material 3:s sökfält och iPad/Mac Catalyst längst ut till höger i header-baren. På Windows hamnar fältet i MAUI:s `TitleBar.Content`, som en `AutoSuggestBox`. | §3, §8 |
-| Vilken kontroll ligger i fältet? | **MAUI:s `SearchBar`.** Den är `UISearchBar` på iOS, `SearchView` på Android och `AutoSuggestBox` på Windows. Returtangenten "Sök", rensa-knappen och submit (`SearchButtonClicked`/`QuerySubmitted`) kommer från den. | `SearchBarHandler.iOS.cs:18`, `.Android.cs:25`, `.Windows.cs:12` (MAUI `main`) |
-| Hur deklarerar en sida sökning? | **`[PageSearch]` på en `string`-egenskap i vy-modellen**, på samma sätt som `[PageAction]` sitter på ett kommando. Spine skapar då ett observerbart `PageSearch` på `ViewModelBase.Search`, som sidan kan ändra medan den visas. Issuens förslag med `ISearchable` och `[NavigableRegion(Search = true)]` delar upp samma sak på två ställen, sidklassen och vy-modellen. | `PageActionDiscovery.cs:13`, §6 |
-| Tangentbordet? | Ett fält längst ner **är** #269-problemet. Spine måste veta tangentbordets höjd för att lyfta fältet, och resultatlistan måste få samma inset. Observatören på ramverksnivå som #269 föreslår levereras därför först, och sökningen bygger på den. | §7 |
-| `UISearchTab` (sökfliken i iOS 26)? | **Egen issue.** Den kräver `UITabBarController.Tabs` (`UITab`-API:t), men MAUI:s `TabbedRenderer` sätter `ViewControllers`. Det är en sökning för hela appen, inte för en enskild sida. | `TabbedRenderer.cs:383` (MAUI), `SpineTabbedHostPage.Apple.cs:66` |
-| Finns API:erna i .NET? | **Ja**, i Microsoft.iOS 26.2 (taggen `dotnet-10.0.1xx-xcode26.2-10217`): `SearchBarPlacementAllowsToolbarIntegration`, `SearchBarPlacementBarButtonItem`, `UINavigationItemSearchBarPlacement.IntegratedButton`, `UISearchTab.AutomaticallyActivatesSearch`, `UITabBarController.BottomAccessory` och `UIView.KeyboardLayoutGuide`. | `src/uikit.cs` i dotnet/macios, §3.1 |
+| Spine-drawn or `UISearchController`? | **Spine-drawn.** The toolbar placement requires the navigation bar to belong to a `UINavigationController` ("On iPhone, when the navigation bar belongs to a UINavigationController, the search bar may be integrated into the toolbar"). Spine has none: `SpineHostPage` and `SpineTabPage` are `ContentPage`, and no `UINavigationController` appears in the package. | Apple docs, `SearchBarPlacement.integrated`; `SpineHostPage.cs:13`, `SpineTabPage.cs:8`; §3.1, §4 |
+| Where does the field go on iOS 26? | **At the bottom** for a region page with no tab bar and no footer: a glass capsule that rests above the home indicator and moves up above the keyboard when it is focused. **In the header bar as a search button** when the bottom edge is taken (tab bar, footer). The button expands into a field above the keyboard, as the HIG describes for a search button in the top toolbar. **At the top** in sheets. | HIG *Search fields*, §5 |
+| And on the other platforms? | **At the top**, in a row below the header bar: iOS 15–18 like `UISearchController` in *stacked* mode, Android like Material 3's search field, and iPad/Mac Catalyst at the far right of the header bar. On Windows the field goes in MAUI's `TitleBar.Content`, as an `AutoSuggestBox`. | §3, §8 |
+| Which control is in the field? | **MAUI's `SearchBar`.** It is `UISearchBar` on iOS, `SearchView` on Android and `AutoSuggestBox` on Windows. The "Search" return key, the clear button and submit (`SearchButtonClicked`/`QuerySubmitted`) come from it. | `SearchBarHandler.iOS.cs:18`, `.Android.cs:25`, `.Windows.cs:12` (MAUI `main`) |
+| How does a page declare search? | **`[PageSearch]` on a `string` property in the view model**, the same way `[PageAction]` sits on a command. Spine then creates an observable `PageSearch` on `ViewModelBase.Search`, which the page can change while it is shown. The issue's proposal with `ISearchable` and `[NavigableRegion(Search = true)]` splits the same thing across two places, the page class and the view model. | `PageActionDiscovery.cs:13`, §6 |
+| The keyboard? | A field at the bottom **is** the #269 problem. Spine has to know the keyboard's height to lift the field, and the result list has to get the same inset. The framework-level observer that #269 proposes is therefore delivered first, and search builds on it. | §7 |
+| `UISearchTab` (the search tab in iOS 26)? | **An issue of its own.** It requires `UITabBarController.Tabs` (the `UITab` API), but MAUI's `TabbedRenderer` sets `ViewControllers`. It is a search for the whole app, not for a single page. | `TabbedRenderer.cs:383` (MAUI), `SpineTabbedHostPage.Apple.cs:66` |
+| Do the APIs exist in .NET? | **Yes**, in Microsoft.iOS 26.2 (the tag `dotnet-10.0.1xx-xcode26.2-10217`): `SearchBarPlacementAllowsToolbarIntegration`, `SearchBarPlacementBarButtonItem`, `UINavigationItemSearchBarPlacement.IntegratedButton`, `UISearchTab.AutomaticallyActivatesSearch`, `UITabBarController.BottomAccessory` and `UIView.KeyboardLayoutGuide`. | `src/uikit.cs` in dotnet/macios, §3.1 |
 
 ---
 
-## 2. Vad som redan finns i Spine
+## 2. What Spine already has
 
-| Del | Var | Vad det betyder för sökning |
+| Part | Where | What it means for search |
 |---|---|---|
-| Header-baren är en MAUI-vy | `HeaderBarView.cs:12`, en `Grid` med fem kolumner och två `PageActionView` (`:422–445`), lagd ovanpå sidan i `NavigationRegion.cs:90–110` | Det finns ingen `UINavigationBar` och inget `UINavigationItem` att hänga en `searchController` på. Placering och animation måste komma från Spine, precis som issuen säger. |
-| En action per sida av baren | `NavigationRegionViewModel.cs:155` (`PrimaryPageAction`), `:183` (`SecondaryPageAction`) | En sökknapp i header-baren konkurrerar om den högra platsen. Antingen får baren en tredje plats, eller så går sökknappen före sidans egna actions (§9 punkt 5). |
-| Titelraden hör till sidan | `PagePresenter.cs:66–68` (rader: titel, innehåll, footer), `ApplyTitleRowHeight` `:428` | En sökrad under titeln på Android, iOS 15–18 och i sheets blir en fjärde rad i samma presenter. Den flyttar med sidan under övergången, så som titeln gör. |
-| Footer-plats nederst | `SpinePage.Footer` (`SpinePage.cs:90`), `_footerHost` (`PagePresenter.cs:98–100`) | Den kapsel som vilar nederst på iOS 26 bor bredvid footern. En sida med footer får sökknappen i stället (§5). |
-| Säkerområdeskontraktet | `NavigationRegion.cs:64` (`SafeAreaEdges = None`), `ApplySafeAreaPadding` `:235`, `SafeAreaInsetsFor` `:272` | Sökraden och kapseln måste räknas in i `SafeAreaInsets`, så som `BarHeight` räknas in under en flytande header. |
-| Scrollkällan och scroll edge | `HeaderBar.ScrollSource` (`HeaderBar.cs:31`), `UIScrollEdgeElementContainerInteraction` (`PagePresenter.Apple.cs:83`) | Samma mekanism med kant `Bottom` ger iOS 26:s mjuka kant bakom kapseln nederst. Listan får `ScrollInset` `Bottom`. |
-| Glasytor | `MaterialKind.Glass` (`Material.cs:20`), `UIGlassEffect` och kapselhörn (`MaterialExtensions.Apple.cs:176–190`, `:405`) | Kapseln runt fältet behöver ingen ny kod för glaset. |
-| Glasknappar i baren | `PageActionView.UseGlassHeaderActions` (`PageActionView.cs:93`), `SpineOptions.Apple.GlassHeaderActions`/`MorphHeaderActions` (`SpineOptions.cs:347`, `:355`) | Sökknappen är en vanlig glas-page-action med förstoringsglaset. Stäng-knappen bredvid ett aktivt fält är en glascirkel av samma slag. |
-| Header-marginal och höjd | `HeaderBarConstants.PageMargin` (`:27`), `BarHeight` (`:184`) | Kapselns sidmarginal och sökradens höjd ska komma därifrån och inte vara nya siffror. |
-| Menyer | `PageAction.Menu`, `MenuPicker` (#318, `MenuButton.cs`) | Sökomfång (*scopes*) kan byggas som en menyknapp bredvid fältet i stället för med UIKit:s scope bar (§9 punkt 4). |
-| Windows titelrad | `SpineApplication.Windows.cs:77–86`: MAUI:s `TitleBar` med `LeadingContent`/`TrailingContent` | `TitleBar.Content`, mittplatsen, är oanvänd. Där lägger Windows-appar sin sökruta. |
-| Tangentbord | Bara i Androids sheet: `SoftInput.AdjustResize` (`BottomSheetPageExtensions.Android.cs:155`) och IME-insets (`:616`). På iOS finns inget. | Det är #269. |
-| Flikraden | `SpineTabbedHostPage : TabbedPage`. På iOS är det MAUI:s `UITabBarController` (`SpineTabbedHostPage.Apple.cs:14`), styrd genom `ViewControllers` (`:66`, `:88`) och med `TabBarMinimizeBehavior` (`:41–42`). | En sökflik kräver `UITab`-API:t (§3.1, §4 C). |
+| The header bar is a MAUI view | `HeaderBarView.cs:12`, a `Grid` with five columns and two `PageActionView` (`:422–445`), laid on top of the page in `NavigationRegion.cs:90–110` | There is no `UINavigationBar` and no `UINavigationItem` to attach a `searchController` to. Placement and animation have to come from Spine, just as the issue says. |
+| One action per side of the bar | `NavigationRegionViewModel.cs:155` (`PrimaryPageAction`), `:183` (`SecondaryPageAction`) | A search button in the header bar competes for the right-hand slot. Either the bar gets a third slot, or the search button takes precedence over the page's own actions (§9 item 5). |
+| The title row belongs to the page | `PagePresenter.cs:66–68` (rows: title, content, footer), `ApplyTitleRowHeight` `:428` | A search row below the title on Android, iOS 15–18 and in sheets becomes a fourth row in the same presenter. It moves with the page during the transition, as the title does. |
+| Footer slot at the bottom | `SpinePage.Footer` (`SpinePage.cs:90`), `_footerHost` (`PagePresenter.cs:98–100`) | The capsule that rests at the bottom on iOS 26 lives next to the footer. A page with a footer gets the search button instead (§5). |
+| The safe-area contract | `NavigationRegion.cs:64` (`SafeAreaEdges = None`), `ApplySafeAreaPadding` `:235`, `SafeAreaInsetsFor` `:272` | The search row and the capsule have to be counted into `SafeAreaInsets`, the way `BarHeight` is counted in under a floating header. |
+| The scroll source and scroll edge | `HeaderBar.ScrollSource` (`HeaderBar.cs:31`), `UIScrollEdgeElementContainerInteraction` (`PagePresenter.Apple.cs:83`) | The same mechanism with edge `Bottom` gives the iOS 26 soft edge behind the capsule at the bottom. The list gets `ScrollInset` `Bottom`. |
+| Glass surfaces | `MaterialKind.Glass` (`Material.cs:20`), `UIGlassEffect` and capsule corners (`MaterialExtensions.Apple.cs:176–190`, `:405`) | The capsule around the field needs no new code for the glass. |
+| Glass buttons in the bar | `PageActionView.UseGlassHeaderActions` (`PageActionView.cs:93`), `SpineOptions.Apple.GlassHeaderActions`/`MorphHeaderActions` (`SpineOptions.cs:347`, `:355`) | The search button is an ordinary glass page action with the magnifying glass. The close button next to an active field is a glass circle of the same kind. |
+| Header margin and height | `HeaderBarConstants.PageMargin` (`:27`), `BarHeight` (`:184`) | The capsule's side margin and the search row's height should come from there and not be new numbers. |
+| Menus | `PageAction.Menu`, `MenuPicker` (#318, `MenuButton.cs`) | Search scopes can be built as a menu button next to the field instead of with UIKit's scope bar (§9 item 4). |
+| Windows title bar | `SpineApplication.Windows.cs:77–86`: MAUI's `TitleBar` with `LeadingContent`/`TrailingContent` | `TitleBar.Content`, the center slot, is unused. That is where Windows apps put their search box. |
+| Keyboard | Only in Android's sheet: `SoftInput.AdjustResize` (`BottomSheetPageExtensions.Android.cs:155`) and IME insets (`:616`). On iOS there is nothing. | That is #269. |
+| The tab bar | `SpineTabbedHostPage : TabbedPage`. On iOS it is MAUI's `UITabBarController` (`SpineTabbedHostPage.Apple.cs:14`), driven through `ViewControllers` (`:66`, `:88`) and with `TabBarMinimizeBehavior` (`:41–42`). | A search tab requires the `UITab` API (§3.1, §4 C). |
 
-Det som saknas är alltså fältet, dess placering och tangentbordet. Sidstrukturen, glaset och scroll edge-effekten finns redan.
+So what is missing is the field, its placement and the keyboard. The page structure, the glass and the scroll edge effect are already there.
 
 ---
 
-## 3. Plattformarnas byggstenar
+## 3. The platforms' building blocks
 
 ### 3.1 iOS 26 (iPhone)
 
-HIG (*Search fields*, iOS) nämner tre platser: **som flik i flikraden**, **i en verktygsrad nederst eller överst**, och **inline med innehållet**. Om verktygsraden står det: "Place search at the bottom if there's room … Place search at the top when … there's no bottom toolbar." En sökknapp i den övre raden "animates into a search field that appears either above the keyboard or at the top if there isn't space at the bottom". Ett aktivt fält hamnar alltså ovanför tangentbordet i båda fallen. Det som skiljer är var det vilar när det inte används.
+The HIG (*Search fields*, iOS) names three places: **as a tab in the tab bar**, **in a toolbar at the bottom or the top**, and **inline with the content**. About the toolbar it says: "Place search at the bottom if there's room … Place search at the top when … there's no bottom toolbar." A search button in the top bar "animates into a search field that appears either above the keyboard or at the top if there isn't space at the bottom". An active field therefore ends up above the keyboard in both cases. What differs is where it rests when it is not in use.
 
-UIKit:s väg dit:
+UIKit's route there:
 
-- `navigationItem.searchController` med `preferredSearchBarPlacement = .integrated` (nytt i iOS 26, samma råvärde som `.inline`). Apple: "On iPhone, when the navigation bar belongs to a UINavigationController, the search bar may be integrated into the toolbar."
-- `searchBarPlacementAllowsToolbarIntegration` (standard `true`) och `searchBarPlacementBarButtonItem`, som anger var i `toolbarItems` fältet ska stå. Utan den hamnar fältet längst till höger i `UIToolbar`.
-- `.integratedButton` visar alltid sökningen som en knapp tills den aktiveras.
-- `UISearchTab` (iOS 18) med `automaticallyActivatesSearch` (iOS 26): fliken ligger för sig själv längst till höger i flikraden och expanderar till ett sökfält. Enligt WWDC25-session 284 kollapsar de andra flikarna samtidigt. När sökningen avbryts återställs den flik som var vald före.
-- `UITabBarController.bottomAccessory` (`UITabAccessory`) är en vy ovanför flikraden. Den är tänkt för t.ex. en spelare, inte för sökning, och föreslås inte här.
+- `navigationItem.searchController` with `preferredSearchBarPlacement = .integrated` (new in iOS 26, same raw value as `.inline`). Apple: "On iPhone, when the navigation bar belongs to a UINavigationController, the search bar may be integrated into the toolbar."
+- `searchBarPlacementAllowsToolbarIntegration` (default `true`) and `searchBarPlacementBarButtonItem`, which says where in `toolbarItems` the field should stand. Without it the field ends up at the far right of the `UIToolbar`.
+- `.integratedButton` always shows search as a button until it is activated.
+- `UISearchTab` (iOS 18) with `automaticallyActivatesSearch` (iOS 26): the tab sits by itself at the far right of the tab bar and expands into a search field. According to WWDC25 session 284 the other tabs collapse at the same time. When the search is canceled, the tab that was selected before is restored.
+- `UITabBarController.bottomAccessory` (`UITabAccessory`) is a view above the tab bar. It is meant for something like a player, not for search, and is not proposed here.
 
-Alla namn ovan finns i Microsoft.iOS 26.2 (se §1). **Inget av det sitter i en Spine-app:** det finns ingen `UINavigationController`, och flikraden byggs av MAUI utan `UITab`.
+All the names above exist in Microsoft.iOS 26.2 (see §1). **None of it sits in a Spine app:** there is no `UINavigationController`, and the tab bar is built by MAUI without `UITab`.
 
-Forumtråd 797701 samlar fyra buggar i `UISearchController` på iOS 26 som gäller placeringarna `integrated`/`integratedButton` och scope-knappar. Enligt tråden fanns de kvar i iOS 26.5 och Apple har inte svarat där. Det är ett skäl till att inte binda Spines sökning till den vägen.
+Forum thread 797701 collects four bugs in `UISearchController` on iOS 26 that concern the placements `integrated`/`integratedButton` and scope buttons. According to the thread they were still there in iOS 26.5 and Apple has not replied there. That is one reason not to tie Spine's search to that route.
 
 ### 3.2 iOS 15–18
 
-Det gamla mönstret är `UISearchController` i läget *stacked*: ett fält under titeln som glider undan när listan scrollas (`hidesSearchBarWhenScrolling`). Det kräver också en `UINavigationBar`. Spine ritar motsvarigheten som en rad under titelraden med en vanlig `UISearchBar`. Spines minimum är iOS 15 (`Directory.Build.props:22`).
+The old pattern is `UISearchController` in *stacked* mode: a field below the title that slides away when the list is scrolled (`hidesSearchBarWhenScrolling`). It also requires a `UINavigationBar`. Spine draws the equivalent as a row below the title row with an ordinary `UISearchBar`. Spine's minimum is iOS 15 (`Directory.Build.props:22`).
 
-### 3.3 iPad och Mac Catalyst
+### 3.3 iPad and Mac Catalyst
 
-HIG: "Put a search field at the trailing side of the toolbar." Mac-mönstret är ett fält längst till höger i verktygsraden, och på iPad är det detsamma. Spine lägger fältet längst ut till höger i header-baren. Det tar då den högra action-platsen, eller står till vänster om den om den får plats. ⌘F för att fokusera fältet kräver ett `UIKeyCommand` på värdens view controller. Det finns inte i Spine i dag och ingår inte i v1. `searchBarPlacementAllowsExternalIntegration` gäller bara inuti en `UISplitViewController` och är inte aktuellt.
+HIG: "Put a search field at the trailing side of the toolbar." The Mac pattern is a field at the far right of the toolbar, and on iPad it is the same. Spine puts the field at the far right of the header bar. It then takes the right-hand action slot, or stands to the left of it if there is room. ⌘F to focus the field requires a `UIKeyCommand` on the host's view controller. Spine does not have that today and it is not part of v1. `searchBarPlacementAllowsExternalIntegration` applies only inside a `UISplitViewController` and is not relevant.
 
 ### 3.4 Android
 
-Material 3 har `SearchBar` ("a persistent and prominent search field at the top of the screen") och `SearchView` (en helskärmsvy som expanderar ur `SearchBar`, med plats för historik och förslag). Båda kräver Material Components 1.8 eller senare, och MAUI 10 har 1.12. De är byggda för en `CoordinatorLayout`/`AppBarLayout`, eller för `SearchView.setUpWithSearchBar` utan en sådan. Spines header-bar är ingetdera. Förslaget är därför samma som för iOS 15–18: en Spine-ritad kapsel i M3-form överst (full rundning, ytfärgen *surface container high*) med MAUI:s `SearchView` inuti. Då går returtangenten genom `ImeAction.Search`. Att expandera till helskärm, som `SearchView` gör, är ett senare steg om förslagslistan kräver det.
+Material 3 has `SearchBar` ("a persistent and prominent search field at the top of the screen") and `SearchView` (a full-screen view that expands out of `SearchBar`, with room for history and suggestions). Both require Material Components 1.8 or later, and MAUI 10 has 1.12. They are built for a `CoordinatorLayout`/`AppBarLayout`, or for `SearchView.setUpWithSearchBar` without one. Spine's header bar is neither. The proposal is therefore the same as for iOS 15–18: a Spine-drawn capsule in M3 shape at the top (fully rounded, the *surface container high* surface color) with MAUI's `SearchView` inside. The return key then goes through `ImeAction.Search`. Expanding to full screen, as `SearchView` does, is a later step if the suggestion list requires it.
 
 ### 3.5 Windows
 
-MAUI:s `SearchBar` är redan en `AutoSuggestBox`, med `QuerySubmitted`. Förslag (`ItemsSource`, `SuggestionChosen`) exponeras inte av MAUI och sätts av Spine via en handler-mappning, samma form som menyerna i #318. Platsen är `TitleBar.Content` på skrivbordet, mitt i titelraden som i Utforskaren och Inställningar. Spine sätter redan `LeadingContent`/`TrailingContent` där.
+MAUI's `SearchBar` is already an `AutoSuggestBox`, with `QuerySubmitted`. Suggestions (`ItemsSource`, `SuggestionChosen`) are not exposed by MAUI and are set by Spine through a handler mapping, the same shape as the menus in #318. The place is `TitleBar.Content` on the desktop, in the middle of the title bar as in File Explorer and Settings. Spine already sets `LeadingContent`/`TrailingContent` there.
 
 ---
 
-## 4. Alternativen
+## 4. The alternatives
 
-| | A. Spine-ritat fält (MAUI `SearchBar` i glaskapsel) | B. `UISearchController` i en dold `UINavigationController` | C. `UISearchTab` i flikraden | D. Fältet i `bottomAccessory` |
+| | A. Spine-drawn field (MAUI `SearchBar` in a glass capsule) | B. `UISearchController` in a hidden `UINavigationController` | C. `UISearchTab` in the tab bar | D. The field in `bottomAccessory` |
 |---|---|---|---|---|
-| Nederst på iOS 26 | Ja, Spine placerar det | Kanske. Kräver `UINavigationController` + synlig `UIToolbar` men dold navigeringsrad. Om UIKit integrerar fältet i verktygsraden när navigeringsraden är dold är **inte känt**. | Ja, men bara som appens sökflik | Ja, ovanför flikraden |
-| Följer Spines navigering | Ja: fältet hör till sidan och följer med i övergången | Nej: ett `navigationItem` för hela värdsidan, som byts vid varje virtuell push och inte animeras i takt med Spines övergång | Ej tillämpligt | Nej: ett för hela flikvärden |
-| Sheets | Ja | Nej: sheeten är en egen MAUI-region | Nej | Nej |
-| iOS 15–18, Android, Windows | Samma API och kod, med annan placering | Bara iOS 26. Allt annat måste byggas ändå. | Bara iOS | Bara iOS 26 |
-| Tangentbord | Spine lyfter fältet (#269) | UIKit lyfter det | UIKit | UIKit |
-| Risk | Utseendet måste matchas mot det nativa (en spike, som #377) | Kända buggar (forum 797701), och MAUI:s egen säkerområdeshantering kring en ny container | MAUI:s renderare sätter `ViewControllers` och synkar `CurrentPage` via sin delegat. Att byta till `Tabs` sker under den. | Strider mot HIG:s avsikt |
+| At the bottom on iOS 26 | Yes, Spine places it | Maybe. Requires a `UINavigationController` + a visible `UIToolbar` but a hidden navigation bar. Whether UIKit integrates the field into the toolbar when the navigation bar is hidden is **not known**. | Yes, but only as the app's search tab | Yes, above the tab bar |
+| Follows Spine's navigation | Yes: the field belongs to the page and moves with it in the transition | No: one `navigationItem` for the whole host page, which is swapped on every virtual push and is not animated in step with Spine's transition | Not applicable | No: one for the whole tab host |
+| Sheets | Yes | No: the sheet is a MAUI region of its own | No | No |
+| iOS 15–18, Android, Windows | Same API and code, with a different placement | iOS 26 only. Everything else has to be built anyway. | iOS only | iOS 26 only |
+| Keyboard | Spine lifts the field (#269) | UIKit lifts it | UIKit | UIKit |
+| Risk | The look has to be matched against the native one (a spike, like #377) | Known bugs (forum 797701), and MAUI's own safe-area handling around a new container | MAUI's renderer sets `ViewControllers` and syncs `CurrentPage` through its delegate. Switching to `Tabs` happens underneath it. | Goes against the intent of the HIG |
 
-**Rekommendation: A.** Det är samma avvägning som gjordes för header-baren och glasknapparna. Spine äger navigeringen, så Spine måste äga det som flyttar med den. B ger det nativa fältet bara i ett av fem fall, och bara med en dold container som ingen i repot har provat. C är ett bra tillägg men löser en annan fråga: en sökning för hela appen, inte sökning på en sida. D avråds.
+**Recommendation: A.** It is the same trade-off that was made for the header bar and the glass buttons. Spine owns the navigation, so Spine has to own what moves with it. B gives the native field in only one of five cases, and only with a hidden container that nobody in the repo has tried. C is a good addition but answers a different question: a search for the whole app, not search on a page. D is not recommended.
 
 ---
 
-## 5. Placeringsregeln (`SearchPlacement.Automatic`)
+## 5. The placement rule (`SearchPlacement.Automatic`)
 
-| Sammanhang | iPhone, iOS 26 | iPhone, iOS 15–18 | iPad, Mac Catalyst | Android | Windows |
+| Context | iPhone, iOS 26 | iPhone, iOS 15–18 | iPad, Mac Catalyst | Android | Windows |
 |---|---|---|---|---|---|
-| Regionsida utan flikrad och utan footer | **Kapsel nederst**, full bredd inom `PageMargin`, över innehållet med mjuk kant `Bottom`. Aktiv: ovanför tangentbordet, med en glascirkel för att stänga till höger. | Rad under titeln | Längst ut till höger i header-baren | Kapsel i en rad under header-baren | `TitleBar.Content` (skrivbord), annars rad under header-baren |
-| Flik-rotsida eller sida i en flik (flikraden syns) | **Sökknapp** (förstoringsglas) till höger i header-baren. Tryck öppnar fältet ovanför tangentbordet. | Rad under titeln | Som ovan | Som ovan | Som ovan |
-| Sida med `Footer` | Sökknapp, som ovan | Rad under titeln | Som ovan | Som ovan | Som ovan |
-| Sheet | Rad under header-baren | Rad under header-baren | Rad under header-baren | Rad under header-baren | Rad under header-baren |
+| Region page with no tab bar and no footer | **Capsule at the bottom**, full width within `PageMargin`, over the content with soft edge `Bottom`. Active: above the keyboard, with a glass circle to close on the right. | Row below the title | At the far right of the header bar | Capsule in a row below the header bar | `TitleBar.Content` (desktop), otherwise a row below the header bar |
+| Tab root page or page in a tab (the tab bar is visible) | **Search button** (magnifying glass) on the right of the header bar. A tap opens the field above the keyboard. | Row below the title | As above | As above | As above |
+| Page with a `Footer` | Search button, as above | Row below the title | As above | As above | As above |
+| Sheet | Row below the header bar | Row below the header bar | Row below the header bar | Row below the header bar | Row below the header bar |
 
-`SearchPlacement.Top` tvingar raden under header-baren och `SearchPlacement.Button` tvingar sökknappen, på alla plattformar. Sheets läggs överst eftersom nederkanten flyttar sig med detenterna. På Android ligger sheetens innehåll dessutom förskjutet (`SetSheetOverhang`), vilket ett fält nederst skulle behöva följa. Ett nativt exempel på sök nederst i ett sheet (Kartor) är inte undersökt.
+`SearchPlacement.Top` forces the row below the header bar and `SearchPlacement.Button` forces the search button, on all platforms. Sheets get the field at the top because the bottom edge moves with the detents. On Android the sheet's content is also offset (`SetSheetOverhang`), which a field at the bottom would have to follow. A native example of search at the bottom of a sheet (Maps) has not been examined.
 
-Raden under header-baren räknas in i sidans topp-inset precis som `BarHeight`. Under `HeaderBarMode.Overlay` och `LargeTitle` flyter den med baren. Om raden ska glida undan vid scroll, som *stacked* gör, avgörs i steg 3 och står inte i v1 (§9 punkt 6).
+The row below the header bar is counted into the page's top inset just like `BarHeight`. Under `HeaderBarMode.Overlay` and `LargeTitle` it floats with the bar. Whether the row should slide away on scroll, as *stacked* does, is settled in step 3 and is not in v1 (§9 item 6).
 
 ---
 
-## 6. Föreslagen API-yta
+## 6. Proposed API surface
 
-Den följer `PageAction`: ett attribut i vy-modellen blir en observerbar modell som sidan kan ändra medan den visas.
+It follows `PageAction`: an attribute in the view model becomes an observable model that the page can change while it is shown.
 
 ```csharp
 namespace Plugin.Maui.Spine.Core;
@@ -147,7 +147,7 @@ public sealed partial class PageSearch : ObservableObject
 public partial PageSearch? Search { get; set; }   // set by discovery, or by hand
 ```
 
-En sida:
+A page:
 
 ```csharp
 public partial class CompetitionsViewModel(ICompetitionService _competitions) : ViewModelBase
@@ -170,98 +170,98 @@ public partial class CompetitionsViewModel(ICompetitionService _competitions) : 
 <CollectionView ItemsSource="{Binding Filtered}" />
 ```
 
-Varför så:
+Why this way:
 
-- **Texten är vy-modellens egen egenskap.** `partial void OnQueryChanged` är det sätt att reagera som toolkit-appar redan använder. Spine binder fältet tvåvägs mot egenskapen via `PageSearch.Text`. Med issuens `ISearchable` måste vy-modellen i stället heta som interfacet och själv skicka `PropertyChanged` för `Query`.
-- **Ett ställe.** `[NavigableRegion(Search = true)]` sitter på sidklassen och `ISearchable` på vy-modellen, alltså två deklarationer för en sak. `[PageAction]` har visat att vy-modellen räcker. Issuens skiss har attributet på vy-modellen, men `NavigableAttribute` sitter på sidan (`NavigableAttribute.cs:28`).
-- **Spine ritar inga resultat.** Sidan filtrerar sin egen lista. `UISearchController` byter till en resultatvy (`searchResultsController`), men den modellen passar inte en sida som redan är sin lista, och det gör de tre användningsfallen i issuen (Orientera #94, Puckkoll, Almanacka).
-- **Förslag är en lista med strängar** som visas under fältet medan det är aktivt. Ett val sätter texten och kör `Submit`. På Windows går de rakt in i `AutoSuggestBox.ItemsSource`.
-- **Utan scopes i v1.** Se §9 punkt 4.
-- Discovery sker i `PageActionDiscovery`, eller i en syskonklass, och körs en gång per vy-modell (`DeclaredActionsAdded`-mönstret).
-
----
-
-## 7. Tangentbordet (#269)
-
-Fältet nederst på iOS 26 är precis det #269 beskriver: Almanacka har sitt namnsdagsfält nederst på iOS, och det hamnade under tangentbordet. Appen löser det i dag med `UIKeyboard.Notifications.ObserveWillChangeFrame` i sidan. Sökningen behöver tre saker som #269 också behöver:
-
-1. **Tangentbordets överlapp i regionens koordinater**, animerat med tangentbordets kurva och längd. På iOS kommer det från `UIKeyboard` frame-notiser. `UIView.KeyboardLayoutGuide` (iOS 15, bunden) är ett alternativ för en nativ vy, men fältet är en MAUI-vy i en MAUI-`Grid`, så notisen med kurvan ligger närmast. På Android kommer det från `WindowInsetsCompat.Type.Ime()` genom den befintliga `SystemInsetsProvider`, med `WindowInsetsAnimationCompat` om fältet ska följa med under animationen.
-2. **Kapselns lyft:** `TranslationY = -(overlap - bottomSafeArea)` medan fältet är aktivt.
-3. **Listans inset:** botten-`ScrollInset` blir *kapsel + överlapp*, så att sista raden går att nå ovanför både tangentbordet och fältet.
-
-Förslaget är att #269:s ramverksvariant (observatören i `NavigationRegion`, insetet på `ViewModelBase`) levereras först, som steg 1, och att sökningen läser samma värde. Då försvinner Almanackas workaround två gånger om: både genom #269 och genom att fältet blir Spines. På Android, i Windows och med fältet överst är tangentbordet bara listans problem, alltså punkt 3.
+- **The text is the view model's own property.** `partial void OnQueryChanged` is the way to react that toolkit apps already use. Spine binds the field two-way to the property through `PageSearch.Text`. With the issue's `ISearchable`, the view model would instead have to use the interface's names and raise `PropertyChanged` for `Query` itself.
+- **One place.** `[NavigableRegion(Search = true)]` sits on the page class and `ISearchable` on the view model, so two declarations for one thing. `[PageAction]` has shown that the view model is enough. The issue's sketch has the attribute on the view model, but `NavigableAttribute` sits on the page (`NavigableAttribute.cs:28`).
+- **Spine draws no results.** The page filters its own list. `UISearchController` switches to a results view (`searchResultsController`), but that model does not suit a page that already is its list, and the three use cases in the issue (Orientera #94, Puckkoll, Almanacka) are all such pages.
+- **Suggestions are a list of strings** shown below the field while it is active. Picking one sets the text and runs `Submit`. On Windows they go straight into `AutoSuggestBox.ItemsSource`.
+- **No scopes in v1.** See §9 item 4.
+- Discovery happens in `PageActionDiscovery`, or in a sibling class, and runs once per view model (the `DeclaredActionsAdded` pattern).
 
 ---
 
-## 8. Plattformar
+## 7. The keyboard (#269)
 
-| Plattform | Stöd | Byggsten | Anmärkning |
+The field at the bottom on iOS 26 is exactly what #269 describes: Almanacka has its name-day field at the bottom on iOS, and it ended up under the keyboard. The app solves that today with `UIKeyboard.Notifications.ObserveWillChangeFrame` in the page. Search needs three things that #269 also needs:
+
+1. **The keyboard's overlap in the region's coordinates**, animated with the keyboard's curve and duration. On iOS it comes from the `UIKeyboard` frame notifications. `UIView.KeyboardLayoutGuide` (iOS 15, bound) is an alternative for a native view, but the field is a MAUI view in a MAUI `Grid`, so the notification with the curve is the closest fit. On Android it comes from `WindowInsetsCompat.Type.Ime()` through the existing `SystemInsetsProvider`, with `WindowInsetsAnimationCompat` if the field is to follow along during the animation.
+2. **The capsule's lift:** `TranslationY = -(overlap - bottomSafeArea)` while the field is active.
+3. **The list's inset:** the bottom `ScrollInset` becomes *capsule + overlap*, so that the last row can be reached above both the keyboard and the field.
+
+The proposal is that #269's framework variant (the observer in `NavigationRegion`, the inset on `ViewModelBase`) is delivered first, as step 1, and that search reads the same value. Almanacka's workaround then goes away twice over: both through #269 and because the field becomes Spine's. On Android, on Windows and with the field at the top, the keyboard is only the list's problem, that is item 3.
+
+---
+
+## 8. Platforms
+
+| Platform | Support | Building block | Note |
 |---|---|---|---|
-| iOS 26+ (iPhone) | Fullt | Glaskapsel (`MaterialKind.Glass`) + `UISearchBar` via MAUI, nederst eller som sökknapp | Mjuk kant `Bottom` via `UIScrollEdgeElementContainerInteraction` |
-| iOS 15–18 | Fullt | `UISearchBar` via MAUI i en rad under titeln | Utan glas |
-| iPadOS | Fullt | Fält längst till höger i header-baren | Kompakt bredd (Split View) som iPhone |
-| Mac Catalyst | Fullt | Samma som iPad | ⌘F i ett senare steg |
-| Android | Fullt | M3-formad kapsel + `SearchView` via MAUI, överst | M3:s `SearchView` i helskärm är ett möjligt senare steg |
-| Windows | Fullt | `AutoSuggestBox` via MAUI i `TitleBar.Content`, med förslag via mappning | Rad under header-baren när titelraden är dold |
-| iOS 26 sökflik (`UISearchTab`) | Ingår inte | Egen issue | Kräver `UITab` i stället för MAUI:s `ViewControllers` |
+| iOS 26+ (iPhone) | Full | Glass capsule (`MaterialKind.Glass`) + `UISearchBar` through MAUI, at the bottom or as a search button | Soft edge `Bottom` through `UIScrollEdgeElementContainerInteraction` |
+| iOS 15–18 | Full | `UISearchBar` through MAUI in a row below the title | No glass |
+| iPadOS | Full | Field at the far right of the header bar | Compact width (Split View) like iPhone |
+| Mac Catalyst | Full | Same as iPad | ⌘F in a later step |
+| Android | Full | M3-shaped capsule + `SearchView` through MAUI, at the top | M3's full-screen `SearchView` is a possible later step |
+| Windows | Full | `AutoSuggestBox` through MAUI in `TitleBar.Content`, with suggestions through a mapping | Row below the header bar when the title bar is hidden |
+| iOS 26 search tab (`UISearchTab`) | Not included | An issue of its own | Requires `UITab` instead of MAUI's `ViewControllers` |
 
 ---
 
-## 9. Vad som inte går, och vad som inte är verifierat
+## 9. What cannot be done, and what is not verified
 
-Studien är gjord i en Linux-container utan Mac, simulator eller enhet. **Inget är provat.** API-namnen är kontrollerade mot Apples dokumentation och mot `src/uikit.cs` i dotnet/macios vid den tagg repot bygger mot. Placeringsreglerna bygger på HIG, och MAUI-beteendet på källkoden på `main`.
+The study was done in a Linux container with no Mac, simulator or device. **Nothing has been tried.** The API names are checked against Apple's documentation and against `src/uikit.cs` in dotnet/macios at the tag the repo builds against. The placement rules are based on the HIG, and the MAUI behavior on the source code on `main`.
 
-1. **Om UIKit integrerar ett `UISearchController` i verktygsraden när navigeringsraden är dold** är okänt. Det är det enda som kunde göra alternativ B billigare. En kvälls spike i simulatorn avgör det. Studien rekommenderar A oavsett, av skälen i §4.
-2. **Hur `UISearchBar` ser ut i iOS 26 utanför en systemrad.** Om den ritar egen glas-bakgrund, eller behöver `SearchBarStyle.Minimal` och en rensad `SearchTextField`-bakgrund inuti Spines kapsel, måste mätas mot en nativ referens (`UINavigationController` + `UIToolbar` + `searchController`) på samma sätt som #377 mätte header-höjden. Kapselns höjd, marginal och stäng-knapp tas från den mätningen, inte ur minnet.
-3. **Var UIKit lägger sökningen på iOS 26 när en flikrad syns** (verktygsraden ligger då under flikraden) är inte verifierat. Regeln i §5 (sökknapp i header-baren) följer HIG:s "no bottom toolbar"-fall och kontrolleras i samma referens.
-4. **Scopes.** UIKit:s scope bar har tre av de fyra buggarna i forumtråd 797701. Förslaget är att scopes blir en menyknapp (#318, `MenuPicker`) bredvid fältet. Det är ett designbeslut för ägaren och ingår inte i v1.
-5. **En tredje plats i header-baren.** Sökknappen tar den högra platsen och sidans egna action försvinner. Det duger för v1 (sidor med sökning har sällan en till action), men om både sök och t.ex. filter ska synas behöver `HeaderBarView` en grupp med två knappar. På iOS 26 är det glasgruppen som `UINavigationBar` ritar för bildknappar. Beslut för ägaren.
-6. **Sökrad som glider undan vid scroll** (iOS 15–18, Android) kräver att raden följer `HeaderBarCollapseProgress` och ändrar topp-inset under scroll. Mekanismen finns sedan #330 men är inte provad för en extra rad.
-7. **Android-kapselns mått.** M3-specen har måtten, men de är inte kontrollerade mot stilarna i Material 1.12. Mät dem i emulatorn mot en nativ `SearchBar`.
-8. **Tangentbordsanimationen på iOS.** Att översätta kurvan (`UIViewAnimationCurve` 7, som inte är publik) till MAUI:s `Easing` är ett känt problem. Är det för grovt kan kapselns lyft behöva göras nativt: en `UIView`-animation med tangentbordets kurva på handlerns plattformsvy.
-9. **Mac Catalyst ⌘F och fältet i titelraden** är inte provade. Spine gör i dag titelraden genomskinlig (`SpineApplication.MacCatalyst.cs:92`), och fältet hamnar i header-baren under den.
-
----
-
-## 10. Leveransplan
-
-1. **#269 först:** tangentbordsobservatören i `NavigationRegion` (iOS-notiser, Android-IME), insetet på `ViewModelBase`, listans botten-inset. Almanackas workaround tas bort.
-2. **Spike på iOS 26 (simulator, sedan enhet):** en nativ referens (`UINavigationController` med verktygsrad och `searchController`, med och utan flikrad) bredvid en glaskapsel med MAUI:s `SearchBar`. Mät vilohöjd, marginal och läget ovanför tangentbordet, jämför med skärmbilder och besvara §9 punkt 1–3.
-3. **API + överst:** `PageSearchAttribute`, `PageSearch`, `ViewModelBase.Search`, discovery. Raden under header-baren (iOS 15–18, Android, sheets), fältet längst till höger (iPad, Mac Catalyst) och `TitleBar.Content` + förslag (Windows).
-4. **iOS 26 nederst:** kapseln, mjuk kant `Bottom`, lyftet ovanför tangentbordet, sökknappen för flik- och footer-sidor, stäng-cirkeln, `IsActive` från kod.
-5. **Förslagslistan** på iOS och Android, och ⌘F på Mac Catalyst.
-6. **Sample och docs:** en sida "Search" i `MauiSpineSampleApp` (lista som filtreras, förslag, placeringsval), `docs/wiki/search.md`, en rad i `page-actions.md`, skillen `/spine-page`.
-7. **I apparna:** Orienteras fritextsökning (#94), Almanackas namnsök, Puckkoll.
-8. **Egna issues:** `UISearchTab` (sökflik i iOS 26, kräver `UITab` under MAUI:s `TabbedPage`), scopes via #318 och en grupp med två knappar i header-baren (§9 punkt 5).
+1. **Whether UIKit integrates a `UISearchController` into the toolbar when the navigation bar is hidden** is unknown. It is the only thing that could make alternative B cheaper. An evening's spike in the simulator settles it. The study recommends A regardless, for the reasons in §4.
+2. **What `UISearchBar` looks like in iOS 26 outside a system bar.** Whether it draws its own glass background, or needs `SearchBarStyle.Minimal` and a cleared `SearchTextField` background inside Spine's capsule, has to be measured against a native reference (`UINavigationController` + `UIToolbar` + `searchController`) the same way #377 measured the header height. The capsule's height, margin and close button are taken from that measurement, not from memory.
+3. **Where UIKit puts search on iOS 26 when a tab bar is visible** (the toolbar then lies below the tab bar) is not verified. The rule in §5 (search button in the header bar) follows the HIG's "no bottom toolbar" case and is checked in the same reference.
+4. **Scopes.** UIKit's scope bar has three of the four bugs in forum thread 797701. The proposal is that scopes become a menu button (#318, `MenuPicker`) next to the field. It is a design decision for the owner and is not part of v1.
+5. **A third slot in the header bar.** The search button takes the right-hand slot and the page's own action disappears. That is good enough for v1 (pages with search rarely have another action), but if both search and, say, a filter are to be visible, `HeaderBarView` needs a group of two buttons. On iOS 26 that is the glass group `UINavigationBar` draws for image buttons. A decision for the owner.
+6. **A search row that slides away on scroll** (iOS 15–18, Android) requires the row to follow `HeaderBarCollapseProgress` and change the top inset during scroll. The mechanism has existed since #330 but has not been tried for an extra row.
+7. **The Android capsule's dimensions.** The M3 spec has the dimensions, but they are not checked against the styles in Material 1.12. Measure them in the emulator against a native `SearchBar`.
+8. **The keyboard animation on iOS.** Translating the curve (`UIViewAnimationCurve` 7, which is not public) to MAUI's `Easing` is a known problem. If that is too coarse, the capsule's lift may have to be done natively: a `UIView` animation with the keyboard's curve on the handler's platform view.
+9. **Mac Catalyst ⌘F and the field in the title bar** have not been tried. Spine makes the title bar transparent today (`SpineApplication.MacCatalyst.cs:92`), and the field goes in the header bar below it.
 
 ---
 
-## Beslut (2026-09-30)
+## 10. Delivery plan
 
-Jonatan gick igenom studiens frågor 2026-09-30 och följde rekommendationerna. Rader märkta **Förslag** saknade rekommendation i studien; där står ett förslag med skäl, som gäller tills han säger annat.
-
-- **Fältet.** Spine ritar det: MAUI:s `SearchBar` i en glaskapsel (alternativ A), inte `UISearchController` i en dold `UINavigationController`.
-- **Placering.** `SearchPlacement.Automatic` enligt §5: nederst på iPhone med iOS 26 när nederkanten är fri, en sökknapp när en flikrad eller footer tar den, överst överallt annars och i ark.
-- **Deklaration.** `[PageSearch]` på en strängegenskap i vymodellen, inte issuens `ISearchable` med `[NavigableRegion(Search = true)]`.
-- **Ordningen.** #269 (tangentbordsobservatören) levereras först och sökningen byggs på den.
-- **Scopes.** En menyknapp (`MenuPicker`) bredvid fältet, inte i v1 (§9 punkt 4).
-- **Tredje platsen i header-baren.** I v1 ersätter sökknappen sidans högra action. En grupp med två knappar blir en egen issue (§9 punkt 5).
-- **`UISearchTab`.** Egen issue.
-- **Sökrad som glider undan vid scroll.** Inte i v1; avgörs i steg 3.
-- **Resultat.** Spine ritar ingen resultatvy. Sidan filtrerar sin egen lista, och förslag är en lista med strängar.
-- **Senare steg.** ⌘F på Mac Catalyst och M3 `SearchView` i helskärm på Android.
-- **Spiken.** iOS 26-spiken mot en native referens körs innan bottenkapseln byggs.
+1. **#269 first:** the keyboard observer in `NavigationRegion` (iOS notifications, Android IME), the inset on `ViewModelBase`, the list's bottom inset. Almanacka's workaround is removed.
+2. **Spike on iOS 26 (simulator, then device):** a native reference (`UINavigationController` with a toolbar and `searchController`, with and without a tab bar) next to a glass capsule with MAUI's `SearchBar`. Measure the resting height, the margin and the position above the keyboard, compare with screenshots and answer §9 items 1–3.
+3. **API + top:** `PageSearchAttribute`, `PageSearch`, `ViewModelBase.Search`, discovery. The row below the header bar (iOS 15–18, Android, sheets), the field at the far right (iPad, Mac Catalyst) and `TitleBar.Content` + suggestions (Windows).
+4. **iOS 26 bottom:** the capsule, soft edge `Bottom`, the lift above the keyboard, the search button for tab and footer pages, the close circle, `IsActive` from code.
+5. **The suggestion list** on iOS and Android, and ⌘F on Mac Catalyst.
+6. **Sample and docs:** a "Search" page in `MauiSpineSampleApp` (a list that is filtered, suggestions, placement choice), `docs/wiki/search.md`, a row in `page-actions.md`, the `/spine-page` skill.
+7. **In the apps:** Orientera's free-text search (#94), Almanacka's name search, Puckkoll.
+8. **Issues of their own:** `UISearchTab` (search tab in iOS 26, requires `UITab` under MAUI's `TabbedPage`), scopes through #318 and a group of two buttons in the header bar (§9 item 5).
 
 ---
 
-## 11. Referenser
+## Decisions (2026-09-30)
+
+Jonatan went through the study's questions on 2026-09-30 and followed the recommendations. Rows marked **Proposal** had no recommendation in the study; they carry a proposal with reasons, which holds until he says otherwise.
+
+- **The field.** Spine draws it: MAUI's `SearchBar` in a glass capsule (alternative A), not `UISearchController` in a hidden `UINavigationController`.
+- **Placement.** `SearchPlacement.Automatic` as in §5: at the bottom on iPhone with iOS 26 when the bottom edge is free, a search button when a tab bar or footer takes it, at the top everywhere else and in sheets.
+- **Declaration.** `[PageSearch]` on a string property in the view model, not the issue's `ISearchable` with `[NavigableRegion(Search = true)]`.
+- **The order.** #269 (the keyboard observer) is delivered first and search is built on it.
+- **Scopes.** A menu button (`MenuPicker`) next to the field, not in v1 (§9 item 4).
+- **The third slot in the header bar.** In v1 the search button replaces the page's right-hand action. A group of two buttons becomes an issue of its own (§9 item 5).
+- **`UISearchTab`.** An issue of its own.
+- **A search row that slides away on scroll.** Not in v1; settled in step 3.
+- **Results.** Spine draws no results view. The page filters its own list, and suggestions are a list of strings.
+- **Later steps.** ⌘F on Mac Catalyst and M3's full-screen `SearchView` on Android.
+- **The spike.** The iOS 26 spike against a native reference is run before the bottom capsule is built.
+
+---
+
+## 11. References
 
 - Issue #307, *Search in the header bar*: https://github.com/jonatansoderberg/Maui.Spine/issues/307
-- Issue #317, prioriterad backlog: https://github.com/jonatansoderberg/Maui.Spine/issues/317
+- Issue #317, prioritized backlog: https://github.com/jonatansoderberg/Maui.Spine/issues/317
 - Issue #269, *Keyboard avoidance*: https://github.com/jonatansoderberg/Maui.Spine/issues/269
 - Apple HIG, *Search fields*: https://developer.apple.com/design/human-interface-guidelines/search-fields
 - Apple, *Build a UIKit app with the new design* (WWDC25, session 284): https://developer.apple.com/videos/play/wwdc2025/284/
-- Apple, *Customizing your app's navigation bar* (avsnittet *Integrate search in your toolbar*): https://developer.apple.com/documentation/uikit/customizing-your-app-s-navigation-bar
+- Apple, *Customizing your app's navigation bar* (the section *Integrate search in your toolbar*): https://developer.apple.com/documentation/uikit/customizing-your-app-s-navigation-bar
 - Apple, `UINavigationItem.SearchBarPlacement.integrated`: https://developer.apple.com/documentation/uikit/uinavigationitem/searchbarplacement-swift.enum/integrated
 - Apple, `UINavigationItem.SearchBarPlacement.integratedButton`: https://developer.apple.com/documentation/uikit/uinavigationitem/searchbarplacement-swift.enum/integratedbutton
 - Apple, `searchBarPlacementAllowsToolbarIntegration`: https://developer.apple.com/documentation/uikit/uinavigationitem/searchbarplacementallowstoolbarintegration
@@ -271,10 +271,10 @@ Jonatan gick igenom studiens frågor 2026-09-30 och följde rekommendationerna. 
 - Apple, `UISearchTab`: https://developer.apple.com/documentation/uikit/uisearchtab
 - Apple, `UISearchTab.automaticallyActivatesSearch`: https://developer.apple.com/documentation/uikit/uisearchtab/automaticallyactivatessearch
 - Apple, `UITabBarController.bottomAccessory`: https://developer.apple.com/documentation/uikit/uitabbarcontroller/bottomaccessory
-- Apple-forum 797701, *Summary of iOS/iPadOS 26 UIKit bugs related to UISearchController & UISearchBar using scope buttons*: https://developer.apple.com/forums/thread/797701
-- dotnet/macios, `src/uikit.cs` vid `dotnet-10.0.1xx-xcode26.2-10217`: https://github.com/dotnet/macios/blob/dotnet-10.0.1xx-xcode26.2-10217/src/uikit.cs
-- MAUI, `TabbedRenderer.cs` (iOS) på `main`: https://github.com/dotnet/maui/blob/main/src/Controls/src/Core/Compatibility/Handlers/TabbedPage/iOS/TabbedRenderer.cs
-- MAUI, `SearchBarHandler.iOS.cs`, `.Android.cs`, `.Windows.cs` på `main`: https://github.com/dotnet/maui/tree/main/src/Core/src/Handlers/SearchBar
-- MAUI, `TitleBar.cs` på `main`: https://github.com/dotnet/maui/blob/main/src/Controls/src/Core/TitleBar/TitleBar.cs
+- Apple forum 797701, *Summary of iOS/iPadOS 26 UIKit bugs related to UISearchController & UISearchBar using scope buttons*: https://developer.apple.com/forums/thread/797701
+- dotnet/macios, `src/uikit.cs` at `dotnet-10.0.1xx-xcode26.2-10217`: https://github.com/dotnet/macios/blob/dotnet-10.0.1xx-xcode26.2-10217/src/uikit.cs
+- MAUI, `TabbedRenderer.cs` (iOS) on `main`: https://github.com/dotnet/maui/blob/main/src/Controls/src/Core/Compatibility/Handlers/TabbedPage/iOS/TabbedRenderer.cs
+- MAUI, `SearchBarHandler.iOS.cs`, `.Android.cs`, `.Windows.cs` on `main`: https://github.com/dotnet/maui/tree/main/src/Core/src/Handlers/SearchBar
+- MAUI, `TitleBar.cs` on `main`: https://github.com/dotnet/maui/blob/main/src/Controls/src/Core/TitleBar/TitleBar.cs
 - Material Components Android, *Search*: https://github.com/material-components/material-components-android/blob/master/docs/components/Search.md
 - Spine: `issues/330-collapse-on-scroll.md`, `issues/366-scroll-edge.md`, `issues/377-ios26-header-height.md`, `issues/379-header-bar-page.md`, `issues/409-…`, `issues/411-…`, `issues/318-menu-buttons.md`, `docs/wiki/regions.md`, `docs/wiki/page-actions.md`, `docs/wiki/tab-host.md`, `docs/proposals/spine-glass-buttons.md`

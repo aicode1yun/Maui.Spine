@@ -1,127 +1,127 @@
-# Kontextmenyer i Spine — `ContextMenu.Items` på valfri vy (förstudie, rev 1)
+# Context menus in Spine — `ContextMenu.Items` on any view (study, rev 1)
 
-**Status:** Förstudie, med ägarens beslut från 2026-09-30 i avsnittet [Beslut](#beslut-2026-09-30). Inget implementerat. Issue: [#306](https://github.com/jonatansoderberg/Maui.Spine/issues/306), prioriterad som P2 i [#317](https://github.com/jonatansoderberg/Maui.Spine/issues/317) med frågorna "Sharing the `PageAction` model, preview support".
-**Fråga:** Kan Spine ge valfri vy en systemets egen kontextmeny (long-press på pekskärm, högerklick på desktop) med ikoner, destruktiva rader, undermenyer och på iOS en förhandsvisning, deklarerad med samma modell som header-barens menyknappar, och fungera i list-rader?
-**Svar:** Ja, men modellen som ska delas är **`MenuItems`, inte `PageAction`**. #318 byggde redan den delade menymodellen (`MenuAction`, `MenuSection`, `SubMenu`, `MenuPicker`) och en menybyggare per plattform. Kontextmenyn blir en attached property, `ContextMenu.Items`, som följer vyns handler på samma sätt som `Tap.Command`, och som på varje plattform återanvänder #318:s byggare: `UIContextMenuInteraction` på iOS och Mac Catalyst, `PopupMenu` vid long-click på Android och `UIElement.ContextFlyout` på Windows. Förhandsvisning finns bara på iOS/iPadOS. v1 lyfter vyn själv, med rundade hörn. En egen förhandsvisning (`ContextMenu.Preview`) är ett andra steg. Android och Windows får ingen förhandsvisning, eftersom plattformarna inte har någon.
+**Status:** Study, with the owner's decisions from 2026-09-30 in the [Decisions](#decisions-2026-09-30) section. Nothing implemented. Issue: [#306](https://github.com/jonatansoderberg/Maui.Spine/issues/306), prioritized as P2 in [#317](https://github.com/jonatansoderberg/Maui.Spine/issues/317) with the questions "Sharing the `PageAction` model, preview support".
+**Question:** Can Spine give any view the system's own context menu (long press on touch, right click on desktop) with icons, destructive rows, submenus and, on iOS, a preview, declared with the same model as the header bar's menu buttons, and have it work in list rows?
+**Answer:** Yes, but the model to share is **`MenuItems`, not `PageAction`**. #318 already built the shared menu model (`MenuAction`, `MenuSection`, `SubMenu`, `MenuPicker`) and one menu builder per platform. The context menu becomes an attached property, `ContextMenu.Items`, that follows the view's handler the same way `Tap.Command` does, and that reuses #318's builders on every platform: `UIContextMenuInteraction` on iOS and Mac Catalyst, `PopupMenu` on long-click on Android and `UIElement.ContextFlyout` on Windows. A preview exists only on iOS/iPadOS. v1 lifts the view itself, with rounded corners. A custom preview (`ContextMenu.Preview`) is a second step. Android and Windows get no preview, because the platforms have none.
 
 ---
 
-## 1. Slutsatsen i korthet
+## 1. The conclusion in short
 
-| Fråga | Svar | Belägg |
+| Question | Answer | Evidence |
 |---|---|---|
-| Dela `PageAction`-modellen? | **Nej. Dela `MenuItems`.** `PageAction` är en header-knapp (`Placement`, `Role`, `Badge`, `IsSelected`, `Haptic`) och har varken `IsDestructive`, `IsChecked` eller undermenyer. `MenuAction` har allt det, och en `PageAction` bär redan en `MenuItems` genom `PageAction.Menu`. En kontextmeny och en header-meny kan alltså vara **samma instans**. Issuens skiss `new PageAction("Follow", Icons.Star, FollowCommand)` kompilerar inte mot dagens `PageAction`, som bara har konstruktorn `(text, command)`. | `PageAction.cs:53`, `:76`, `:101`; `MenuElements.cs:24`; `issues/318-menu-buttons.md` ("Shared with the context-menu idea (#306)") |
-| Förhandsvisning? | **iOS/iPadOS: ja.** `UIContextMenuInteraction` lyfter vyn (en *targeted preview*) eller visar en egen vy-kontroller från `previewProvider`. **Mac Catalyst: nej.** Mac-menyn är "compact": "A nonmodal, compact menu with no preview". **Android, Windows: nej**, systemet har inget motsvarande. | Apple-dokumentationen för `UIContextMenuInteraction.appearance`, §4 |
-| Räcker MAUI:s `FlyoutBase.ContextFlyout`? | **Nej.** Dokumentationen säger "on Mac Catalyst and Windows". På iOS är `MapContextFlyout` inlindad i `#if MACCATALYST` och gör alltså ingenting. På Android är metoden tom. Mac-interaktionen skickar `previewProvider: null`. `MenuFlyout` saknar destruktiva och bockade rader och kan inte ändras under körning. | §3 |
-| Samma form som `Tap.Command`? | **Ja.** En attached property som skapar ett tillståndsobjekt och kopplar på och av det när vyns handler byts. Då behövs ingen mapper per kontrolltyp och ingen registrering. | `Tap.cs:79`, `Tap.cs:113–130` |
-| Hur mycket av #318 återanvänds? | **Menybyggarna rakt av**: `BuildMenu` (Apple), `Fill` (Android), `FillFlyout` (Windows), `MenuButton.Pick` och `MenuButton.Icon`. Android-byggaren sitter i dag inne i en klicklyssnare och behöver lyftas ut. | `MenuExtensions.Apple.cs:87`, `MenuExtensions.Android.cs:82`, `MenuExtensions.Windows.cs:56`, `MenuButton.cs:59`, `:81` |
-| Fungerar det i list-rader? | **Ja, i `CollectionView` och `HeroCollectionView`, via radmallens rot.** Menyn byggs när den öppnas, inte när raden binds, så en rad som återanvänds kostar bara en interaktion eller lyssnare. `DataGrid` kräver en egen egenskap, eftersom dess long-press redan kopierar cellens text. | §7 |
+| Share the `PageAction` model? | **No. Share `MenuItems`.** `PageAction` is a header button (`Placement`, `Role`, `Badge`, `IsSelected`, `Haptic`) and has neither `IsDestructive`, `IsChecked` nor submenus. `MenuAction` has all of that, and a `PageAction` already carries a `MenuItems` through `PageAction.Menu`. A context menu and a header menu can therefore be **the same instance**. The issue's sketch `new PageAction("Follow", Icons.Star, FollowCommand)` does not compile against today's `PageAction`, which only has the constructor `(text, command)`. | `PageAction.cs:53`, `:76`, `:101`; `MenuElements.cs:24`; `issues/318-menu-buttons.md` ("Shared with the context-menu idea (#306)") |
+| Preview? | **iOS/iPadOS: yes.** `UIContextMenuInteraction` lifts the view (a *targeted preview*) or shows a custom view controller from `previewProvider`. **Mac Catalyst: no.** The Mac menu is "compact": "A nonmodal, compact menu with no preview". **Android, Windows: no**, the system has no equivalent. | The Apple documentation for `UIContextMenuInteraction.appearance`, §4 |
+| Is MAUI's `FlyoutBase.ContextFlyout` enough? | **No.** The documentation says "on Mac Catalyst and Windows". On iOS, `MapContextFlyout` is wrapped in `#if MACCATALYST` and so does nothing. On Android the method is empty. The Mac interaction passes `previewProvider: null`. `MenuFlyout` has no destructive or checked rows and cannot be changed at runtime. | §3 |
+| Same shape as `Tap.Command`? | **Yes.** An attached property that creates a state object and connects and disconnects it when the view's handler changes. That needs no mapper per control type and no registration. | `Tap.cs:79`, `Tap.cs:113–130` |
+| How much of #318 is reused? | **The menu builders as they are**: `BuildMenu` (Apple), `Fill` (Android), `FillFlyout` (Windows), `MenuButton.Pick` and `MenuButton.Icon`. The Android builder currently sits inside a click listener and needs to be lifted out. | `MenuExtensions.Apple.cs:87`, `MenuExtensions.Android.cs:82`, `MenuExtensions.Windows.cs:56`, `MenuButton.cs:59`, `:81` |
+| Does it work in list rows? | **Yes, in `CollectionView` and `HeroCollectionView`, through the root of the row template.** The menu is built when it opens, not when the row is bound, so a recycled row costs only one interaction or listener. `DataGrid` needs a property of its own, because its long press already copies the cell's text. | §7 |
 
 ---
 
-## 2. Vad som redan finns i Spine
+## 2. What Spine already has
 
-| Del | Var | Vad det betyder för kontextmenyer |
+| Part | Where | What it means for context menus |
 |---|---|---|
-| Menymodellen | `Core/Menu/MenuElements.cs`: `MenuItems` (`:14`), `MenuAction` (`:24`), `MenuSection` (`:76`), `SubMenu` (`:104`), `MenuPicker` (`:138`) | Titel, SVG-ikon, kommando och parameter, bock, `IsEnabled`, `IsDestructive`, sektioner, undermenyer och envalsgrupper finns. Det enda som saknas för kontextmenyer är `IsVisible` (§6.5). |
-| Ändringsbevakning | `MenuObserver.cs:10` bevakar hela trädet och bygger om den inbyggda menyn vid varje ändring | Behövs inte i v1: en kontextmeny kan byggas när den öppnas och är då alltid aktuell (§6.3). |
-| Val av rad | `MenuButton.Pick(owner, action, picker)` (`MenuButton.cs:59`): växlar toggles, flyttar pickerns bock och kör kommandon | Återanvänds. `owner` är redan en `VisualElement`, inte en `Button`. Förslaget är en reservparameter för rader i listor (§6.3). |
-| Ikoner | `MenuButton.Icon` (`MenuButton.cs:81`) renderar SVG till PNG genom `SvgBitmapLoader`. Apple gör den till template-bild (`MenuExtensions.Apple.cs:150`), Android väljer färg efter tema (`MenuExtensions.Android.cs:144`) | Samma ikoner och samma namn som i `Plugin.Maui.Spine.Svg.Icons` (`SpineIcons.Star`, `.Share`, `.Copy`, …). |
-| Apple-byggaren | `BuildMenu`/`BuildChildren`/`BuildAction` (`MenuExtensions.Apple.cs:87–142`) ger en `UIMenu` | Kan returneras rakt av från en `UIContextMenuConfiguration`s `actionProvider`. |
-| Android-byggaren | `MenuClickListener.OnClick` och `Fill` (`MenuExtensions.Android.cs:56–130`): `PopupMenu`, `SetForceShowIcon` (API 29+), `SetGroupDividerEnabled` (API 28+), röda destruktiva titlar | Logiken ska ut ur klicklyssnaren till en statisk `ShowPopup(anchor, items, owner, …)` som både menyknappen och kontextmenyn anropar. |
-| Windows-byggaren | `FillFlyout`/`BuildItem` (`MenuExtensions.Windows.cs:56–117`) ger en `MenuFlyout` som sätts som knappens `Flyout` (`:49`) | Samma `MenuFlyout` kan sättas som `UIElement.ContextFlyout` på vilken vy som helst. |
-| Registrering | `ConfigureMenus()` anropas från `ConfigureHandlers` på varje plattform (`SwitchHandlerExtensions.Apple.cs:16`, `ButtonExtensions.Android.cs:13`, `HandlerExtensions.Windows.cs:10`) | Kontextmenyn behöver ingen mapper (se nästa rad), så inget läggs till här utom möjligen `Button`-fallet på Apple (§6.6). |
-| `Tap.Command` | `Tap.cs:23` (attached property), `TapState` (`Tap.cs:113`) följer `HandlerChanging`/`HandlerChanged` och kopplar plattformen med `ConnectPlatform`/`DisconnectPlatform` | Mönstret för "valfri vy": en `ContextMenuState` byggd likadant. `TapState.CornerRadius()` (`Tap.cs:233`) läser en `Border`s rundning, vilket är exakt vad förhandsvisningens `VisiblePath` behöver. |
-| Header-menyer | `PageActionView` skickar `PageAction.Menu` till sina knappar (`PageActionView.cs:633–635`) | En sidas "more"-meny och radens kontextmeny kan vara samma `MenuItems`, och det är det #317 menar med "one menu model serves both". |
-| `DataGrid` | Long-press på en textcell kopierar texten (`DataGrid.Press.cs:111–126`, `LongPressDuration` 500 ms i `DataGridStyleOptions.cs:53`). Rader har en `PointerGestureRecognizer` (`DataGrid.Press.cs:62`) och vid behov en `SwipeView` (`DataGrid.Swipe.cs:23`) | Konflikt med long-press. Se §7. |
+| The menu model | `Core/Menu/MenuElements.cs`: `MenuItems` (`:14`), `MenuAction` (`:24`), `MenuSection` (`:76`), `SubMenu` (`:104`), `MenuPicker` (`:138`) | Title, SVG icon, command and parameter, checkmark, `IsEnabled`, `IsDestructive`, sections, submenus and single-selection groups are there. The only thing missing for context menus is `IsVisible` (§6.5). |
+| Change observation | `MenuObserver.cs:10` observes the whole tree and rebuilds the native menu on every change | Not needed in v1: a context menu can be built when it opens and is then always current (§6.3). |
+| Picking a row | `MenuButton.Pick(owner, action, picker)` (`MenuButton.cs:59`): flips toggles, moves the picker's checkmark and runs commands | Reused. `owner` is already a `VisualElement`, not a `Button`. The proposal is a fallback parameter for rows in lists (§6.3). |
+| Icons | `MenuButton.Icon` (`MenuButton.cs:81`) renders SVG to PNG through `SvgBitmapLoader`. Apple turns it into a template image (`MenuExtensions.Apple.cs:150`), Android picks the color by theme (`MenuExtensions.Android.cs:144`) | The same icons and the same names as in `Plugin.Maui.Spine.Svg.Icons` (`SpineIcons.Star`, `.Share`, `.Copy`, …). |
+| The Apple builder | `BuildMenu`/`BuildChildren`/`BuildAction` (`MenuExtensions.Apple.cs:87–142`) produce a `UIMenu` | Can be returned as it is from the `actionProvider` of a `UIContextMenuConfiguration`. |
+| The Android builder | `MenuClickListener.OnClick` and `Fill` (`MenuExtensions.Android.cs:56–130`): `PopupMenu`, `SetForceShowIcon` (API 29+), `SetGroupDividerEnabled` (API 28+), red destructive titles | The logic should move out of the click listener into a static `ShowPopup(anchor, items, owner, …)` that both the menu button and the context menu call. |
+| The Windows builder | `FillFlyout`/`BuildItem` (`MenuExtensions.Windows.cs:56–117`) produce a `MenuFlyout` that is set as the button's `Flyout` (`:49`) | The same `MenuFlyout` can be set as `UIElement.ContextFlyout` on any view. |
+| Registration | `ConfigureMenus()` is called from `ConfigureHandlers` on every platform (`SwitchHandlerExtensions.Apple.cs:16`, `ButtonExtensions.Android.cs:13`, `HandlerExtensions.Windows.cs:10`) | The context menu needs no mapper (see the next row), so nothing is added here except possibly the `Button` case on Apple (§6.6). |
+| `Tap.Command` | `Tap.cs:23` (attached property), `TapState` (`Tap.cs:113`) follows `HandlerChanging`/`HandlerChanged` and connects the platform with `ConnectPlatform`/`DisconnectPlatform` | The pattern for "any view": a `ContextMenuState` built the same way. `TapState.CornerRadius()` (`Tap.cs:233`) reads the rounding of a `Border`, which is exactly what the preview's `VisiblePath` needs. |
+| Header menus | `PageActionView` passes `PageAction.Menu` to its buttons (`PageActionView.cs:633–635`) | A page's "more" menu and the row's context menu can be the same `MenuItems`, and that is what #317 means by "one menu model serves both". |
+| `DataGrid` | A long press on a text cell copies the text (`DataGrid.Press.cs:111–126`, `LongPressDuration` 500 ms in `DataGridStyleOptions.cs:53`). Rows have a `PointerGestureRecognizer` (`DataGrid.Press.cs:62`) and, when needed, a `SwipeView` (`DataGrid.Swipe.cs:23`) | Conflict with the long press. See §7. |
 
 ---
 
-## 3. Vad MAUI 10 har, och var det tar slut
+## 3. What MAUI 10 has, and where it ends
 
-`FlyoutBase.ContextFlyout` tar en `MenuFlyout` (`MenuFlyoutItem`, `MenuFlyoutSubItem`, `MenuFlyoutSeparator`, `IconImageSource`, tangentbordsgenvägar) och kan sättas på alla `Element`. Dokumentationen (docs-maui, `context-menu.md`) säger: *"A context menu can be added to any control that derives from Element, on Mac Catalyst and Windows."* Källan på `dotnet/maui` `main` bekräftar det:
+`FlyoutBase.ContextFlyout` takes a `MenuFlyout` (`MenuFlyoutItem`, `MenuFlyoutSubItem`, `MenuFlyoutSeparator`, `IconImageSource`, keyboard accelerators) and can be set on any `Element`. The documentation (docs-maui, `context-menu.md`) says: *"A context menu can be added to any control that derives from Element, on Mac Catalyst and Windows."* The source on `dotnet/maui` `main` confirms it:
 
-| Plattform | Vad MAUI gör | Källa |
+| Platform | What MAUI does | Source |
 |---|---|---|
-| Windows | `MapContextFlyout` sätter `UIElement.ContextFlyout` till den konverterade `MenuFlyout`. | `ViewHandler.Windows.cs` |
-| Mac Catalyst | `MauiUIContextMenuInteraction` (internal) läggs på vyn. `UIContextMenuConfiguration` skapas med `previewProvider: null`, och delegaten implementerar bara `GetConfigurationForMenu`. | `ViewHandler.iOS.cs`, `MauiUIContextMenuInteraction.cs` |
-| iOS | Den publika `MapContextFlyout` har attributet `SupportedOSPlatform("ios13.0")`, men kroppen är `#if MACCATALYST`. På iPhone och iPad händer alltså ingenting. | `ViewHandler.iOS.cs` |
-| Android | `public static void MapContextFlyout(IViewHandler handler, IView view) { }`: tom. | `ViewHandler.Android.cs` |
+| Windows | `MapContextFlyout` sets `UIElement.ContextFlyout` to the converted `MenuFlyout`. | `ViewHandler.Windows.cs` |
+| Mac Catalyst | `MauiUIContextMenuInteraction` (internal) is added to the view. `UIContextMenuConfiguration` is created with `previewProvider: null`, and the delegate implements only `GetConfigurationForMenu`. | `ViewHandler.iOS.cs`, `MauiUIContextMenuInteraction.cs` |
+| iOS | The public `MapContextFlyout` has the attribute `SupportedOSPlatform("ios13.0")`, but the body is `#if MACCATALYST`. So nothing happens on iPhone and iPad. | `ViewHandler.iOS.cs` |
+| Android | `public static void MapContextFlyout(IViewHandler handler, IView view) { }`: empty. | `ViewHandler.Android.cs` |
 
-Dokumenterade begränsningar utöver plattformarna: *"Mac Catalyst does not support displaying icons on context menu items"*, och *"It's not currently possible to add items to, or remove items from, the MenuFlyout at runtime"*. `MenuFlyoutItem` har varken destruktiv stil eller bock, och det finns ingen envalsgrupp.
+Documented limitations beyond the platforms: *"Mac Catalyst does not support displaying icons on context menu items"*, and *"It's not currently possible to add items to, or remove items from, the MenuFlyout at runtime"*. `MenuFlyoutItem` has neither a destructive style nor a checkmark, and there is no single-selection group.
 
-Slutsatsen: MAUI:s väg är en andra menymodell som saknar det #318 redan har, och den täcker inte de två plattformar där kontextmenyer används mest. Att bygga vidare på den skulle ge Spine två menymodeller.
+The conclusion: MAUI's route is a second menu model that lacks what #318 already has, and it does not cover the two platforms where context menus are used the most. Building on it would give Spine two menu models.
 
 ---
 
-## 4. Plattformarnas byggstenar
+## 4. The platforms' building blocks
 
-### 4.1 iOS och iPadOS: `UIContextMenuInteraction`
+### 4.1 iOS and iPadOS: `UIContextMenuInteraction`
 
-Kontrollerat mot Apples dokumentation och mot bindningarna i `Microsoft.iOS.Ref.net10.0_26.2` 26.2.10217, samma SDK-linje som repot bygger med:
+Checked against Apple's documentation and against the bindings in `Microsoft.iOS.Ref.net10.0_26.2` 26.2.10217, the same SDK line the repository builds with:
 
-| API | Tillgänglig | I Microsoft.iOS |
+| API | Available | In Microsoft.iOS |
 |---|---|---|
 | `UIContextMenuInteraction(delegate)`, `view.AddInteraction` | iOS 13 | `new UIContextMenuInteraction(IUIContextMenuInteractionDelegate)` |
 | `UIContextMenuConfiguration(identifier:previewProvider:actionProvider:)` | iOS 13 | `UIContextMenuConfiguration.Create(INSCopying, UIContextMenuContentPreviewProvider, UIContextMenuActionProvider)` |
-| Lyft-förhandsvisning: `configuration:highlightPreviewForItemWithIdentifier:` | iOS 16 (den äldre `previewForHighlightingMenuWithConfiguration:` avråds från 16) | `GetHighlightPreview` (ios16.0); `GetPreviewForHighlightingMenu` (ObsoletedOSPlatform ios16.0) |
-| Tryck på förhandsvisningen: `willPerformPreviewActionForMenuWith:animator:` | iOS 13 | `WillPerformPreviewAction` |
-| Formen på lyftet: `UIPreviewParameters.VisiblePath`, `.BackgroundColor`, `.ShadowPath` | iOS 13 | Ja |
-| Uppdatera en öppen meny: `UpdateVisibleMenu` | iOS 14 | Ja |
+| Lift preview: `configuration:highlightPreviewForItemWithIdentifier:` | iOS 16 (the older `previewForHighlightingMenuWithConfiguration:` is deprecated from 16) | `GetHighlightPreview` (ios16.0); `GetPreviewForHighlightingMenu` (ObsoletedOSPlatform ios16.0) |
+| Tap on the preview: `willPerformPreviewActionForMenuWith:animator:` | iOS 13 | `WillPerformPreviewAction` |
+| The shape of the lift: `UIPreviewParameters.VisiblePath`, `.BackgroundColor`, `.ShadowPath` | iOS 13 | Yes |
+| Update an open menu: `UpdateVisibleMenu` | iOS 14 | Yes |
 | `menuAppearance`: `.rich` ("A modal menu with an optional preview") / `.compact` ("A nonmodal, compact menu with no preview") | iOS 14 | `MenuAppearance` |
-| `UIButton.menu` med `showsMenuAsPrimaryAction = false` | iOS 14 | Menyn blir knappens kontextmeny (long-press). Enligt Apples dokumentation slår `menu` på och av knappens `contextMenuInteraction` automatiskt. |
+| `UIButton.menu` with `showsMenuAsPrimaryAction = false` | iOS 14 | The menu becomes the button's context menu (long press). According to Apple's documentation, `menu` turns the button's `contextMenuInteraction` on and off automatically. |
 
-Spines minimum är iOS 15 (`docs/wiki/packages.md`), så den nya lyft-metoden (16) behöver en reserv till den gamla på iOS 15, eller så får iOS 15 standardlyftet utan rundade hörn. Det senare är enklare och räcker.
+Spine's minimum is iOS 15 (`docs/wiki/packages.md`), so the new lift method (16) needs a fallback to the old one on iOS 15, or iOS 15 gets the default lift without rounded corners. The latter is simpler and is enough.
 
-Tre sätt att visa förhandsvisningen, som alla ryms i samma delegat:
+Three ways to show the preview, all of which fit in the same delegate:
 
-1. **Inget angivet**: systemet lyfter vyn som den är, med rektangulära hörn.
-2. **Targeted preview av vyn själv** med `VisiblePath` = vyns rundade form och `BackgroundColor` = vyns bakgrund. Det är vad Mail och Notes gör med list-rader, och vad HIG ber om: *"adjust the preview's clipping path to match the shape of the preview image so that its contours, such as the rounded corners, don't appear to change during animation."*
-3. **Egen vy-kontroller** från `previewProvider`: en annan och större vy än den som trycktes, till exempel en tävlings detaljkort. Ett tryck på den kör `WillPerformPreviewAction`, som brukar navigera till det som förhandsvisades.
+1. **Nothing specified**: the system lifts the view as it is, with rectangular corners.
+2. **A targeted preview of the view itself** with `VisiblePath` = the view's rounded shape and `BackgroundColor` = the view's background. This is what Mail and Notes do with list rows, and what the HIG asks for: *"adjust the preview's clipping path to match the shape of the preview image so that its contours, such as the rounded corners, don't appear to change during animation."*
+3. **A custom view controller** from `previewProvider`: a different and larger view than the one that was pressed, for example a competition's detail card. A tap on it runs `WillPerformPreviewAction`, which usually navigates to what was previewed.
 
 ### 4.2 Mac Catalyst
 
-Samma `UIContextMenuInteraction`, öppnad med högerklick eller Ctrl-klick. I Mac-idiomet blir menyn `compact`: ingen förhandsvisning, inget lyft. Ikoner visas i en `UIMenu` på Catalyst (MAUI:s begränsning "no icons" gäller deras `MenuFlyout`-konvertering, inte UIKit), men det är **inte verifierat** i Spines byggare. MAUI lägger sin egen `MauiUIContextMenuInteraction` på vyn bara när appen satt `FlyoutBase.ContextFlyout`. En app som sätter båda får två interaktioner, vilket ska dokumenteras som "gör inte så".
+The same `UIContextMenuInteraction`, opened with a right click or Ctrl-click. In the Mac idiom the menu becomes `compact`: no preview, no lift. Icons are shown in a `UIMenu` on Catalyst (MAUI's "no icons" limitation applies to their `MenuFlyout` conversion, not to UIKit), but that is **not verified** in Spine's builder. MAUI adds its own `MauiUIContextMenuInteraction` to the view only when the app has set `FlyoutBase.ContextFlyout`. An app that sets both gets two interactions, which should be documented as "don't do that".
 
 ### 4.3 Android
 
-Android har ingen systemkontextmeny med förhandsvisning, och den klassiska kontextmenyn visar inga ikoner. Enligt Android-dokumentationen (*Menus*): *"Context menu do not support item shortcuts and item icons."* Byggstenarna, kontrollerade mot `Mono.Android.dll` 36.1.43:
+Android has no system context menu with a preview, and the classic context menu shows no icons. According to the Android documentation (*Menus*): *"Context menu do not support item shortcuts and item icons."* The building blocks, checked against `Mono.Android.dll` 36.1.43:
 
-| API | Minsta API-nivå | Användning |
+| API | Minimum API level | Use |
 |---|---|---|
-| `View.SetOnLongClickListener` | 1 | Long-press på pekskärm. Returnerar lyssnaren `true` körs ingen klick, så `Tap.Command` på samma vy körs inte efteråt. |
-| `View.SetOnContextClickListener` | 23 | Högerklick med mus eller pennknapp (Chromebook, DeX, surfplatta med mus). |
-| `PopupMenu(context, anchor)` + `SetForceShowIcon` | 29 för ikoner | Samma meny som #318:s menyknapp. Ankras under vyn om det finns plats, annars ovanför. |
-| `PopupMenu.Gravity` | 23 | Justering mot ankaret (start/slut). |
-| `View.ShowContextMenu(x, y)` | 24 | Den klassiska flytande kontextmenyn vid tryckpunkten. **Inga ikoner**, och den kräver `OnCreateContextMenu`. |
-| `IMenu.SetGroupDividerEnabled` | 28 | Avdelare mellan sektioner, som i dag. |
+| `View.SetOnLongClickListener` | 1 | Long press on touch. If the listener returns `true`, no click runs, so `Tap.Command` on the same view does not run afterwards. |
+| `View.SetOnContextClickListener` | 23 | Right click with a mouse or stylus button (Chromebook, DeX, tablet with a mouse). |
+| `PopupMenu(context, anchor)` + `SetForceShowIcon` | 29 for icons | The same menu as #318's menu button. Anchored below the view if there is room, otherwise above. |
+| `PopupMenu.Gravity` | 23 | Alignment against the anchor (start/end). |
+| `View.ShowContextMenu(x, y)` | 24 | The classic floating context menu at the touch point. **No icons**, and it requires `OnCreateContextMenu`. |
+| `IMenu.SetGroupDividerEnabled` | 28 | Dividers between sections, as today. |
 
-`PopupMenu` är den väg som ger ikoner, röda destruktiva rader och samma utseende som menyknappen. Dokumentationen beskriver den som menyn för *"actions that relate to specific content"* och skiljer den från kontextmenyn *"for actions that affect selected content"*. Skillnaden är mest terminologi för Spines fall: raden är innehållet. Det som skiljer i praktiken är placeringen. En `PopupMenu` ankrad på ett helt kort visas under kortet, inte vid fingret. Ett känt knep är ett osynligt 1×1-ankare vid tryckpunkten, men det är **inte provat** här och ska bedömas på enhet innan det väljs.
+`PopupMenu` is the route that gives icons, red destructive rows and the same look as the menu button. The documentation describes it as the menu for *"actions that relate to specific content"* and distinguishes it from the context menu *"for actions that affect selected content"*. The difference is mostly terminology in Spine's case: the row is the content. What differs in practice is the placement. A `PopupMenu` anchored to a whole card appears below the card, not at the finger. A known trick is an invisible 1×1 anchor at the touch point, but it is **not tried** here and should be judged on a device before it is chosen.
 
-Material 3 har ingen egen kontextmeny i Views-biblioteket att luta sig mot. Material Components har menyer (`ListPopupWindow`, exponerade dropdown-menyer), men inget med lyft eller förhandsvisning. Den tredjepartsvariant som gör "iOS-lika" kontextmenyer på Android (The49.Maui.ContextMenu) ritar förhandsvisningen själv. Det är samma val som Spine har gjort bort för flikar och sheets till förmån för det inbyggda.
+Material 3 has no context menu of its own in the Views library to lean on. Material Components has menus (`ListPopupWindow`, exposed dropdown menus), but nothing with a lift or a preview. The third-party variant that makes "iOS-like" context menus on Android (The49.Maui.ContextMenu) draws the preview itself. That is the same choice Spine has turned down for tabs and sheets in favor of the native one.
 
 ### 4.4 Windows
 
-`UIElement.ContextFlyout` visar flyouten vid högerklick eller *"an equivalent action, such as pressing and holding with your finger"*, och markerar `ContextRequested` som hanterad. Spines `FillFlyout` ger redan rätt `MenuFlyout` (radioknappar för pickers, toggles, undermenyer, avdelare). Menyn kan byggas när den öppnas genom `MenuFlyout.Opening`. Ingen förhandsvisning finns på Windows.
+`UIElement.ContextFlyout` shows the flyout on a right click or *"an equivalent action, such as pressing and holding with your finger"*, and marks `ContextRequested` as handled. Spine's `FillFlyout` already produces the right `MenuFlyout` (radio buttons for pickers, toggles, submenus, separators). The menu can be built when it opens through `MenuFlyout.Opening`. There is no preview on Windows.
 
 ---
 
-## 5. Alternativen
+## 5. The alternatives
 
-| | A. Spine: `ContextMenu.Items` (`MenuItems`) | B. Bygg på MAUI:s `FlyoutBase.ContextFlyout` | C. Tredjepartspaket | D. Listnivå (`UICollectionViewDelegate`, `registerForContextMenu(RecyclerView)`) |
+| | A. Spine: `ContextMenu.Items` (`MenuItems`) | B. Build on MAUI's `FlyoutBase.ContextFlyout` | C. Third-party package | D. List level (`UICollectionViewDelegate`, `registerForContextMenu(RecyclerView)`) |
 |---|---|---|---|---|
-| Modell | Den som finns (#318), delad med header-menyer | En andra modell (`MenuFlyout`) utan destruktiv, bock eller picker | Paketets egen (`the49:Menu`/`Action`) | A:s modell |
-| iOS | Egen `UIContextMenuInteraction` | Kräver en egen iOS-mappning ändå: MAUI:s interaktion är internal och avstängd | Ja | Bästa förhandsvisningen för celler (iOS 16-API:et `GetContextMenuConfiguration(collectionView, indexPaths, point)`) |
-| Android | `PopupMenu`, som menyknappen | Allt måste byggas; MAUI gör inget | Egenritad förhandsvisning | Klassisk meny utan ikoner |
-| Windows | `ContextFlyout` | Fungerar i dag | Stöds inte (The49) | — |
-| Förhandsvisning | iOS: lyft i v1, egen mall i steg 2 | Ingen (`previewProvider: null`) | iOS och Android | iOS |
-| Risk | Låg: byggarna finns och är verifierade på simulator och emulator | Hög: att ta över en MAUI-mappning som MAUI kan ändra | Beroende: The49 finns bara som `1.0.0-alpha1` för net7 (avlistad). `DSoft.Maui.ContextMenu` 1.1.2606.161 (net10, 2026-06-16) har samma beskrivning; dess ursprung är inte kontrollerat | Hög: kräver att MAUI:s interna delegator för `CollectionView` ersätts |
+| Model | The existing one (#318), shared with header menus | A second model (`MenuFlyout`) without destructive, checkmark or picker | The package's own (`the49:Menu`/`Action`) | A's model |
+| iOS | Own `UIContextMenuInteraction` | Needs an iOS mapping of its own anyway: MAUI's interaction is internal and switched off | Yes | The best preview for cells (the iOS 16 API `GetContextMenuConfiguration(collectionView, indexPaths, point)`) |
+| Android | `PopupMenu`, like the menu button | Everything has to be built; MAUI does nothing | Self-drawn preview | Classic menu without icons |
+| Windows | `ContextFlyout` | Works today | Not supported (The49) | — |
+| Preview | iOS: lift in v1, custom template in step 2 | None (`previewProvider: null`) | iOS and Android | iOS |
+| Risk | Low: the builders exist and are verified on simulator and emulator | High: taking over a MAUI mapping that MAUI can change | Dependency: The49 exists only as `1.0.0-alpha1` for net7 (unlisted). `DSoft.Maui.ContextMenu` 1.1.2606.161 (net10, 2026-06-16) has the same description; its origin is not checked | High: requires replacing MAUI's internal delegator for `CollectionView` |
 
-**A.** D är intressant för förhandsvisningen i listor, men den förutsätter att Spine tar över `UICollectionView`-delegaten som MAUI äger. Per-vy-interaktionen på radmallens rot ger samma meny och ett lyft av raden. Det räcker tills någon visar på en skillnad som spelar roll.
+**A.** D is interesting for the preview in lists, but it assumes that Spine takes over the `UICollectionView` delegate that MAUI owns. The per-view interaction on the root of the row template gives the same menu and a lift of the row. That is enough until someone points to a difference that matters.
 
 ---
 
-## 6. Föreslagen design
+## 6. Proposed design
 
 ### 6.1 API
 
@@ -150,9 +150,9 @@ public static class ContextMenu
 }
 ```
 
-Namnet `ContextMenu` krockar inte i XAML: `Microsoft.Maui.Controls` 10.0.50 har ingen typ med det namnet (kontrollerat i `Microsoft.Maui.Controls.dll`), till skillnad från `Menu`, som var skälet till `MenuButton` i #318.
+The name `ContextMenu` does not clash in XAML: `Microsoft.Maui.Controls` 10.0.50 has no type with that name (checked in `Microsoft.Maui.Controls.dll`), unlike `Menu`, which was the reason for `MenuButton` in #318.
 
-### 6.2 Användning
+### 6.2 Usage
 
 ```xml
 <!-- a card with a menu; Tap.Command still opens it on a plain tap -->
@@ -189,136 +189,136 @@ public MenuItems RowMenu { get; } =
 [RelayCommand] private Task Follow(Competition competition) { ... }
 ```
 
-Samma `RowMenu` kan ligga på detaljsidans header med `new PageAction(null, RowMenu) { Svg = "more.svg" }`. Då får raden och sidan samma åtgärder, vilket HIG också ber om: *"Always make context menu items available in the main interface, too."*
+The same `RowMenu` can sit on the detail page's header with `new PageAction(null, RowMenu) { Svg = "more.svg" }`. The row and the page then get the same actions, which the HIG also asks for: *"Always make context menu items available in the main interface, too."*
 
-### 6.3 Byggd när den öppnas, och parametern
+### 6.3 Built when it opens, and the parameter
 
-Menyknappen i #318 bygger sin inbyggda meny direkt och bygger om den vid varje ändring genom `MenuObserver`. För kontextmenyn föreslås det omvända: **menyn byggs varje gång den öppnas.** Alla tre plattformarna ger en krok vid öppning: `actionProvider` körs vid long-press på Apple, Android bygger `PopupMenu` i long-click-lyssnaren och Windows har `MenuFlyout.Opening`. Två följder:
+The menu button in #318 builds its native menu right away and rebuilds it on every change through `MenuObserver`. For the context menu the opposite is proposed: **the menu is built every time it opens.** All three platforms offer a hook at opening: `actionProvider` runs on a long press on Apple, Android builds the `PopupMenu` in the long-click listener and Windows has `MenuFlyout.Opening`. Two consequences:
 
-- En rad i en lista kostar en interaktion eller en lyssnare, inte en `MenuObserver` och ett menyträd per rad.
-- Radens tillstånd läses vid öppning. En rad som har bytt objekt (återanvänd cell) visar rätt meny.
+- A row in a list costs one interaction or one listener, not a `MenuObserver` and a menu tree per row.
+- The row's state is read at opening. A row that has changed item (a recycled cell) shows the right menu.
 
-`ContextMenu.CommandParameter` gör en delad meny användbar för många rader. Regeln i `Pick` blir `action.CommandParameter ?? ContextMenu.GetCommandParameter(owner)`. En picker behåller sin regel (radens parameter eller raden själv). Det är en liten ändring i `MenuButton.Pick` (`MenuButton.cs:73`), en reservparameter som menyknappen skickar som `null`.
+`ContextMenu.CommandParameter` makes a shared menu usable for many rows. The rule in `Pick` becomes `action.CommandParameter ?? ContextMenu.GetCommandParameter(owner)`. A picker keeps its rule (the row's parameter or the row itself). It is a small change in `MenuButton.Pick` (`MenuButton.cs:73`), a fallback parameter that the menu button passes as `null`.
 
-Rader vars text beror på objektet ("Följ"/"Sluta följa") hanteras på något av två sätt: objektet exponerar en egen `MenuItems` (billigt, eftersom inget byggs innan menyn öppnas), eller två rader där bara den ena är synlig (§6.5). Ett `ContextMenu.Opening`-kommando som låter vy-modellen ändra en delad meny precis före öppning är möjligt på alla tre plattformar, men läggs inte till innan någon app behöver det.
+Rows whose text depends on the item ("Follow"/"Unfollow") are handled in one of two ways: the item exposes a `MenuItems` of its own (cheap, since nothing is built before the menu opens), or two rows where only one is visible (§6.5). A `ContextMenu.Opening` command that lets the view model change a shared menu just before it opens is possible on all three platforms, but is not added before an app needs it.
 
-### 6.4 Förhandsvisning (iOS/iPadOS)
+### 6.4 Preview (iOS/iPadOS)
 
-**Steg 1 (v1): lyft vyn med rätt form.** `GetHighlightPreview` (iOS 16+) returnerar `new UITargetedPreview(view, parameters)` där `parameters.VisiblePath` är en rundad rektangel med `Border`ns hörnradie. Samma beräkning som `TapState.CornerRadius()` gör, så den ska delas. `BackgroundColor` sätts till vyns bakgrund, annars `SystemBackground`, eftersom en radmall ofta är genomskinlig och lyftet då ser tomt ut i kanterna. På iOS 15 används standardlyftet. `GetDismissalPreview` returnerar samma, så att vyn landar där den kom ifrån.
+**Step 1 (v1): lift the view with the right shape.** `GetHighlightPreview` (iOS 16+) returns `new UITargetedPreview(view, parameters)` where `parameters.VisiblePath` is a rounded rectangle with the corner radius of the `Border`. It is the same calculation that `TapState.CornerRadius()` does, so it should be shared. `BackgroundColor` is set to the view's background, otherwise `SystemBackground`, because a row template is often transparent and the lift then looks empty at the edges. On iOS 15 the default lift is used. `GetDismissalPreview` returns the same, so that the view lands where it came from.
 
-**Steg 2: `ContextMenu.Preview` + `PreviewCommand`.** `previewProvider` skapar en `UIViewController` vars vy är mallens MAUI-vy konverterad med `ToPlatform(mauiContext)`, mätt med `Measure` och storleksatt med `PreferredContentSize`. Mallen får vyns `BindingContext`. `WillPerformPreviewAction` kör `PreviewCommand` i animatorns completion. Det är så "tryck på förhandsvisningen för att öppna" fungerar i Mail och Foton. Det här steget har den största tekniska osäkerheten: en MAUI-vy vars handler lever utanför sidans träd, och som ska kopplas från när menyn stängs (`WillEnd`). Därför är det ett eget steg.
+**Step 2: `ContextMenu.Preview` + `PreviewCommand`.** `previewProvider` creates a `UIViewController` whose view is the template's MAUI view converted with `ToPlatform(mauiContext)`, measured with `Measure` and sized with `PreferredContentSize`. The template gets the view's `BindingContext`. `WillPerformPreviewAction` runs `PreviewCommand` in the animator's completion. That is how "tap the preview to open" works in Mail and Photos. This step carries the largest technical uncertainty: a MAUI view whose handler lives outside the page's tree, and which has to be disconnected when the menu closes (`WillEnd`). That is why it is a step of its own.
 
-Android och Windows ignorerar båda egenskaperna. Det ska stå i XML-dokumentationen, inte bara i wikin.
+Android and Windows ignore both properties. That should be stated in the XML documentation, not only in the wiki.
 
-### 6.5 Ändring i den delade modellen: `MenuAction.IsVisible`
+### 6.5 Change to the shared model: `MenuAction.IsVisible`
 
-HIG: *"Hide unavailable menu items, don't dim them. Unlike a regular menu, … a context menu displays only the actions that are relevant."* Modellen har bara `IsEnabled` (`MenuElements.cs:59–61`). Förslaget är `IsVisible` (standard `true`) på `MenuAction` och `SubMenu`, och att alla tre byggarna hoppar över osynliga rader. Det gäller då även menyknappar. Det behövs för "Följ/Sluta följa" med en delad meny, och det är den enda ändringen i #318:s publika yta.
+HIG: *"Hide unavailable menu items, don't dim them. Unlike a regular menu, … a context menu displays only the actions that are relevant."* The model only has `IsEnabled` (`MenuElements.cs:59–61`). The proposal is `IsVisible` (default `true`) on `MenuAction` and `SubMenu`, and that all three builders skip invisible rows. It then applies to menu buttons too. It is needed for "Follow/Unfollow" with a shared menu, and it is the only change to #318's public surface.
 
-### 6.6 Samspel med det som redan finns
+### 6.6 Interplay with what already exists
 
-| Kombination | Beteende |
+| Combination | Behavior |
 |---|---|
-| `Tap.Command` + `ContextMenu.Items` | Det vanliga fallet: tryck öppnar, long-press visar menyn. **Apple:** `PressRecognizer` känner igen samtidigt med allt (`Tap.Apple.cs:174`) och tänder sin markering efter 70 ms (`:16`). Markeringen är ett `CALayer` i vyn (`:131`) och kommer alltså med i lyftet om den inte släcks. `ContextMenuState` ska anropa `TapState.CancelPress()` när menyn visas (`WillDisplayMenu`). Om interaktionen avbryter pekningen så att kommandot inte körs vid släpp är **inte verifierat**. **Android:** long-click som returnerar `true` förhindrar klicket; rippeln (`Tap.Android.cs:31`) syns under hållningen, som i systemappar. **Windows:** högerklick ger ingen `Tapped`; beteendet för press-and-hold är **inte verifierat**. |
-| `MenuButton.Items` + `ContextMenu.Items` på en `Button` | Apple: båda använder `UIButton.Menu`. `ShowsMenuAsPrimaryAction = true` betyder tryck, `false` betyder long-press. En knapp kan inte ha båda, och **menyknappen vinner**. En `Button` med bara `ContextMenu.Items` får sin meny som `button.Menu` med `ShowsMenuAsPrimaryAction = false`, inte en extra interaktion, eftersom `UIControl` har en egen `contextMenuInteraction`. Android och Windows har ingen konflikt (click- mot long-click-lyssnare, `Flyout` mot `ContextFlyout`). |
-| `FlyoutBase.ContextFlyout` + `ContextMenu.Items` | Windows och Catalyst: två mekanismer på samma vy. Dokumenteras som "välj en". Spine sätter `ContextFlyout` på Windows och skriver över MAUI:s om båda finns. |
-| Tillgänglighet | Apple: huruvida VoiceOver erbjuder menyn automatiskt för en vy med `UIContextMenuInteraction` är **inte kontrollerat**. Android: long-click-åtgärden får en etikett genom `ViewCompat.ReplaceAccessibilityAction(ActionLongClick, "Åtgärder")` från `SpineStrings`, så att TalkBack säger vad en long-press gör. Att även lägga ut varje menyrad som en egen tillgänglighetsåtgärd är möjligt och värt att pröva. |
+| `Tap.Command` + `ContextMenu.Items` | The common case: a tap opens, a long press shows the menu. **Apple:** `PressRecognizer` recognizes simultaneously with everything (`Tap.Apple.cs:174`) and shows its highlight after 70 ms (`:16`). The highlight is a `CALayer` in the view (`:131`) and so comes along in the lift unless it is cleared. `ContextMenuState` should call `TapState.CancelPress()` when the menu is shown (`WillDisplayMenu`). Whether the interaction cancels the touch so that the command does not run on release is **not verified**. **Android:** a long-click that returns `true` prevents the click; the ripple (`Tap.Android.cs:31`) is visible during the hold, as in system apps. **Windows:** a right click gives no `Tapped`; the behavior for press-and-hold is **not verified**. |
+| `MenuButton.Items` + `ContextMenu.Items` on a `Button` | Apple: both use `UIButton.Menu`. `ShowsMenuAsPrimaryAction = true` means tap, `false` means long press. A button cannot have both, and **the menu button wins**. A `Button` with only `ContextMenu.Items` gets its menu as `button.Menu` with `ShowsMenuAsPrimaryAction = false`, not an extra interaction, because `UIControl` has a `contextMenuInteraction` of its own. Android and Windows have no conflict (click versus long-click listener, `Flyout` versus `ContextFlyout`). |
+| `FlyoutBase.ContextFlyout` + `ContextMenu.Items` | Windows and Catalyst: two mechanisms on the same view. Documented as "pick one". Spine sets `ContextFlyout` on Windows and overwrites MAUI's if both are present. |
+| Accessibility | Apple: whether VoiceOver offers the menu automatically for a view with a `UIContextMenuInteraction` is **not checked**. Android: the long-click action gets a label through `ViewCompat.ReplaceAccessibilityAction(ActionLongClick, "Actions")` from `SpineStrings`, so that TalkBack says what a long press does. Exposing every menu row as an accessibility action of its own as well is possible and worth trying. |
 
 ---
 
-## 7. Listor: `CollectionView`, `HeroCollectionView` och `DataGrid`
+## 7. Lists: `CollectionView`, `HeroCollectionView` and `DataGrid`
 
-**`CollectionView` och `HeroCollectionView`.** `HeroCollectionView` är en `CollectionView` (`HeroCollectionView.cs:22`) och behöver inget eget. `ContextMenu.Items` sätts på radmallens rot. Apple lägger interaktionen på MAUI-vyn i cellens `ContentView`, Android på radens vy i `RecyclerView`, Windows på elementet i listobjektet. Återanvändning av celler är ofarlig eftersom menyn byggs vid öppning (§6.3) och parametern läses från den bindning som gäller just då. Att scrolla avbryter long-press på alla tre plattformarna, eftersom det är systemets egen gest. Kvar att kontrollera på enhet: att `CollectionView`s urvalsmarkering (`SelectionMode`) och lyftet inte krockar på iOS, och att long-click når radvyn på Android när radmallen har MAUI-gestigenkännare. MAUI:s gesthantering på Android sätter egna touch-lyssnare. Det är **oprövat** om de konsumerar long-click.
+**`CollectionView` and `HeroCollectionView`.** `HeroCollectionView` is a `CollectionView` (`HeroCollectionView.cs:22`) and needs nothing of its own. `ContextMenu.Items` is set on the root of the row template. Apple adds the interaction to the MAUI view in the cell's `ContentView`, Android to the row's view in the `RecyclerView`, Windows to the element in the list item. Cell recycling is harmless because the menu is built at opening (§6.3) and the parameter is read from the binding that applies at that moment. Scrolling cancels the long press on all three platforms, because it is the system's own gesture. Still to check on a device: that the selection highlight of `CollectionView` (`SelectionMode`) and the lift do not clash on iOS, and that the long-click reaches the row view on Android when the row template has MAUI gesture recognizers. MAUI's gesture handling on Android sets its own touch listeners. It is **untested** whether they consume the long-click.
 
-**`DataGrid`.** Rader byggs i kod, inte från en mall, och har redan en long-press: en textcell kopieras (`DataGrid.Press.cs:111–126`). Att lägga `ContextMenu.Items` på raden utifrån går inte, och om det gick skulle två long-press slåss om samma finger. Förslaget är en egenskap på gridden:
+**`DataGrid`.** Rows are built in code, not from a template, and already have a long press: a text cell is copied (`DataGrid.Press.cs:111–126`). Putting `ContextMenu.Items` on the row from outside is not possible, and if it were, two long presses would fight over the same finger. The proposal is a property on the grid:
 
 ```xml
 <spine:DataGrid ItemsSource="{Binding Games}" RowContextMenu="{Binding GameMenu}" />
 ```
 
-- Med `RowContextMenu` satt öppnar long-press menyn med radens objekt som parameter, och kopieringen blir en rad i menyn ("Kopiera *Kolumnnamn*" överst), eftersom gridden redan vet vilken cell fingret träffade (`FindCell`, `DataGrid.Press.cs:82`). Utan `RowContextMenu` är allt som i dag.
-- På Apple ger gridden raden en `UIContextMenuInteraction` och stänger av sin egen long-press-timer för den raden. På Android och Windows kan gridden öppna menyn själv från `OnRowLongPress`, genom samma `ShowPopup`/`ContextFlyout.ShowAt` som `ContextMenuState` använder.
-- Svepåtgärder (`LeftSwipeActions`/`RightSwipeActions`) är en annan gest och finns kvar. De har en egen modell (`DataGridSwipeAction`, `DataGridSwipeAction.cs:15`) med färger och sökvägsbindningar. Att låta dem bli `MenuAction` ingår inte här.
+- With `RowContextMenu` set, a long press opens the menu with the row's item as the parameter, and the copy becomes a row in the menu ("Copy *Column name*" at the top), since the grid already knows which cell the finger hit (`FindCell`, `DataGrid.Press.cs:82`). Without `RowContextMenu` everything is as it is today.
+- On Apple the grid gives the row a `UIContextMenuInteraction` and turns off its own long-press timer for that row. On Android and Windows the grid can open the menu itself from `OnRowLongPress`, through the same `ShowPopup`/`ContextFlyout.ShowAt` that `ContextMenuState` uses.
+- Swipe actions (`LeftSwipeActions`/`RightSwipeActions`) are a different gesture and stay. They have a model of their own (`DataGridSwipeAction`, `DataGridSwipeAction.cs:15`) with colors and path bindings. Turning them into `MenuAction` is not part of this.
 
-Hur `DataGrid`s egen tryckhantering beter sig tillsammans med en `UIContextMenuInteraction` på samma rad är det mest osäkra i hela förslaget. Därför ligger det i ett eget steg (§10).
+How `DataGrid`'s own press handling behaves together with a `UIContextMenuInteraction` on the same row is the most uncertain part of the whole proposal. That is why it is a step of its own (§10).
 
 ---
 
-## 8. Plattformar
+## 8. Platforms
 
-| Plattform | v1 | Förhandsvisning | Anmärkning |
+| Platform | v1 | Preview | Note |
 |---|---|---|---|
-| iOS 16+, iPadOS 16+ | `UIContextMenuInteraction`, `UIMenu` från #318:s byggare | Lyft av vyn med rundad `VisiblePath`; egen mall i steg 2 | iPad med mus eller styrplatta: högerklick ger compact-menyn |
-| iOS 15 | Samma | Standardlyft (rektangulärt) | Den gamla lyft-metoden kan läggas till om någon saknar det |
-| Mac Catalyst | Samma interaktion, högerklick | Nej (compact) | Ikoner i menyn ej verifierade |
-| Android 5–9 (API 21–28) | `PopupMenu` vid long-click; högerklick från API 23 | Nej | Ikoner visas från API 29 (`SetForceShowIcon`), avdelare från 28 |
-| Android 10+ | Samma, med ikoner | Nej | Menyn ankras vid vyn, inte vid fingret |
-| Windows | `ContextFlyout` med #318:s `MenuFlyout` | Nej | Högerklick och press-and-hold ger systemets eget beteende |
+| iOS 16+, iPadOS 16+ | `UIContextMenuInteraction`, `UIMenu` from #318's builder | Lift of the view with a rounded `VisiblePath`; custom template in step 2 | iPad with a mouse or trackpad: a right click gives the compact menu |
+| iOS 15 | Same | Default lift (rectangular) | The old lift method can be added if someone misses it |
+| Mac Catalyst | Same interaction, right click | No (compact) | Icons in the menu not verified |
+| Android 5–9 (API 21–28) | `PopupMenu` on long-click; right click from API 23 | No | Icons are shown from API 29 (`SetForceShowIcon`), dividers from 28 |
+| Android 10+ | Same, with icons | No | The menu is anchored to the view, not at the finger |
+| Windows | `ContextFlyout` with #318's `MenuFlyout` | No | Right click and press-and-hold give the system's own behavior |
 
 ---
 
-## 9. Vad som inte går, och vad som inte är verifierat
+## 9. What cannot be done, and what is not verified
 
-Studien är gjord i en Linux-container utan Mac, simulator, emulator eller enhet. **Inget i den är provat på en plattform.** API-tillgänglighet är kontrollerad mot Apples dokumentation, `Microsoft.iOS`-referensen 26.2.10217, `Mono.Android` 36.1.43 och MAUI:s källa på `main`. Beteende är det inte.
+The study was done in a Linux container without a Mac, simulator, emulator or device. **Nothing in it has been tried on a platform.** API availability is checked against Apple's documentation, the `Microsoft.iOS` reference 26.2.10217, `Mono.Android` 36.1.43 and MAUI's source on `main`. Behavior is not.
 
-1. **Ingen förhandsvisning på Android, Windows eller Mac.** Plattformarna har ingen. Att rita en själv (som The49) går emot linjen med inbyggda kontroller och avråds.
-2. **Tap-markeringen i lyftet** (§6.6): resonemang utifrån koden, inte observerat. Detsamma gäller om `Tap.Command` körs när fingret släpps efter att menyn öppnats.
-3. **Long-click på Android under MAUI:s gestigenkännare** (§7): oprövat. Om MAUI:s touch-lyssnare konsumerar händelserna behöver `ContextMenuState` en egen `GestureDetector`, vilket är mer kod än planerat.
-4. **`PopupMenu`s placering** på stora vyer, och knepet med ankare vid tryckpunkten: oprövat.
-5. **Sektionstitlar i kontextmenyer på Apple.** #318 konstaterade att UIKit inte ritar inline-sektioners titel i en *knappmeny*. Om det är likadant i en kontextmeny är inte kontrollerat.
-6. **Egen förhandsvisningsmall** (§6.4 steg 2): en MAUI-vy med handler utanför sidans träd, i en vy-kontroller som UIKit äger. Mätning, temabyte och frånkoppling vid `WillEnd` är oprövade.
-7. **VoiceOver och menyn** (§6.6): inte kontrollerat om den erbjuds automatiskt.
-8. **Ikonrendering vid öppning.** `MenuButton.Icon` renderar SVG synkront (`MenuButton.cs:93`). Vid long-press sker det i `actionProvider`, alltså på väg in i animationen. Med en handfull ikoner bör det gå fort, men det är inte mätt. En liten cache per `(svg, storlek, färg)` är en rad kod om det behövs.
-9. **En iakttagelse i passing:** Windows-byggaren renderar ikoner svarta oavsett tema (`MenuExtensions.Windows.cs:121`), medan Android väljer färg efter tema (`MenuExtensions.Android.cs:144`). Om `ImageIcon` visar bitmappen som den är blir ikonerna svåra att se i mörkt tema, både i dagens menyknappar och i kontextmenyn. Inte kontrollerat på Windows.
-
----
-
-## 10. Leveransplan
-
-1. **Dela ut byggarna.** Android: flytta `Fill`/`AddAction`/`Icon` ur `MenuClickListener` till en statisk `ShowPopup(anchor, items, owner, parameter)`. `MenuButton.Pick` får reservparametern. `MenuAction.IsVisible`/`SubMenu.IsVisible` läggs till och respekteras av alla tre byggarna. Menyknapparna ska bete sig exakt som förut. Det verifieras i `MenusPage`.
-2. **`ContextMenu.Items` + `CommandParameter`.** `ContextMenu` och `ContextMenuState` (mönstret från `TapState`). Apple: interaktion, `GetConfigurationForMenu` med `BuildMenu` vid öppning, lyft med `VisiblePath` på iOS 16+, `Button`-fallet via `UIButton.Menu`, och att Tap-markeringen släcks. Android: long-click, context-click (API 23+) och tillgänglighetsetikett. Windows: `ContextFlyout` byggd i `Opening`.
-3. **Sample och wiki.** En sida `Pages/ContextMenus` i `MauiSpineSampleApp`: ett kort med `Tap.Command` och meny, en `CollectionView` med delad radmeny och parameter, samma meny på header-baren. Därefter ett avsnitt i `docs/wiki/menus.md` (inte en ny sida: det är samma modell) och en rad i `/spine-controls`. Verifiera på iPhone-simulatorn, Pixel-emulatorn och Mac Catalyst; Windows via CI.
-4. **`DataGrid.RowContextMenu`** (§7), med kopiering som menyrad. Eget steg på grund av konflikten med dagens long-press.
-5. **`ContextMenu.Preview` + `PreviewCommand`** (§6.4 steg 2), när en app visar ett konkret behov. Orienteras tävlingsrad är den troliga första.
-6. **Apparna.** Orientera (Följ, Lägg till i kalendern, Dela), Puckkoll (Bevaka, Öppna i SHL-appen), Almanacka (Kopiera namn, Dela). Beviset på att en deklaration räcker för header och rad.
-
-Beslut som behöver ägaren före steg 2: att `PageAction` inte blir radmodellen (§1); `IsVisible` i den delade modellen (§6.5); och om `DataGrid`s kopiering ska flytta in i menyn när en meny finns (§7).
+1. **No preview on Android, Windows or Mac.** The platforms have none. Drawing one ourselves (like The49) goes against the line of native controls and is advised against.
+2. **The tap highlight in the lift** (§6.6): reasoning from the code, not observed. The same goes for whether `Tap.Command` runs when the finger is released after the menu has opened.
+3. **Long-click on Android under MAUI's gesture recognizers** (§7): untested. If MAUI's touch listeners consume the events, `ContextMenuState` needs a `GestureDetector` of its own, which is more code than planned.
+4. **The placement of `PopupMenu`** on large views, and the trick with an anchor at the touch point: untested.
+5. **Section titles in context menus on Apple.** #318 found that UIKit does not draw the title of inline sections in a *button menu*. Whether the same holds in a context menu is not checked.
+6. **Custom preview template** (§6.4 step 2): a MAUI view with a handler outside the page's tree, in a view controller that UIKit owns. Measuring, theme changes and disconnecting at `WillEnd` are untested.
+7. **VoiceOver and the menu** (§6.6): not checked whether it is offered automatically.
+8. **Icon rendering at opening.** `MenuButton.Icon` renders SVG synchronously (`MenuButton.cs:93`). On a long press that happens in `actionProvider`, that is, on the way into the animation. With a handful of icons it should be fast, but it is not measured. A small cache per `(svg, size, color)` is one line of code if it is needed.
+9. **An observation in passing:** the Windows builder renders icons black regardless of theme (`MenuExtensions.Windows.cs:121`), while Android picks the color by theme (`MenuExtensions.Android.cs:144`). If `ImageIcon` shows the bitmap as it is, the icons become hard to see in dark theme, both in today's menu buttons and in the context menu. Not checked on Windows.
 
 ---
 
-## Beslut (2026-09-30)
+## 10. Delivery plan
 
-Jonatan gick igenom studiens frågor 2026-09-30 och följde rekommendationerna. Rader märkta **Förslag** saknade rekommendation i studien; där står ett förslag med skäl, som gäller tills han säger annat.
+1. **Share out the builders.** Android: move `Fill`/`AddAction`/`Icon` out of `MenuClickListener` into a static `ShowPopup(anchor, items, owner, parameter)`. `MenuButton.Pick` gets the fallback parameter. `MenuAction.IsVisible`/`SubMenu.IsVisible` are added and respected by all three builders. The menu buttons should behave exactly as before. That is verified in `MenusPage`.
+2. **`ContextMenu.Items` + `CommandParameter`.** `ContextMenu` and `ContextMenuState` (the pattern from `TapState`). Apple: interaction, `GetConfigurationForMenu` with `BuildMenu` at opening, lift with `VisiblePath` on iOS 16+, the `Button` case through `UIButton.Menu`, and clearing the tap highlight. Android: long-click, context-click (API 23+) and accessibility label. Windows: `ContextFlyout` built in `Opening`.
+3. **Sample and wiki.** A page `Pages/ContextMenus` in `MauiSpineSampleApp`: a card with `Tap.Command` and a menu, a `CollectionView` with a shared row menu and parameter, the same menu on the header bar. After that a section in `docs/wiki/menus.md` (not a new page: it is the same model) and a line in `/spine-controls`. Verify on the iPhone simulator, the Pixel emulator and Mac Catalyst; Windows through CI.
+4. **`DataGrid.RowContextMenu`** (§7), with copying as a menu row. A step of its own because of the conflict with today's long press.
+5. **`ContextMenu.Preview` + `PreviewCommand`** (§6.4 step 2), when an app shows a concrete need. Orientera's competition row is the likely first.
+6. **The apps.** Orientera (Follow, Add to calendar, Share), Puckkoll (Watch, Open in the SHL app), Almanacka (Copy name, Share). The proof that one declaration is enough for header and row.
 
-- **Modellen.** `MenuItems` från #318 delas mellan header, menyknapp och kontextmeny. `PageAction` blir inte radmodellen (§1).
-- **`IsVisible`.** Läggs till på `MenuAction` och `SubMenu` i den delade modellen, och gäller då även menyknappar (§6.5).
-- **`DataGrid`.** När `RowContextMenu` är satt flyttar long-press-kopieringen in i menyn som en rad "Copy <kolumn>" (§7).
-- **Ytan.** En egen attached property `ContextMenu.Items` (alternativ A), inte MAUI:s `FlyoutBase.ContextFlyout`, ett tredjepartspaket eller delegater på listnivå.
-- **Förhandsvisning.** Vyn själv lyfts i v1 (iOS 16+, standardlyft på iOS 15). `ContextMenu.Preview` och `PreviewCommand` blir steg 2 när en app behöver dem.
-- **Andra plattformar.** Ingen egenritad förhandsvisning på Android, Windows eller Mac.
-- **Android.** `PopupMenu` ankrad till vyn. Om ankaret ska vara en 1×1-vy i tryckpunkten avgörs på enhet.
-- **Knapp med både `MenuButton.Items` och `ContextMenu.Items`.** Menyknappen vinner.
-- **`ContextMenu.Opening`.** Utelämnas tills en app behöver det.
-- **Dokumentation.** I `docs/wiki/menus.md`, ingen ny wikisida.
+Decisions that need the owner before step 2: that `PageAction` does not become the row model (§1); `IsVisible` in the shared model (§6.5); and whether `DataGrid`'s copying should move into the menu when there is a menu (§7).
 
 ---
 
-## 11. Referenser
+## Decisions (2026-09-30)
+
+Jonatan went through the study's questions on 2026-09-30 and followed the recommendations. Rows marked **Proposal** had no recommendation in the study; they carry a proposal with reasons, which holds until he says otherwise.
+
+- **The model.** `MenuItems` from #318 is shared between header, menu button and context menu. `PageAction` does not become the row model (§1).
+- **`IsVisible`.** Added to `MenuAction` and `SubMenu` in the shared model, and then applies to menu buttons too (§6.5).
+- **`DataGrid`.** When `RowContextMenu` is set, the long-press copy moves into the menu as a row `Copy <column>` (§7).
+- **The surface.** An attached property of its own, `ContextMenu.Items` (alternative A), not MAUI's `FlyoutBase.ContextFlyout`, a third-party package or delegates at list level.
+- **Preview.** The view itself is lifted in v1 (iOS 16+, default lift on iOS 15). `ContextMenu.Preview` and `PreviewCommand` become step 2 when an app needs them.
+- **Other platforms.** No self-drawn preview on Android, Windows or Mac.
+- **Android.** `PopupMenu` anchored to the view. Whether the anchor should be a 1×1 view at the touch point is decided on a device.
+- **Button with both `MenuButton.Items` and `ContextMenu.Items`.** The menu button wins.
+- **`ContextMenu.Opening`.** Left out until an app needs it.
+- **Documentation.** In `docs/wiki/menus.md`, no new wiki page.
+
+---
+
+## 11. References
 
 - Issue #306, *Native context menus on any view*: https://github.com/jonatansoderberg/Maui.Spine/issues/306
-- Issue #317, prioriterad backlog: https://github.com/jonatansoderberg/Maui.Spine/issues/317
-- Issue #318, menyknappar (implementerad): https://github.com/jonatansoderberg/Maui.Spine/issues/318, `issues/318-menu-buttons.md`, `docs/wiki/menus.md`
+- Issue #317, prioritized backlog: https://github.com/jonatansoderberg/Maui.Spine/issues/317
+- Issue #318, menu buttons (implemented): https://github.com/jonatansoderberg/Maui.Spine/issues/318, `issues/318-menu-buttons.md`, `docs/wiki/menus.md`
 - Apple, `UIContextMenuInteraction`: https://developer.apple.com/documentation/uikit/uicontextmenuinteraction
-- Apple, `UIContextMenuInteractionDelegate` (inklusive `configuration:highlightPreviewForItemWithIdentifier:`, iOS 16): https://developer.apple.com/documentation/uikit/uicontextmenuinteractiondelegate
+- Apple, `UIContextMenuInteractionDelegate` (including `configuration:highlightPreviewForItemWithIdentifier:`, iOS 16): https://developer.apple.com/documentation/uikit/uicontextmenuinteractiondelegate
 - Apple, `UIContextMenuConfiguration.init(identifier:previewProvider:actionProvider:)`: https://developer.apple.com/documentation/uikit/uicontextmenuconfiguration/init(identifier:previewprovider:actionprovider:)
 - Apple, `UIContextMenuInteraction.appearance` (`rich`/`compact`): https://developer.apple.com/documentation/uikit/uicontextmenuinteraction/appearance
 - Apple, `UIPreviewParameters.visiblePath`: https://developer.apple.com/documentation/uikit/uipreviewparameters/visiblepath
 - Apple, `UICollectionViewDelegate.collectionView(_:contextMenuConfigurationForItemsAt:point:)`: https://developer.apple.com/documentation/uikit/uicollectionviewdelegate/collectionview(_:contextmenuconfigurationforitemsat:point:)
-- Apple, `UIButton.menu` och `UIControl.showsMenuAsPrimaryAction`: https://developer.apple.com/documentation/uikit/uibutton/menu, https://developer.apple.com/documentation/uikit/uicontrol/showsmenuasprimaryaction
+- Apple, `UIButton.menu` and `UIControl.showsMenuAsPrimaryAction`: https://developer.apple.com/documentation/uikit/uibutton/menu, https://developer.apple.com/documentation/uikit/uicontrol/showsmenuasprimaryaction
 - Apple HIG, *Context menus*: https://developer.apple.com/design/human-interface-guidelines/context-menus
-- Android, *Add menus* (kontextmenyer utan ikoner, `PopupMenu`): https://developer.android.com/develop/ui/views/components/menus
-- MAUI-dokumentation, *Display a context menu* (källa i docs-maui): https://github.com/dotnet/docs-maui/blob/main/docs/user-interface/context-menu.md
-- MAUI-källor på `main`: `src/Core/src/Handlers/View/ViewHandler.iOS.cs`, `ViewHandler.Android.cs`, `ViewHandler.Windows.cs`, `src/Core/src/Platform/iOS/MauiUIContextMenuInteraction.cs` (https://github.com/dotnet/maui)
-- Microsoft, `UIElement.ContextFlyout`: https://learn.microsoft.com/en-us/uwp/api/windows.ui.xaml.uielement.contextflyout (via sökresultat; sidan kunde inte hämtas från containern)
+- Android, *Add menus* (context menus without icons, `PopupMenu`): https://developer.android.com/develop/ui/views/components/menus
+- MAUI documentation, *Display a context menu* (source in docs-maui): https://github.com/dotnet/docs-maui/blob/main/docs/user-interface/context-menu.md
+- MAUI sources on `main`: `src/Core/src/Handlers/View/ViewHandler.iOS.cs`, `ViewHandler.Android.cs`, `ViewHandler.Windows.cs`, `src/Core/src/Platform/iOS/MauiUIContextMenuInteraction.cs` (https://github.com/dotnet/maui)
+- Microsoft, `UIElement.ContextFlyout`: https://learn.microsoft.com/en-us/uwp/api/windows.ui.xaml.uielement.contextflyout (via search results; the page could not be fetched from the container)
 - The49.Maui.ContextMenu: https://github.com/the49code/The49.Maui.ContextMenu, NuGet `1.0.0-alpha1` (net7)
 - DSoft.Maui.ContextMenu: https://www.nuget.org/packages/DSoft.Maui.ContextMenu (1.1.2606.161, net10)
-- Bindningar kontrollerade i: `Microsoft.iOS.Ref.net10.0_26.2` 26.2.10217, `Microsoft.Android.Ref.36` 36.1.43, `Microsoft.Maui.Controls.Core` 10.0.50 (NuGet)
+- Bindings checked in: `Microsoft.iOS.Ref.net10.0_26.2` 26.2.10217, `Microsoft.Android.Ref.36` 36.1.43, `Microsoft.Maui.Controls.Core` 10.0.50 (NuGet)

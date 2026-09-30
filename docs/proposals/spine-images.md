@@ -1,136 +1,136 @@
-# Spine.Images — bildcache, förhämtning, nedskalning och blurhash (förstudie, rev 1)
+# Spine.Images — image cache, prefetching, downsampling and blurhash (study, rev 1)
 
-**Status:** Förstudie, med ägarens beslut från 2026-09-30 i avsnittet [Beslut](#beslut-2026-09-30). Inget implementerat. Issue: [#305](https://github.com/jonatansoderberg/Maui.Spine/issues/305), prioriterad som P2 i [#317](https://github.com/jonatansoderberg/Maui.Spine/issues/317). Studien är gjord i en Linux-container utan Mac och utan enhet: inget i den är byggt eller kört. Den bygger på källkod (Spine, MAUI `main`, Nuke 13.2.0, Glide 4.16.0), paketinnehåll från nuget.org och dokumentation.
-**Fråga:** #317 ställer två frågor. Hur ska Nuke bindas? Kan widget-extensionen dela bildcachen med appen? Bakom dem finns en tredje fråga: vad saknas egentligen i MAUI, plattform för plattform?
-**Svar:** Nuke ska inte bindas i v1, och cachen ska inte delas. Det som saknas på iOS är ett minnesdiskcache, avkodning i visningsstorlek och avkodning utanför huvudtråden. Allt det finns i Microsoft.iOS (`NSCache`, ImageIO:s `CGImageSource.CreateThumbnail`) och kan skrivas i C#. Samma C#-kärna (diskcache, sammanslagning av samtidiga hämtningar, förhämtning) behövs ändå på Windows, där MAUI inte cachar alls. Android har redan Glide via MAUI och behöver bara förhämtning och rensning. Widget-extensionen får en **kopia** av bilden, nedskalad och skriven till den assetbutik den redan läser (`IWidgetService.StoreAssetAsync`), och ingen delad cache. Om mätningar på enhet visar att C#-vägen inte räcker blir Nuke plan B. Den ska då byggas som en egen Swift-brygga med Nukes källor, kompilerade med `swiftc` vid appbygget på samma sätt som Widgets gör. Den ska aldrig byggas via `ImageCaching.Nuke`.
+**Status:** Study, with the owner's decisions from 2026-09-30 in the [Decisions](#decisions-2026-09-30) section. Nothing implemented. Issue: [#305](https://github.com/jonatansoderberg/Maui.Spine/issues/305), prioritized as P2 in [#317](https://github.com/jonatansoderberg/Maui.Spine/issues/317). The study was done in a Linux container with no Mac and no device: nothing in it has been built or run. It rests on source code (Spine, MAUI `main`, Nuke 13.2.0, Glide 4.16.0), package contents from nuget.org and documentation.
+**Question:** #317 asks two questions. How should Nuke be bound? Can the widget extension share the image cache with the app? Behind them lies a third question: what is actually missing in MAUI, platform by platform?
+**Answer:** Nuke should not be bound in v1, and the cache should not be shared. What iOS lacks is a memory cache, decoding at display size and decoding off the main thread. All of that exists in Microsoft.iOS (`NSCache`, ImageIO's `CGImageSource.CreateThumbnail`) and can be written in C#. The same C# core (disk cache, coalescing of concurrent downloads, prefetching) is needed on Windows anyway, where MAUI does not cache at all. Android already has Glide through MAUI and only needs prefetching and clearing. The widget extension gets a **copy** of the image, downsampled and written to the asset store it already reads (`IWidgetService.StoreAssetAsync`), and no shared cache. If measurements on a device show that the C# route is not enough, Nuke becomes plan B. It should then be built as a Swift bridge of our own with Nuke's sources, compiled with `swiftc` at app build time the same way Widgets does. It should never be built through `ImageCaching.Nuke`.
 
 ---
 
-## 1. Slutsatsen i korthet
+## 1. The conclusion in short
 
-| Fråga | Svar | Belägg |
+| Question | Answer | Evidence |
 |---|---|---|
-| Vad saknas i MAUI på iOS? | **Minnescache, nedskalning och cachegiltighet.** `UriImageSourceService` på iOS sparar hela filen i `Caches/com.microsoft.maui/MauiUriImages` och räknar den som cachad så länge filen finns: `CacheValidity` läses aldrig. Varje visning avkodar hela bilden med `CGImageSource.CreateImage(0)` i skala 1. | MAUI `main`: `UriImageSourceService.iOS.cs:46–66, 104–107`, `ImageSourceExtensions.cs:147–172` (iOS) |
-| På Android? | **Nästan inget.** MAUI laddar URI:er med Glide (4.16, `Xamarin.Android.Glide` 4.16.0.14) och får minnes- och diskcache (250 MB). Glide mäter dessutom `ImageView` och avkodar i vyns storlek. Det som saknas är förhämtning och rensning. | `PlatformInterop.java:308–355`, Glide `DiskCache.java:14`, `CustomViewTarget.java:438–460` |
-| På Windows? | **Allt.** MAUI:s `UriImageSource` skapar en ny `HttpClient` per laddning, och cachegrenen är bortkommenterad (`// TODO: CACHING`). Bilden avkodas i full storlek i en `BitmapImage`. | MAUI `main`: `Controls/src/Core/UriImageSource.cs:89–122`, `UriImageSourceService.Windows.cs` |
-| Ska Spine binda Nuke? | **Inte i v1.** C#-vägen med ImageIO och `NSCache` löser det issuen beskriver och kan delas med Windows. Nuke tillför progressiv avkodning, prioritering och ett moget LRU-diskcache. Det kostar ett Swift-bygge av 55 källfiler och en brygga med callbacks, och hjälper bara iOS. | §4 |
-| Om Nuke ändå behövs, hur? | **Egen `@objc`-brygga och Nuke 13.2.0 från källkod, kompilerade med `swiftc` vid appbygget** (samma mönster som `SpineWidgetBridge`). `ImageCaching.Nuke` 5.0.0 är ingen utväg: dess xcframework saknar Mac Catalyst-slice, och proxyns API saknar nedskalning och val av cachekatalog. Ett förbyggt xcframework går inte att bygga i CI, som kör på `windows-latest`. | §4, `unzip -l imagecaching.nuke.5.0.0.nupkg`, `.github/workflows/ci.yml:13` |
-| Kan widget-extensionen dela cachen? | **Nej. Den får en kopia.** Widgetrenderaren läser bara lagrade assets (`UIImage(contentsOfFile:)` under `spine-widgets/assets/`) och har inga URL-bilder. En bildcache är LRU-styrd och kan rensas av systemet, men en widgetbild får inte försvinna. Nuke avråder själv från två `DataCache`-instanser på samma katalog, och två processer ger just det. | `SpineWidgetRenderer.swift:43–45`, `WidgetPlatform.Apple.cs:138–144`, Nuke `DataCache.swift:34–35` |
-| Blurhash eller ThumbHash? | **Båda går att avkoda i ren C#** utan beroenden. Båda algoritmerna är korta, och MIT-licensierade portar finns (`Blurhash.Core` 4.2.1, `ThumbHash` 2.1.1). Vilken som ska vara primär är ägarens beslut (§3.4). | nuspec på nuget.org |
+| What is missing in MAUI on iOS? | **Memory cache, downsampling and cache validity.** `UriImageSourceService` on iOS saves the whole file in `Caches/com.microsoft.maui/MauiUriImages` and counts it as cached for as long as the file exists: `CacheValidity` is never read. Every display decodes the whole image with `CGImageSource.CreateImage(0)` at scale 1. | MAUI `main`: `UriImageSourceService.iOS.cs:46–66, 104–107`, `ImageSourceExtensions.cs:147–172` (iOS) |
+| On Android? | **Almost nothing.** MAUI loads URIs with Glide (4.16, `Xamarin.Android.Glide` 4.16.0.14) and gets a memory and disk cache (250 MB). Glide also measures the `ImageView` and decodes at the view's size. What is missing is prefetching and clearing. | `PlatformInterop.java:308–355`, Glide `DiskCache.java:14`, `CustomViewTarget.java:438–460` |
+| On Windows? | **Everything.** MAUI's `UriImageSource` creates a new `HttpClient` per load, and the cache branch is commented out (`// TODO: CACHING`). The image is decoded at full size in a `BitmapImage`. | MAUI `main`: `Controls/src/Core/UriImageSource.cs:89–122`, `UriImageSourceService.Windows.cs` |
+| Should Spine bind Nuke? | **Not in v1.** The C# route with ImageIO and `NSCache` solves what the issue describes and can be shared with Windows. Nuke adds progressive decoding, prioritization and a mature LRU disk cache. It costs a Swift build of 55 source files and a bridge with callbacks, and only helps iOS. | §4 |
+| If Nuke is needed after all, how? | **Our own `@objc` bridge and Nuke 13.2.0 from source, compiled with `swiftc` at app build time** (the same pattern as `SpineWidgetBridge`). `ImageCaching.Nuke` 5.0.0 is no way out: its xcframework has no Mac Catalyst slice, and the proxy's API has no downsampling and no choice of cache directory. A prebuilt xcframework cannot be built in CI, which runs on `windows-latest`. | §4, `unzip -l imagecaching.nuke.5.0.0.nupkg`, `.github/workflows/ci.yml:13` |
+| Can the widget extension share the cache? | **No. It gets a copy.** The widget renderer only reads stored assets (`UIImage(contentsOfFile:)` under `spine-widgets/assets/`) and has no URL images. An image cache is LRU-driven and can be cleared by the system, but a widget image must not disappear. Nuke itself advises against two `DataCache` instances on the same directory, and two processes give exactly that. | `SpineWidgetRenderer.swift:43–45`, `WidgetPlatform.Apple.cs:138–144`, Nuke `DataCache.swift:34–35` |
+| Blurhash or ThumbHash? | **Both can be decoded in pure C#** with no dependencies. Both algorithms are short, and MIT-licensed ports exist (`Blurhash.Core` 4.2.1, `ThumbHash` 2.1.1). Which one should be primary is the owner's decision (§3.4). | nuspec on nuget.org |
 
 ---
 
-## 2. Vad som redan finns
+## 2. What already exists
 
-### 2.1 MAUI:s bildladdning per plattform
+### 2.1 MAUI's image loading per platform
 
-Källan är `dotnet/maui` `main` (2026-09-28). Repot pinnar `Microsoft.Maui.Controls` 10.0.50 (`Directory.Packages.props:10`), men skillnaden mot 10.0.50 är inte kontrollerad fil för fil.
+The source is `dotnet/maui` `main` (2026-09-28). The repo pins `Microsoft.Maui.Controls` 10.0.50 (`Directory.Packages.props:10`), but the difference from 10.0.50 has not been checked file by file.
 
 | | iOS / Mac Catalyst | Android | Windows |
 |---|---|---|---|
-| Laddare | `UriImageSourceService.iOS.cs`, egen kod | `PlatformInterop.loadImageFromUri` → Glide | `UriImageSourceService.Windows.cs` → `BitmapImage.SetSourceAsync` |
-| Minnescache | Ingen | Glides (`LruResourceCache`) | Ingen |
-| Diskcache | Hela filen, CRC64 av URL:en som namn, ingen utgång (`IsImageCached` = `File.Exists`) | Glides, 250 MB i `image_manager_disk_cache` | Ingen |
-| `CachingEnabled=false` | Hoppar över filen | `DiskCacheStrategy.NONE` + `skipMemoryCache` | Ingen skillnad |
-| `CacheValidity` | Läses inte | Läses inte | Läses inte |
-| Nedskalning | Nej, full avkodning i skala 1 | Ja, till vyns storlek. Vid `wrap_content` används skärmens största mått. | Nej (men `DecodePixelWidth` finns, §3.3) |
-| Animerad GIF | Ja (`ImageAnimationHelper`) | Ja (Glide) | Ja (WinUI) |
-| Utbytbar | Ja: `ConfigureImageSources` + `AddService<UriImageSource, …>`. En konkret typ vinner över MAUI:s gränssnittsregistrering (`ImageSourceToImageSourceServiceTypeMapping.FindImageSourceServiceType`). | Samma, men Glides request byggs i Java och går inte att ändra utifrån | Samma |
+| Loader | `UriImageSourceService.iOS.cs`, own code | `PlatformInterop.loadImageFromUri` → Glide | `UriImageSourceService.Windows.cs` → `BitmapImage.SetSourceAsync` |
+| Memory cache | None | Glide's (`LruResourceCache`) | None |
+| Disk cache | The whole file, CRC64 of the URL as its name, no expiry (`IsImageCached` = `File.Exists`) | Glide's, 250 MB in `image_manager_disk_cache` | None |
+| `CachingEnabled=false` | Skips the file | `DiskCacheStrategy.NONE` + `skipMemoryCache` | No difference |
+| `CacheValidity` | Not read | Not read | Not read |
+| Downsampling | No, full decoding at scale 1 | Yes, to the view's size. With `wrap_content` the screen's largest dimension is used. | No (but `DecodePixelWidth` exists, §3.3) |
+| Animated GIF | Yes (`ImageAnimationHelper`) | Yes (Glide) | Yes (WinUI) |
+| Replaceable | Yes: `ConfigureImageSources` + `AddService<UriImageSource, …>`. A concrete type wins over MAUI's interface registration (`ImageSourceToImageSourceServiceTypeMapping.FindImageSourceServiceType`). | The same, but Glide's request is built in Java and cannot be changed from outside | The same |
 
-Glide-konfigurationen går inte att nå så som issuen antar. MAUI äger appens enda `AppGlideModule` (`MauiGlideModule`), och den sätter bara loggnivå i `applyOptions`. En `LibraryGlideModule` från Spine kan registrera komponenter men inte ändra `GlideBuilder` (diskcachens storlek, minnesstorlek). Den enda vägen dit är `Glide.init(Context, GlideBuilder)` före första laddningen. Metoden är publik men märkt `@VisibleForTesting` i 4.16.0, så den ska inte användas i v1.
+The Glide configuration cannot be reached the way the issue assumes. MAUI owns the app's only `AppGlideModule` (`MauiGlideModule`), and it only sets the log level in `applyOptions`. A `LibraryGlideModule` from Spine can register components but cannot change the `GlideBuilder` (disk cache size, memory size). The only way there is `Glide.init(Context, GlideBuilder)` before the first load. The method is public but marked `@VisibleForTesting` in 4.16.0, so it should not be used in v1.
 
-### 2.2 I Spine
+### 2.2 In Spine
 
-| Del | Var | Vad det betyder för bilder |
+| Part | Where | What it means for images |
 |---|---|---|
-| Egen `IImageSourceService` | `Svg/MauiAppBuilderExtensions.cs:46–47`, `SvgBitmapImageSourceService.Apple.cs:12,31`, `SvgBitmapImageSourceService.Android.cs:13,33` | Mönstret finns och fungerar redan: en tjänst per plattform, registrerad med `ConfigureImageSources`, som avkodar med rätt skala. En tjänst för `UriImageSource` är samma form. |
-| Attached properties + mappning | `SvgImageSource.cs:20` (statisk klass, `CreateAttached` från rad 26), `Extensions/Material.cs:97`, `Extensions/GlassExtensions.cs:53` | `ImageOptions.BlurHash` / `.Downsample` / `.FadeIn` följer samma form som `Material.Kind` och `Glass.Style`. |
-| Rendering i vyns storlek | `SvgImageSourceBehavior` (lyssnar på `SizeChanged`) | Samma sätt att få målstorleken för nedskalning. |
-| Widgetbilder | `IWidgetService.StoreAssetAsync` (`IWidgetService.cs:25`), `StorePackageAssetAsync` (`:35`), `WidgetAsset.Rolling` (`WidgetAsset.cs:15`), `W.Image(assetId)` (`W.cs:54`) | Widgets visar bara bitmappar som appen lagrat under ett asset-id. iOS skriver dem till App Group-katalogen `spine-widgets/assets/` (`WidgetPlatform.Apple.cs:49,138–144`). Android skriver till `FilesDir/spine-widgets/assets` (`WidgetStore.cs:22`). |
-| Widgetrenderaren | `SpineWidgetRenderer.swift:30–46` (`Store.image(asset:)`), `:434–445` (fjärrkälla) | Extensionen läser assets synkront från filen. `RemoteSource` (`WidgetTimeline.cs:151`) hämtar bara JSON-dokumentet. En backend kan inte peka ut en ny bild, bara ett asset-id som appen redan skrivit. |
-| Swift i paket | `spine-widgets-build.sh:312` (`swiftc -emit-library -module-name SpineWidgetBridge`), `Plugin.Maui.Spine.Widgets.targets:128` (`NativeReference`), `WidgetPlatform.Apple.cs:22,230` (`objc_msgSend`, ingen bindning) | Så här skulle en Nuke-brygga byggas (§4). Issuen skriver "xcframework in `native/`", men Widgets och Push skickar Swift-**källor** som kompileras vid appbygget. De skickar inga förbyggda binärer. |
-| Push-bilder | `SpinePushNotificationService.swift:35` (`URLSession.downloadTask`) | Notification Service Extension laddar ner sin bild själv. Den bör inte heller dela cache. Det är samma resonemang som för widgets. |
-| Egen nedladdning | `HeroCollectionView.AdaptiveOverlay.cs:217–220` (`new HttpClient()` för `UriImageSource`) | Laddar bilden en gång till för färganalysen. Den ska gå via `IImageCache` när den finns (§5). |
-| Skelett | `Plugin.Maui.Spine.Controls.Shimmer` (`Skeleton.cs`, `SkeletonDrawable.cs`) | Det grå alternativet till blurhash. De konkurrerar inte: skelettet gäller sidan medan data laddas, blurhash gäller en bild vars URL redan är känd. |
-| Servern | `Plugin.Maui.Spine.Server` (`net10.0`, bara push: `Azure.Data.Tables`, `FirebaseAdmin`) | Har ingen bildavkodare. En blurhash-hjälpare där skulle dra in SkiaSharp eller ImageSharp (§3.4). |
-| Minimiversioner | `Directory.Build.props:22–25`: iOS/Catalyst 15.0, Android 21, Windows 10.0.17763 | Nuke 13.2.0 kräver iOS 15 och passar. Nukes `main` kräver iOS 16. |
+| A custom `IImageSourceService` | `Svg/MauiAppBuilderExtensions.cs:46–47`, `SvgBitmapImageSourceService.Apple.cs:12,31`, `SvgBitmapImageSourceService.Android.cs:13,33` | The pattern exists and already works: one service per platform, registered with `ConfigureImageSources`, that decodes at the right scale. A service for `UriImageSource` has the same shape. |
+| Attached properties + mapping | `SvgImageSource.cs:20` (static class, `CreateAttached` from line 26), `Extensions/Material.cs:97`, `Extensions/GlassExtensions.cs:53` | `ImageOptions.BlurHash` / `.Downsample` / `.FadeIn` follow the same shape as `Material.Kind` and `Glass.Style`. |
+| Rendering at the view's size | `SvgImageSourceBehavior` (listens to `SizeChanged`) | The same way to get the target size for downsampling. |
+| Widget images | `IWidgetService.StoreAssetAsync` (`IWidgetService.cs:25`), `StorePackageAssetAsync` (`:35`), `WidgetAsset.Rolling` (`WidgetAsset.cs:15`), `W.Image(assetId)` (`W.cs:54`) | Widgets only show bitmaps that the app has stored under an asset id. iOS writes them to the App Group directory `spine-widgets/assets/` (`WidgetPlatform.Apple.cs:49,138–144`). Android writes to `FilesDir/spine-widgets/assets` (`WidgetStore.cs:22`). |
+| The widget renderer | `SpineWidgetRenderer.swift:30–46` (`Store.image(asset:)`), `:434–445` (remote source) | The extension reads assets synchronously from the file. `RemoteSource` (`WidgetTimeline.cs:151`) only fetches the JSON document. A backend cannot point to a new image, only to an asset id that the app has already written. |
+| Swift in packages | `spine-widgets-build.sh:312` (`swiftc -emit-library -module-name SpineWidgetBridge`), `Plugin.Maui.Spine.Widgets.targets:128` (`NativeReference`), `WidgetPlatform.Apple.cs:22,230` (`objc_msgSend`, no binding) | This is how a Nuke bridge would be built (§4). The issue says "xcframework in `native/`", but Widgets and Push ship Swift **sources** that are compiled at app build time. They ship no prebuilt binaries. |
+| Push images | `SpinePushNotificationService.swift:35` (`URLSession.downloadTask`) | The Notification Service Extension downloads its image itself. It should not share a cache either. The reasoning is the same as for widgets. |
+| Its own download | `HeroCollectionView.AdaptiveOverlay.cs:217–220` (`new HttpClient()` for `UriImageSource`) | Loads the image a second time for the color analysis. It should go through `IImageCache` once that exists (§5). |
+| Skeleton | `Plugin.Maui.Spine.Controls.Shimmer` (`Skeleton.cs`, `SkeletonDrawable.cs`) | The gray alternative to blurhash. They do not compete: the skeleton is for the page while data loads, blurhash is for an image whose URL is already known. |
+| The server | `Plugin.Maui.Spine.Server` (`net10.0`, push only: `Azure.Data.Tables`, `FirebaseAdmin`) | Has no image decoder. A blurhash helper there would pull in SkiaSharp or ImageSharp (§3.4). |
+| Minimum versions | `Directory.Build.props:22–25`: iOS/Catalyst 15.0, Android 21, Windows 10.0.17763 | Nuke 13.2.0 requires iOS 15 and fits. Nuke's `main` requires iOS 16. |
 
 ---
 
-## 3. Plattformarnas byggstenar
+## 3. The platforms' building blocks
 
-### 3.1 iOS och Mac Catalyst
+### 3.1 iOS and Mac Catalyst
 
-**I Microsoft.iOS, utan Swift:**
-- `CGImageSource.CreateThumbnail(0, new CGImageThumbnailOptions { MaxPixelSize = …, CreateThumbnailFromImageAlways = true, ShouldCacheImmediately = true })` avkodar direkt till målstorleken utan att hela bitmappen passerar minnet. `ShouldCacheImmediately` tvingar fram avkodningen på den tråd som anropar, så den kan läggas utanför huvudtråden. Det här är ImageIO:s väg. Nuke använder samma väg för `ImageRequest.thumbnail`.
-- `NSCache` med `TotalCostLimit` och kostnad = bytes i bitmappen. Cachen tömmer sig själv vid minnesvarning, och bitmapparna hålls på den nativa sidan, så .NET:s GC behöver inte se dem.
-- `NSUrlSession` eller `HttpClient` (som i .NET for iOS går genom `NSUrlSessionHandler`) för hämtningen, och filer under `FileSystem.CacheDirectory`.
+**In Microsoft.iOS, without Swift:**
+- `CGImageSource.CreateThumbnail(0, new CGImageThumbnailOptions { MaxPixelSize = …, CreateThumbnailFromImageAlways = true, ShouldCacheImmediately = true })` decodes straight to the target size without the whole bitmap passing through memory. `ShouldCacheImmediately` forces the decoding onto the calling thread, so it can be moved off the main thread. This is ImageIO's route. Nuke uses the same route for `ImageRequest.thumbnail`.
+- `NSCache` with `TotalCostLimit` and cost = bytes in the bitmap. The cache empties itself on a memory warning, and the bitmaps are held on the native side, so .NET's GC does not need to see them.
+- `NSUrlSession` or `HttpClient` (which in .NET for iOS goes through `NSUrlSessionHandler`) for the download, and files under `FileSystem.CacheDirectory`.
 
-**Nuke 13.2.0** (MIT, senaste release, iOS 15, `swift-tools-version:6.0`, 55 Swift-filer i `Sources/Nuke`):
-`ImagePipeline` med minnescache (`ImageCache`), LRU-diskcache (`DataCache`, 150 MB som standard, `init(path:)` för valfri katalog), `ImagePrefetcher`, `ImageProcessors.Resize`, `ImageRequest.ThumbnailOptions`, `isProgressiveDecodingEnabled`, sammanslagning av likadana requests och prioritering. Övergångar och platshållare för `UIImageView` finns i målet `NukeExtensions`.
+**Nuke 13.2.0** (MIT, latest release, iOS 15, `swift-tools-version:6.0`, 55 Swift files in `Sources/Nuke`):
+`ImagePipeline` with a memory cache (`ImageCache`), an LRU disk cache (`DataCache`, 150 MB by default, `init(path:)` for any directory), `ImagePrefetcher`, `ImageProcessors.Resize`, `ImageRequest.ThumbnailOptions`, `isProgressiveDecodingEnabled`, coalescing of identical requests and prioritization. Transitions and placeholders for `UIImageView` are in the `NukeExtensions` target.
 
-**Befintliga .NET-paket:**
+**Existing .NET packages:**
 
-| Paket | Senaste | Mål | Vad det är |
+| Package | Latest | Targets | What it is |
 |---|---|---|---|
-| `ImageCaching.Nuke` | 5.0.0 (2025-11-13) | `net9.0-ios18.0`, `net9.0-maccatalyst18.0`, `net10.0-ios26.0`, `net10.0-maccatalyst26.0` | NukeProxy: ett förbyggt `NukeProxy.xcframework` med Nuke inbyggt, bundet med en tunn `@objc`-yta. Paketet saknar licensuttryck. |
-| `Sharpnado.Maui.Nuke` | 12.8.3 (2025-11-22) | Bara `net9.0-*` (MAUI 9.0.82) | Ersätter MAUI:s bildtjänster på iOS med ovanstående. MIT. |
+| `ImageCaching.Nuke` | 5.0.0 (2025-11-13) | `net9.0-ios18.0`, `net9.0-maccatalyst18.0`, `net10.0-ios26.0`, `net10.0-maccatalyst26.0` | NukeProxy: a prebuilt `NukeProxy.xcframework` with Nuke built in, bound with a thin `@objc` surface. The package has no license expression. |
+| `Sharpnado.Maui.Nuke` | 12.8.3 (2025-11-22) | Only `net9.0-*` (MAUI 9.0.82) | Replaces MAUI's image services on iOS with the above. MIT. |
 
-Två saker i `ImageCaching.Nuke` 5.0.0 avgör frågan. De är kontrollerade genom att packa upp paketet:
-1. **Ingen Mac Catalyst-slice.** Både `lib/net10.0-maccatalyst26.0/…resources.zip` och `net9.0-maccatalyst18.0` innehåller bara `ios-arm64` och `ios-arm64_x86_64-simulator`. Det borde ge länkfel på Catalyst. Det är inte provat.
-2. **Proxyns API** (`NukeProxy.swiftinterface`): `ImagePipeline.setupWithDataCache()`, `loadImage(url:onCompleted:)`, `loadImage(url:placeholder:errorImage:into:)`, `isCached`, `removeAllCaches`, `Prefetcher(destination:maxConcurrentRequestCount:)`. Det finns ingen storlek, ingen processor, ingen thumbnail och ingen väg att välja cachekatalog. Nedskalning och en egen katalog går alltså inte att få via paketet.
+Two things in `ImageCaching.Nuke` 5.0.0 settle the question. They were checked by unpacking the package:
+1. **No Mac Catalyst slice.** Both `lib/net10.0-maccatalyst26.0/…resources.zip` and `net9.0-maccatalyst18.0` contain only `ios-arm64` and `ios-arm64_x86_64-simulator`. That should give link errors on Catalyst. It has not been tried.
+2. **The proxy's API** (`NukeProxy.swiftinterface`): `ImagePipeline.setupWithDataCache()`, `loadImage(url:onCompleted:)`, `loadImage(url:placeholder:errorImage:into:)`, `isCached`, `removeAllCaches`, `Prefetcher(destination:maxConcurrentRequestCount:)`. There is no size, no processor, no thumbnail and no way to choose the cache directory. So downsampling and a directory of our own cannot be had through the package.
 
 ### 3.2 Android
 
-Glide 4.16 finns i varje MAUI-app, och C#-bindningen `Bumptech.Glide` kommer transitivt via `Xamarin.Android.Glide`:
-- Förhämtning: `Glide.With(context).Load(uri).Preload()`. Den laddar i originalstorlek till minne och disk. `DiskCacheStrategy.AUTOMATIC` sparar fjärrdata som original (DATA), så en senare laddning i vyns storlek träffar diskcachen. Det är inte provat om cachenyckeln blir densamma när MAUI laddar med `android.net.Uri` och Spine förhämtar med en sträng. Det ska verifieras.
-- Rensning: `Glide.Get(context).ClearMemory()` på huvudtråden och `ClearDiskCache()` på en bakgrundstråd.
-- Platshållare och tona in: MAUI:s request byggs i Java utan `placeholder`/`transition`. `MauiCustomViewTarget` överskuggar inte `onResourceLoading`, så en drawable som satts på `ImageView` före laddningen bör ligga kvar tills `onResourceReady` ersätter den. Det är läst ur källan och inte kört.
+Glide 4.16 is in every MAUI app, and the C# binding `Bumptech.Glide` comes transitively through `Xamarin.Android.Glide`:
+- Prefetching: `Glide.With(context).Load(uri).Preload()`. It loads at original size into memory and onto disk. `DiskCacheStrategy.AUTOMATIC` saves remote data as the original (DATA), so a later load at the view's size hits the disk cache. It has not been tried whether the cache key comes out the same when MAUI loads with an `android.net.Uri` and Spine prefetches with a string. That must be verified.
+- Clearing: `Glide.Get(context).ClearMemory()` on the main thread and `ClearDiskCache()` on a background thread.
+- Placeholder and fade-in: MAUI's request is built in Java without `placeholder`/`transition`. `MauiCustomViewTarget` does not override `onResourceLoading`, so a drawable set on the `ImageView` before the load should stay in place until `onResourceReady` replaces it. This is read from the source and has not been run.
 
-Coil är inte aktuellt. Det vore en andra bildladdare bredvid MAUI:s Glide.
+Coil is not an option. It would be a second image loader next to MAUI's Glide.
 
 ### 3.3 Windows
 
-`BitmapImage.DecodePixelWidth`/`DecodePixelHeight` (med `DecodePixelType.Logical`) avkodar i målstorlek. Issuen säger "no native downsampling", men det stämmer inte. Cache, sammanslagning och förhämtning måste skrivas i C#, och det är samma kod som iOS-vägen i §4 D. Det är inte kontrollerat om en `BitmapImage` kan delas mellan flera `Image`-element, vilket en minnescache skulle behöva.
+`BitmapImage.DecodePixelWidth`/`DecodePixelHeight` (with `DecodePixelType.Logical`) decodes at the target size. The issue says "no native downsampling", but that is not correct. Cache, request coalescing and prefetching have to be written in C#, and it is the same code as the iOS route in §4 D. It has not been checked whether a `BitmapImage` can be shared between several `Image` elements, which a memory cache would need.
 
-### 3.4 Blurhash och ThumbHash
+### 3.4 Blurhash and ThumbHash
 
 | | BlurHash | ThumbHash |
 |---|---|---|
-| Form | Base83-sträng, 20–30 tecken | Bytes (~25), i praktiken base64 |
-| Enligt upphovet | Konfigurerbart antal komponenter (4×3 vanligt) | "Encodes more detail in the same space", sidförhållande, alfa, inga parametrar |
-| Spridning | Stor: bland annat Unsplash och Mastodon levererar färdiga hashar | Mindre |
-| .NET | `Blurhash.Core` 4.2.1 (MIT, netstandard2.0, `Blurhasher.Encode/Decode` på `Pixel[,]`). `Blurhash.SkiaSharp` 2.0.0 drar in SkiaSharp **2.88**, medan Spine kör 3.119. | `ThumbHash` 2.1.1 (MIT, net6.0/netstandard2.0, `ThumbHash.FromImage`, `ToImage()` → RGBA) |
+| Form | Base83 string, 20–30 characters | Bytes (~25), in practice base64 |
+| According to its author | Configurable number of components (4×3 is common) | "Encodes more detail in the same space", aspect ratio, alpha, no parameters |
+| Adoption | Wide: Unsplash and Mastodon, among others, deliver ready-made hashes | Smaller |
+| .NET | `Blurhash.Core` 4.2.1 (MIT, netstandard2.0, `Blurhasher.Encode/Decode` on `Pixel[,]`). `Blurhash.SkiaSharp` 2.0.0 pulls in SkiaSharp **2.88**, while Spine runs 3.119. | `ThumbHash` 2.1.1 (MIT, net6.0/netstandard2.0, `ThumbHash.FromImage`, `ToImage()` → RGBA) |
 
-Rekommendationen är egen avkodning i paketet: en fil per algoritm, RGBA till en 32×32-bitmapp som skalas upp mjukt av plattformen. Algoritmerna är korta, och ett beroende för hundra rader är inte värt det. Det ska inte gå via PNG, för en platshållare ska synas i samma layoutpass (jfr `SvgBitmapImageSourceService.Android.cs`, som avkodar synkront av just det skälet, #345). Avkodningen bör ta under en millisekund. Det är inte mätt.
+The recommendation is our own decoding in the package: one file per algorithm, RGBA to a 32×32 bitmap that the platform scales up smoothly. The algorithms are short, and a dependency for a hundred lines is not worth it. It should not go through PNG, because a placeholder has to show in the same layout pass (cf. `SvgBitmapImageSourceService.Android.cs`, which decodes synchronously for exactly that reason, #345). The decoding should take less than a millisecond. That has not been measured.
 
-Kodningen hör inte hemma i appen. Servern behöver en bildavkodare för att kunna räkna fram hashen. Förslag: en `BlurHash.Encode(ReadOnlySpan<byte> rgba, int width, int height)` i `Plugin.Maui.Spine.Common` (`net10.0`, inga beroenden). Servern avkodar uppladdningen med det bibliotek den redan har och anropar den. Serverpaketet får då inget bildbibliotek.
+The encoding does not belong in the app. The server needs an image decoder to be able to compute the hash. Proposal: a `BlurHash.Encode(ReadOnlySpan<byte> rgba, int width, int height)` in `Plugin.Maui.Spine.Common` (`net10.0`, no dependencies). The server decodes the upload with the library it already has and calls it. The server package then gets no image library.
 
 ---
 
-## 4. Alternativen för iOS
+## 4. The alternatives for iOS
 
-| | A. `ImageCaching.Nuke` / Sharpnado | B. Egen brygga + Nuke från källkod | C. Egen brygga + förbyggt xcframework | D. C#-kärna + ImageIO + `NSCache` |
+| | A. `ImageCaching.Nuke` / Sharpnado | B. Our own bridge + Nuke from source | C. Our own bridge + prebuilt xcframework | D. C# core + ImageIO + `NSCache` |
 |---|---|---|---|---|
-| Minnes- och diskcache | Ja | Ja | Ja | Ja (egen LRU för disk) |
-| Nedskalning | **Nej** (inte i proxyn) | Ja (`thumbnail`) | Ja | Ja (`CreateThumbnail`) |
-| Progressiv JPEG | Nej i proxyn | Ja | Ja | Nej |
-| Mac Catalyst | **Ingen slice** | Ja, `spine-widgets-build.sh` bygger redan `-macabi` | Kräver egen slice | Ja |
-| Bygge | NuGet | `swiftc` av ~55 filer + brygga per RID vid appbygget. Tiden är inte mätt, men widgetbygget tar ~10 s för 5 filer. | Kräver Mac för att producera paketet. CI kör `windows-latest` (`ci.yml:13`, `release.yml:18`). | Inget |
-| Brygga till C# | Färdig | `@objc` + `objc_msgSend`, men laddning är asynkron och kräver block-callbacks (`BlockLiteral`). Det är inte prövat i repot. | Samma | Ingen |
-| Windows | Hjälper inte | Hjälper inte | Hjälper inte | **Samma kärna** (disk, sammanslagning, förhämtning). Bara avkodningen skiljer. |
-| Binärstorlek | NukeProxy ios-arm64: 717 kB | Liknande | Liknande | ~0 |
-| Underhåll | Två externa underhållare, fyra TFM:er efter | Nukes uppgraderingar som källkod | Samma + binärer i git | Eget |
+| Memory and disk cache | Yes | Yes | Yes | Yes (own LRU for disk) |
+| Downsampling | **No** (not in the proxy) | Yes (`thumbnail`) | Yes | Yes (`CreateThumbnail`) |
+| Progressive JPEG | No in the proxy | Yes | Yes | No |
+| Mac Catalyst | **No slice** | Yes, `spine-widgets-build.sh` already builds `-macabi` | Requires a slice of its own | Yes |
+| Build | NuGet | `swiftc` of ~55 files + bridge per RID at app build time. The time has not been measured, but the widget build takes ~10 s for 5 files. | Requires a Mac to produce the package. CI runs `windows-latest` (`ci.yml:13`, `release.yml:18`). | None |
+| Bridge to C# | Ready-made | `@objc` + `objc_msgSend`, but loading is asynchronous and requires block callbacks (`BlockLiteral`). That has not been tried in the repo. | The same | None |
+| Windows | Does not help | Does not help | Does not help | **The same core** (disk, request coalescing, prefetching). Only the decoding differs. |
+| Binary size | NukeProxy ios-arm64: 717 kB | Similar | Similar | ~0 |
+| Maintenance | Two external maintainers, four TFMs behind | Nuke's upgrades as source code | The same + binaries in git | Our own |
 
-**Rekommendation: D i v1.** Issuen klagar på tre saker: ingen minnescache, ingen nedskalning och ingen förhämtning. Alla tre löses med API:er som redan är bundna, och en del av koden (disk, sammanslagning, förhämtning) delas med Windows. Nukes verkliga fördelar är progressiv avkodning, prioritering och ett väl beprövat LRU-diskcache. Ingen av apparnas användningar behöver dem: klubbmärken, lagloggor och temabakgrunder är små eller få.
+**Recommendation: D in v1.** The issue complains about three things: no memory cache, no downsampling and no prefetching. All three are solved with APIs that are already bound, and part of the code (disk, request coalescing, prefetching) is shared with Windows. Nuke's real advantages are progressive decoding, prioritization and a well-proven LRU disk cache. None of the apps' uses need them: club badges, team logos and theme backgrounds are small or few.
 
-**B är plan B.** Den gäller om D på enhet inte ger jämn scrollning i en lista med ~200 bilder, jämfört med Sharpnado.Maui.Nuke i samma lista (§9 steg 1). I så fall vendoras Nuke 13.2.0 i `native/ios/Nuke/` med sin licens, byggs med bryggan till `SpineImages.framework` i samma skript och mönster som `SpineWidgetBridge`, och C# anropar en `@objc`-klass med URL, målstorlek i pixlar och en callback. A utesluts på grund av Catalyst och det saknade storleks-API:et. C utesluts på grund av CI.
+**B is plan B.** It applies if D on a device does not give smooth scrolling in a list of ~200 images, compared with Sharpnado.Maui.Nuke in the same list (§9 step 1). In that case Nuke 13.2.0 is vendored in `native/ios/Nuke/` with its license, built together with the bridge into `SpineImages.framework` with the same script and pattern as `SpineWidgetBridge`, and C# calls an `@objc` class with a URL, a target size in pixels and a callback. A is ruled out because of Catalyst and the missing size API. C is ruled out because of CI.
 
 ---
 
-## 5. Föreslagen API-yta
+## 5. Proposed API surface
 
-Paketet heter `Plugin.Maui.Spine.Images` och registrerar sig som en `SpineModule` (jfr `Plugin.Maui.Spine.Widgets.props:4`), så att `UseSpine()` tar med det.
+The package is called `Plugin.Maui.Spine.Images` and registers itself as a `SpineModule` (cf. `Plugin.Maui.Spine.Widgets.props:4`), so that `UseSpine()` picks it up.
 
 ```csharp
 namespace Plugin.Maui.Spine.Images;
@@ -192,9 +192,9 @@ public static class ImageOptions
        WidthRequest="40" HeightRequest="40" />
 ```
 
-**Varför ett gränssnitt och inte en statisk `ImageCache`.** Spines tjänster är injicerade (`IWidgetService`, `IPushService`, `ILocalNotificationService`). Issuens statiska skiss bryter mot det utan att vinna något.
+**Why an interface and not a static `ImageCache`.** Spine's services are injected (`IWidgetService`, `IPushService`, `ILocalNotificationService`). The issue's static sketch breaks with that without gaining anything.
 
-**Varför ingen `Widgets`-referens.** Widgetfallet blir fyra rader i appen, och paketen förblir oberoende av varandra:
+**Why no `Widgets` reference.** The widget case is four lines in the app, and the packages stay independent of each other:
 
 ```csharp
 foreach (var team in teams)
@@ -205,94 +205,94 @@ foreach (var team in teams)
 await _widgets.RefreshAsync<GamesWidget>();
 ```
 
-**Två lager, två mekanismer:**
-1. *Tjänsten.* `AddService<UriImageSource, SpineUriImageSourceService>` på iOS och Windows ger minnes- och diskcache och avkodning utanför huvudtråden för **alla** fjärrbilder, utan ändrad markup. En animerad bild (`ImageCount > 1`) lämnas till MAUI:s egen `UriImageSourceService`, som är publik, så att GIF fortsätter fungera.
-2. *Alternativen.* `ImageOptions.*` kräver att vyns storlek är känd, men `IImageSourceService.GetImageAsync` får ingen storlek. Därför blir det en `ModifyMapping` på `ImageHandler`s `Source`. När något alternativ är satt läggs platshållaren i den nativa vyn direkt. Sedan körs MAUI:s mappning, och målstorleken tas från `WidthRequest`/`HeightRequest` eller första `SizeChanged`, som i `SvgImageSourceBehavior`. En bild utan känd storlek skalas till högst skärmbredden gånger densiteten. På Android betyder `Downsample` inget, eftersom Glide redan skalar ner.
+**Two layers, two mechanisms:**
+1. *The service.* `AddService<UriImageSource, SpineUriImageSourceService>` on iOS and Windows gives a memory and disk cache and decoding off the main thread for **all** remote images, with no change to the markup. An animated image (`ImageCount > 1`) is handed to MAUI's own `UriImageSourceService`, which is public, so that GIF keeps working.
+2. *The options.* `ImageOptions.*` requires the view's size to be known, but `IImageSourceService.GetImageAsync` is given no size. So it becomes a `ModifyMapping` on `ImageHandler`'s `Source`. When any option is set, the placeholder is put in the native view right away. Then MAUI's mapping runs, and the target size is taken from `WidthRequest`/`HeightRequest` or the first `SizeChanged`, as in `SvgImageSourceBehavior`. An image with no known size is scaled to at most the screen width times the density. On Android `Downsample` means nothing, since Glide already scales down.
 
-`HeroCollectionView`s egen `HttpClient`-nedladdning (`AdaptiveOverlay.cs:217`) byts mot `IImageCache` när paketet finns. Det kan göras med en valfri tjänst, så att kontrollpaketet inte beror på Images.
+`HeroCollectionView`'s own `HttpClient` download (`AdaptiveOverlay.cs:217`) is replaced with `IImageCache` when the package is present. That can be done with an optional service, so that the controls package does not depend on Images.
 
 ---
 
-## 6. Widget-extensionen och cachen
+## 6. The widget extension and the cache
 
-| Väg | Utfall |
+| Route | Outcome |
 |---|---|
-| Nukes eller Spines diskcache i App Group-katalogen, läst av båda processerna | **Nej.** Två cacheinstanser på samma katalog sveper och skriver oberoende av varandra. Nuke: "It's possible to have more than one instance of `DataCache` with the same path but it is not recommended." En LRU-svep kan dessutom ta bort en bild som en widget visar. |
-| Extensionen länkar samma cachebibliotek | **Nej.** Det ger större appex och mer minne i en process med snäv minnesgräns. `IWidgetService` säger själv "the renderer runs under a tight memory limit". Apple anger ingen siffra. |
-| **Kopia till assetbutiken** (`LoadPngAsync` → `StoreAssetAsync`) | **Ja.** Det använder vägen som redan finns och redan fungerar för Live Activities (Puckkolls lagloggor). Bilden skrivs i den storlek widgeten visar och ligger utanför `Library/Caches`, så den rensas inte. `WidgetAsset.Rolling` håller butiken begränsad för daterade bilder. Android fungerar likadant (`WidgetStore.AssetsDirectory`). |
-| Fjärrdokument som pekar på bild-URL:er (`RemoteSource` utan appen) | **Senare, eget steg.** Det kräver att `SpineWidgetRenderer.swift` laddar ner bilder medan tidslinjen byggs (den hämtar redan JSON där, `:442`) till en egen katalog, till exempel `spine-widgets/remote/`, med en enkel städning mot dokumentets aktuella URL:er. Det är widgetkod och inte bildcachekod. Det görs när en app behöver det. |
+| Nuke's or Spine's disk cache in the App Group directory, read by both processes | **No.** Two cache instances on the same directory sweep and write independently of each other. Nuke: "It's possible to have more than one instance of `DataCache` with the same path but it is not recommended." An LRU sweep can also remove an image that a widget is showing. |
+| The extension links the same cache library | **No.** That gives a larger appex and more memory in a process with a tight memory limit. `IWidgetService` itself says "the renderer runs under a tight memory limit". Apple gives no figure. |
+| **Copy to the asset store** (`LoadPngAsync` → `StoreAssetAsync`) | **Yes.** It uses the route that already exists and already works for Live Activities (Puckkoll's team logos). The image is written at the size the widget shows and lives outside `Library/Caches`, so it is not cleared. `WidgetAsset.Rolling` keeps the store bounded for dated images. Android works the same way (`WidgetStore.AssetsDirectory`). |
+| Remote documents that point to image URLs (`RemoteSource` without the app) | **Later, a step of its own.** It requires `SpineWidgetRenderer.swift` to download images while the timeline is being built (it already fetches JSON there, `:442`) into a directory of its own, for example `spine-widgets/remote/`, with a simple cleanup against the document's current URLs. That is widget code and not image cache code. It is done when an app needs it. |
 
-Enligt Apple skapar iOS bara `Library/Caches` automatiskt i gruppkatalogen. Det är inte dokumenterat om systemet tömmer just den vid lagringsbrist. Det spelar ingen roll här, eftersom assets ligger i `spine-widgets/`.
+According to Apple, iOS only creates `Library/Caches` automatically in the group directory. It is not documented whether the system empties that particular one when storage runs low. It does not matter here, since assets live in `spine-widgets/`.
 
 ---
 
-## 7. Plattformar
+## 7. Platforms
 
-| Plattform | Cache | Nedskalning | Förhämtning | Platshållare / tona in |
+| Platform | Cache | Downsampling | Prefetching | Placeholder / fade-in |
 |---|---|---|---|---|
-| iOS 15+ | Egen: `NSCache` + LRU-filer | ImageIO `CreateThumbnail` | `IImageCache`, egen kö | I `Source`-mappningen, `UIImageView` |
-| Mac Catalyst 15+ | Samma kod | Samma | Samma | Samma. Inte verifierad. |
-| Android 21+ | Glide via MAUI (oförändrad) | Glide, redan i dag | `Glide.Load(uri).Preload()` | Drawable före MAUI:s laddning. Tona in behöver en egen övergång (§8). |
-| Windows | Egen: minne + LRU-filer (samma kärna som iOS) | `DecodePixelWidth` | Samma kö som iOS | `Source`-mappningen, WinUI `Image` |
+| iOS 15+ | Own: `NSCache` + LRU files | ImageIO `CreateThumbnail` | `IImageCache`, own queue | In the `Source` mapping, `UIImageView` |
+| Mac Catalyst 15+ | The same code | The same | The same | The same. Not verified. |
+| Android 21+ | Glide through MAUI (unchanged) | Glide, already today | `Glide.Load(uri).Preload()` | Drawable before MAUI's load. Fade-in needs a transition of its own (§8). |
+| Windows | Own: memory + LRU files (the same core as iOS) | `DecodePixelWidth` | The same queue as iOS | The `Source` mapping, WinUI `Image` |
 
-Issuen kallar Windows för "Partial", men det stämmer inte längre. Windows får samma yta som iOS.
-
----
-
-## 8. Vad som inte går, och vad som inte är verifierat
-
-1. **Ingenting är kört.** Studien är gjord utan Mac, simulator eller enhet. Påståendena om MAUI, Glide och Nuke kommer från källkoden och påståendena om paketen från deras innehåll. Ingen kod är provad.
-2. **D mot Nuke är inte mätt.** Rekommendationen vilar på vad issuen säger saknas, inte på en profil. Steg 1 i leveransplanen är just en mätning, och B står kvar som ett fullt beskrivet alternativ.
-3. **`ImageCaching.Nuke` på Catalyst.** Att slicen saknas är kontrollerat i paketet. Att det ger länkfel är en slutsats, inte ett körresultat.
-4. **Platshållare och tona in i `Source`-mappningen.** Det är okänt om MAUI:s `ImageSourcePartLoader` nollar den nativa bilden när en ny laddning börjar. Då skulle platshållaren försvinna direkt. Tona in kräver att man kommer åt ögonblicket då bilden sätts, och det äger MAUI. Båda kräver en spike per plattform. Om de inte håller skjuts `FadeIn` till v2.
-5. **Glides cachenyckel** för `Uri` jämfört med sträng (§3.2) är inte verifierad. Förhämtningen ska laddas med exakt den modelltyp MAUI använder.
-6. **Glides diskcachestorlek** går inte att ändra utan `@VisibleForTesting`-API:t. `DiskCacheSize` gäller därför inte Android, och det ska stå i dokumentationen.
-7. **`BitmapImage` delad mellan element** på Windows är inte kontrollerat. Om det inte går blir minnescachen på Windows en cache av bytes och inte av avkodade bilder.
-8. **GC och nativt minne.** `NSCache` håller `UIImage` på den nativa sidan, men varje `UIImage` som en vy visar har också en .NET-referens. Om den skapar tryck på GC:n eller läcker vid snabb scrollning syns först i Instruments.
-9. **Mätningen av en bild utan känd storlek.** En `Image` som får sin storlek av bilden kan inte skalas ner till vyn. Taket i skärmstorlek är en gissning om vad som är rimligt.
+The issue calls Windows "Partial", but that is no longer correct. Windows gets the same surface as iOS.
 
 ---
 
-## 9. Leveransplan
+## 8. What cannot be done, and what is not verified
 
-1. **Spike och mätning (iOS, enhet).** En lista med ~200 fjärrbilder i `MauiSpineSampleApp`: MAUI som den är, Sharpnado.Maui.Nuke (MAUI 9-paketet provas mot 10) och en minimal D-tjänst. Mät scrollning, minnestopp och tid till första bild. Här avgörs D eller B.
-2. **Kärnan och iOS/Windows-tjänsten.** `IImageCache`, disk-LRU, sammanslagning, förhämtningskö, `SpineUriImageSourceService` för iOS, Catalyst och Windows med GIF-reserv, `SpineImagesOptions`, `UnsupportedImageCache` där inget finns.
-3. **Android.** `IImageCache` ovanpå Glide: förhämtning, `Contains` (om Glide tillåter det utan att ladda), rensning och `LoadPngAsync`.
-4. **`ImageOptions`.** BlurHash- och ThumbHash-avkodare med tester mot referensvektorerna från upphovsrepona, `Downsample`, platshållaren. `FadeIn` bara om spiken i §8 punkt 4 håller.
-5. **Widgets.** Mönstret i §5 i `docs/wiki/widgets.md` och i samplet: `LoadPngAsync` → `StoreAssetAsync`. Ingen kod i Widgets.
-6. **`BlurHash.Encode` i Common** och ett exempel i `MauiSpinePushNotificationsSampleApp.Server` som räknar fram hashen vid uppladdning.
-7. **Wiki** `docs/wiki/images.md`, med gränserna i §8 punkt 5–6 och §6.
-8. **Senare, vid behov:** bild-URL:er i fjärrdokument för widgets (§6 sista raden) och Nuke-vägen B om steg 1 kräver den.
-
-**Beslut som ägaren behöver fatta:** D eller B efter steg 1. BlurHash, ThumbHash eller båda i v1. Om `Downsample` ska vara på som standard på iOS, vilket vore i linje med vad Android redan gör. Om `HeroCollectionView` ska känna till `IImageCache`.
-
----
-
-## Beslut (2026-09-30)
-
-Jonatan gick igenom studiens frågor 2026-09-30 och följde rekommendationerna. Rader märkta **Förslag** saknade rekommendation i studien; där står ett förslag med skäl, som gäller tills han säger annat.
-
-- **iOS-vägen.** C#-kärna med ImageIO och `NSCache` (D) i v1. Nuke-bryggan (B) bara om mätningen i steg 1 visar att D inte scrollar mjukt med cirka 200 bilder.
-- **Platshållare** — **Förslag.** BlurHash i v1, ThumbHash senare bakom samma `ImageOptions`-yta. BlurHash är det som bildtjänster och servrar redan levererar (§3.4), och en avkodare med testvektorer räcker för första versionen. ThumbHash läggs till när en app har egna bilder med alfa eller vill ha sidförhållandet ur hashen.
-- **`Downsample` på iOS** — **Förslag.** På som standard. Android skalar redan ned till vyns storlek, så samma standard ger samma minnesbild på båda plattformarna, och att avkoda i visningsstorlek är Apples egen rekommendation för listor med bilder. Den som vill ha full upplösning slår av det per bild.
-- **`HeroCollectionView`.** Får känna till `IImageCache` genom en valfri tjänst, så att kontrollpaketet inte beror på Images.
-- **Widget-extensionen.** Får en kopia via `LoadPngAsync` → `StoreAssetAsync`, ingen delad cache (§6).
-- **`IImageCache`.** Injiceras. Ingen statisk `ImageCache` som i issuens skiss.
-- **`BlurHash.Encode`.** Ligger i `Plugin.Maui.Spine.Common`, så att Server-paketet slipper ett bildbibliotek.
-- **`FadeIn`.** Bara om platshållarspiken håller (§8 punkt 4), annars v2.
-- **Bild-URL:er i fjärrdokument för widgets.** Eget, senare steg när en app behöver det.
+1. **Nothing has been run.** The study was done without a Mac, simulator or device. The claims about MAUI, Glide and Nuke come from the source code and the claims about the packages from their contents. No code has been tried.
+2. **D against Nuke has not been measured.** The recommendation rests on what the issue says is missing, not on a profile. Step 1 in the delivery plan is exactly such a measurement, and B remains as a fully described alternative.
+3. **`ImageCaching.Nuke` on Catalyst.** That the slice is missing has been checked in the package. That it gives link errors is a conclusion, not a run result.
+4. **Placeholder and fade-in in the `Source` mapping.** It is unknown whether MAUI's `ImageSourcePartLoader` clears the native image when a new load begins. The placeholder would then disappear at once. Fade-in requires getting at the moment the image is set, and MAUI owns that. Both need a spike per platform. If they do not hold, `FadeIn` is pushed to v2.
+5. **Glide's cache key** for a `Uri` compared with a string (§3.2) is not verified. The prefetch must be loaded with exactly the model type MAUI uses.
+6. **Glide's disk cache size** cannot be changed without the `@VisibleForTesting` API. `DiskCacheSize` therefore does not apply to Android, and the documentation must say so.
+7. **`BitmapImage` shared between elements** on Windows has not been checked. If it cannot be done, the memory cache on Windows becomes a cache of bytes and not of decoded images.
+8. **GC and native memory.** `NSCache` holds `UIImage` on the native side, but every `UIImage` that a view shows also has a .NET reference. Whether that puts pressure on the GC or leaks during fast scrolling will only show in Instruments.
+9. **Measuring an image with no known size.** An `Image` that gets its size from the image cannot be scaled down to the view. The screen-size cap is a guess at what is reasonable.
 
 ---
 
-## 10. Referenser
+## 9. Delivery plan
 
-- Nuke (MIT, 13.2.0): https://github.com/kean/Nuke — `Package.swift` vid taggen `13.2.0`, `Sources/Nuke/Caching/DataCache.swift`, `Sources/Nuke/ImageRequest.swift` (`ThumbnailOptions`), `Sources/Nuke/Pipeline/ImagePipeline+Configuration.swift`
-- NuGet, `ImageCaching.Nuke` 5.0.0: https://www.nuget.org/packages/ImageCaching.Nuke — källa https://github.com/roubachof/NukeProxy
-- NuGet, `Sharpnado.Maui.Nuke` 12.8.3: https://www.nuget.org/packages/Sharpnado.Maui.Nuke — källa https://github.com/roubachof/Maui.Nuke
+1. **Spike and measurement (iOS, device).** A list of ~200 remote images in `MauiSpineSampleApp`: MAUI as it is, Sharpnado.Maui.Nuke (the MAUI 9 package tried against 10) and a minimal D service. Measure scrolling, peak memory and time to first image. This is where D or B is decided.
+2. **The core and the iOS/Windows service.** `IImageCache`, disk LRU, request coalescing, prefetch queue, `SpineUriImageSourceService` for iOS, Catalyst and Windows with a GIF fallback, `SpineImagesOptions`, `UnsupportedImageCache` where nothing exists.
+3. **Android.** `IImageCache` on top of Glide: prefetching, `Contains` (if Glide allows it without loading), clearing and `LoadPngAsync`.
+4. **`ImageOptions`.** BlurHash and ThumbHash decoders with tests against the reference vectors from the original repos, `Downsample`, the placeholder. `FadeIn` only if the spike in §8 item 4 holds.
+5. **Widgets.** The pattern in §5 in `docs/wiki/widgets.md` and in the sample: `LoadPngAsync` → `StoreAssetAsync`. No code in Widgets.
+6. **`BlurHash.Encode` in Common** and an example in `MauiSpinePushNotificationsSampleApp.Server` that computes the hash on upload.
+7. **Wiki** `docs/wiki/images.md`, with the limits in §8 items 5–6 and §6.
+8. **Later, if needed:** image URLs in remote documents for widgets (§6 last row) and the Nuke route B if step 1 requires it.
+
+**Decisions the owner needs to make:** D or B after step 1. BlurHash, ThumbHash or both in v1. Whether `Downsample` should be on by default on iOS, which would be in line with what Android already does. Whether `HeroCollectionView` should know about `IImageCache`.
+
+---
+
+## Decisions (2026-09-30)
+
+Jonatan went through the study's questions on 2026-09-30 and followed the recommendations. Rows marked **Proposal** had no recommendation in the study; they carry a proposal with reasons, which applies until he says otherwise.
+
+- **The iOS route.** C# core with ImageIO and `NSCache` (D) in v1. The Nuke bridge (B) only if the measurement in step 1 shows that D does not scroll smoothly with about 200 images.
+- **Placeholder** — **Proposal.** BlurHash in v1, ThumbHash later behind the same `ImageOptions` surface. BlurHash is what image services and servers already deliver (§3.4), and one decoder with test vectors is enough for the first version. ThumbHash is added when an app has images of its own with alpha or wants the aspect ratio from the hash.
+- **`Downsample` on iOS** — **Proposal.** On by default. Android already scales down to the view's size, so the same default gives the same memory footprint on both platforms, and decoding at display size is Apple's own recommendation for lists of images. Anyone who wants full resolution turns it off per image.
+- **`HeroCollectionView`.** May know about `IImageCache` through an optional service, so that the controls package does not depend on Images.
+- **The widget extension.** Gets a copy through `LoadPngAsync` → `StoreAssetAsync`, no shared cache (§6).
+- **`IImageCache`.** Injected. No static `ImageCache` as in the issue's sketch.
+- **`BlurHash.Encode`.** Lives in `Plugin.Maui.Spine.Common`, so that the Server package is spared an image library.
+- **`FadeIn`.** Only if the placeholder spike holds (§8 item 4), otherwise v2.
+- **Image URLs in remote documents for widgets.** A later step of its own, when an app needs it.
+
+---
+
+## 10. References
+
+- Nuke (MIT, 13.2.0): https://github.com/kean/Nuke — `Package.swift` at the tag `13.2.0`, `Sources/Nuke/Caching/DataCache.swift`, `Sources/Nuke/ImageRequest.swift` (`ThumbnailOptions`), `Sources/Nuke/Pipeline/ImagePipeline+Configuration.swift`
+- NuGet, `ImageCaching.Nuke` 5.0.0: https://www.nuget.org/packages/ImageCaching.Nuke — source https://github.com/roubachof/NukeProxy
+- NuGet, `Sharpnado.Maui.Nuke` 12.8.3: https://www.nuget.org/packages/Sharpnado.Maui.Nuke — source https://github.com/roubachof/Maui.Nuke
 - dotnet/maui `main`: `src/Core/src/ImageSources/UriImageSourceService/UriImageSourceService.{iOS,Android,Windows}.cs`, `src/Core/src/ImageSources/iOS/ImageSourceExtensions.cs`, `src/Controls/src/Core/UriImageSource.cs`, `src/Core/src/Hosting/ImageSources/ImageSourceToImageSourceServiceTypeMapping.cs`, `src/Core/AndroidNative/maui/src/main/java/com/microsoft/maui/PlatformInterop.java`, `…/glide/MauiGlideModule.java`, `…/glide/MauiCustomViewTarget.java` — https://github.com/dotnet/maui
-- NuGet, `Microsoft.Maui.Core` 10.0.50 (beroende `Xamarin.Android.Glide` 4.16.0.14): https://www.nuget.org/packages/Microsoft.Maui.Core/10.0.50
+- NuGet, `Microsoft.Maui.Core` 10.0.50 (dependency `Xamarin.Android.Glide` 4.16.0.14): https://www.nuget.org/packages/Microsoft.Maui.Core/10.0.50
 - Glide 4.16.0: `Glide.java` (`init(Context, GlideBuilder)`, `@VisibleForTesting`), `DiskCache.java`, `RequestBuilder.java` (`preload`, `submit`), `CustomViewTarget.java` — https://github.com/bumptech/glide/tree/v4.16.0/library/src/main/java/com/bumptech/glide
 - Apple, `containerURL(forSecurityApplicationGroupIdentifier:)`: https://developer.apple.com/documentation/foundation/filemanager/containerurl(forsecurityapplicationgroupidentifier:)
-- Microsoft, `BitmapImage.DecodePixelWidth`: https://learn.microsoft.com/en-us/uwp/api/windows.ui.xaml.media.imaging.bitmapimage.decodepixelwidth (UWP-sidan. WinUI-motsvarigheten i `Microsoft.UI.Xaml.Media.Imaging` är inte öppnad härifrån.)
+- Microsoft, `BitmapImage.DecodePixelWidth`: https://learn.microsoft.com/en-us/uwp/api/windows.ui.xaml.media.imaging.bitmapimage.decodepixelwidth (the UWP page. The WinUI counterpart in `Microsoft.UI.Xaml.Media.Imaging` was not opened from here.)
 - BlurHash (Wolt): https://github.com/woltapp/blurhash — .NET: https://github.com/MarkusPalcer/blurhash.net, https://www.nuget.org/packages/Blurhash.Core, https://www.nuget.org/packages/Blurhash.SkiaSharp
 - ThumbHash (Evan Wallace): https://github.com/evanw/thumbhash — .NET: https://github.com/jzebedee/ThumbHash, https://www.nuget.org/packages/ThumbHash
