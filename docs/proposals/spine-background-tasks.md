@@ -1,138 +1,138 @@
-# Bakgrundsuppgifter i Spine (förstudie, rev 1)
+# Background tasks in Spine (study, rev 1)
 
-**Status:** Förstudie, med ägarens beslut från 2026-09-30 i avsnittet [Beslut](#beslut-2026-09-30). Inget implementerat. Issue: [#308](https://github.com/jonatansoderberg/Maui.Spine/issues/308), prioriterad i [#317](https://github.com/jonatansoderberg/Maui.Spine/issues/317) som P2 med frågorna *registreringstidpunkten på iOS* och *Windows*.
-**Fråga:** Kan Spine erbjuda attributupptäckta bakgrundsuppgifter (`[BackgroundTask]` + `IBackgroundTask`) över BGTaskScheduler och Androids schemaläggare, så att widgetar och Live Activities hålls färska utan att appen är i förgrunden — och hur löser man att iOS kräver registrering innan appen har startat klart?
-**Svar:** Ja, som ett eget paket `Plugin.Maui.Spine.BackgroundTasks`, med attributet upptäckt vid körning precis som `[Widget]`. Men **inte med en iOS-identifierare per uppgift**: iOS tillåter en enda väntande refresh-begäran per app och kräver att varje identifierare i `Info.plist` har en handler registrerad innan `didFinishLaunching` returnerar. Spine registrerar därför två fasta identifierare (`<ApplicationId>.spine.refresh` och `.spine.processing`) i MAUI:s `FinishedLaunching`-händelse och väljer själv, i C#, vilka uppgifter som står på tur. Då behövs ingen byggtidsupptäckt, registreringstidpunkten blir Spines ansvar i stället för appens, och Widgets befintliga bakgrundskörning flyttar in som en uppgift bland andra. Android: `JobScheduler` direkt, inte WorkManager. Windows och Mac Catalyst får inget OS-schema i v1. Där körs uppgifterna bara medan appen kör, och det ska stå i klartext.
+**Status:** Study, with the owner's decisions from 2026-09-30 in the [Decisions](#decisions-2026-09-30) section. Nothing implemented. Issue: [#308](https://github.com/jonatansoderberg/Maui.Spine/issues/308), prioritized in [#317](https://github.com/jonatansoderberg/Maui.Spine/issues/317) as P2 with the questions *the time of registration on iOS* and *Windows*.
+**Question:** Can Spine offer attribute-discovered background tasks (`[BackgroundTask]` + `IBackgroundTask`) on top of BGTaskScheduler and Android's schedulers, so that widgets and Live Activities stay fresh without the app being in the foreground — and how do we deal with iOS requiring registration before the app has finished launching?
+**Answer:** Yes, as a separate package `Plugin.Maui.Spine.BackgroundTasks`, with the attribute discovered at run time just like `[Widget]`. But **not with one iOS identifier per task**: iOS allows a single pending refresh request per app and requires every identifier in `Info.plist` to have a handler registered before `didFinishLaunching` returns. Spine therefore registers two fixed identifiers (`<ApplicationId>.spine.refresh` and `.spine.processing`) in MAUI's `FinishedLaunching` event and decides itself, in C#, which tasks are next in line. That way no build-time discovery is needed, the time of registration becomes Spine's responsibility instead of the app's, and Widgets' existing background run moves in as one task among others. Android: `JobScheduler` directly, not WorkManager. Windows and Mac Catalyst get no OS schedule in v1. There the tasks run only while the app is running, and that must be stated plainly.
 
 ---
 
-## 1. Slutsatsen i korthet
+## 1. The conclusion in short
 
-| Fråga | Svar | Belägg |
+| Question | Answer | Evidence |
 |---|---|---|
-| Hinner Spine registrera i tid på iOS? | **Ja.** MAUI bygger `MauiApp` i `willFinishLaunching` och anropar lifecycle-händelsen `FinishedLaunching` *inuti* `didFinishLaunching`, före `return true`. Widgets registrerar redan sin `BGAppRefreshTask` där. | `MauiUIApplicationDelegate.cs` (dotnet/maui), `SpineWidgetsExtensions.Apple.cs:31-33` |
-| En identifierare per `[BackgroundTask]`? | **Nej.** Apple: *"There can be a total of 1 refresh task and 10 processing tasks scheduled at any time."* Två paket med var sin refresh-identifierare tränger undan varandra. Spine multiplexar uppgifterna över en refresh- och en processing-identifierare. | `submit(_:)`-dokumentationen, §4 |
-| Behövs byggtidsupptäckt (source generator, `<SpineBackgroundTask>`-items)? | **Nej**, just därför att identifierarna är fasta. Byggsteget skriver två strängar och en bakgrundsmod; allt annat är reflektion vid start, som för sidor och widgetar. | §5.3 |
-| Eget paket eller i kärnan? | **Eget paket**, kontrakten i `Plugin.Maui.Spine.Common` så att Push och Widgets kan anropa dem utan hårt beroende (samma mönster som `IWidgetService`). Widgets tar ett beroende på paketet och lämnar ifrån sig sin BGTask-kod. | §5.1 |
-| WorkManager på Android? | **Nej, `JobScheduler`.** Det finns i Mono.Android, ger periodiskt ≥ 15 min, nätverks- och laddvillkor, överlever omstart och har expedierade jobb från API 31. WorkManager-bindningen drar med sig Room, Kotlin-korutiner och Lifecycle 2.11 — exakt de paket Push redan fått tvinga ihop versionerna på — och #171 valde bort WorkManager av samma skäl. **Ägarens beslut**, se §11. | nuspec för `Xamarin.AndroidX.Work.Runtime` 2.11.2.1, `Directory.Packages.props`, `issues/171-…md` |
-| Windows? | **En timer i processen** medan appen kör, plus ikappkörning vid start. `BackgroundTaskBuilder` i Windows App SDK kräver MSIX, och Spines appar kör `WindowsPackageType=None`. | Microsofts dokumentation (§3.4), `samples/*/…csproj` |
-| Mac Catalyst? | **Samma som Windows.** API:et finns, men Apple DTS (nov 2025): *"the BackgroundTask framework will not launch your app on macOS"*. | Apple Developer Forums 807388 |
-| Håller det widgetar färska? | **Bättre än i dag, aldrig exakt.** iOS väljer själv när en refresh körs; realtid kräver push (#287-vägen). Det uppgiften löser är att data hämtas och trädet byggs om *utan* att appen öppnas. | §8, `docs/wiki/widgets.md` |
+| Does Spine register in time on iOS? | **Yes.** MAUI builds `MauiApp` in `willFinishLaunching` and raises the lifecycle event `FinishedLaunching` *inside* `didFinishLaunching`, before `return true`. Widgets already registers its `BGAppRefreshTask` there. | `MauiUIApplicationDelegate.cs` (dotnet/maui), `SpineWidgetsExtensions.Apple.cs:31-33` |
+| One identifier per `[BackgroundTask]`? | **No.** Apple: *"There can be a total of 1 refresh task and 10 processing tasks scheduled at any time."* Two packages with a refresh identifier each push each other out. Spine multiplexes the tasks over one refresh identifier and one processing identifier. | The `submit(_:)` documentation, §4 |
+| Is build-time discovery needed (source generator, `<SpineBackgroundTask>` items)? | **No**, precisely because the identifiers are fixed. The build step writes two strings and a background mode; everything else is reflection at startup, as for pages and widgets. | §5.3 |
+| A separate package or in the core? | **A separate package**, with the contracts in `Plugin.Maui.Spine.Common` so that Push and Widgets can call them without a hard dependency (the same pattern as `IWidgetService`). Widgets takes a dependency on the package and hands over its BGTask code. | §5.1 |
+| WorkManager on Android? | **No, `JobScheduler`.** It is part of Mono.Android, gives periodic runs at ≥ 15 min, network and charging constraints, survives a reboot and has expedited jobs from API 31. The WorkManager binding pulls in Room, Kotlin coroutines and Lifecycle 2.11 — exactly the packages whose versions Push has already had to force together — and #171 turned WorkManager down for the same reason. **The owner's decision**, see §11. | The nuspec for `Xamarin.AndroidX.Work.Runtime` 2.11.2.1, `Directory.Packages.props`, `issues/171-…md` |
+| Windows? | **An in-process timer** while the app is running, plus a catch-up run at startup. `BackgroundTaskBuilder` in the Windows App SDK requires MSIX, and Spine's apps run with `WindowsPackageType=None`. | Microsoft's documentation (§3.4), `samples/*/…csproj` |
+| Mac Catalyst? | **Same as Windows.** The API exists, but Apple DTS (Nov 2025): *"the BackgroundTask framework will not launch your app on macOS"*. | Apple Developer Forums 807388 |
+| Does it keep widgets fresh? | **Better than today, never exactly.** iOS decides itself when a refresh runs; real time requires push (the #287 route). What the task solves is that data is fetched and the tree rebuilt *without* the app being opened. | §8, `docs/wiki/widgets.md` |
 
 ---
 
-## 2. Vad som redan finns i Spine
+## 2. What Spine already has
 
-Spine har redan en bakgrundskörning, men bara för widgetar och bara en:
+Spine already has a background run, but only for widgets and only one:
 
-| Del | Var | Vad det betyder här |
+| Part | Where | What it means here |
 |---|---|---|
-| `IBackgroundRefreshHandler` + `UseBackgroundRefresh<T>()` | `Common/Core/IBackgroundRefreshHandler.cs:15`, `SpineWidgetsOptions.cs:31,48` | Förlagan till `IBackgroundTask`: en metod, en token, upplöst via DI vid varje körning. Blir en adapter (§8). |
-| Registrering på iOS | `SpineWidgetsExtensions.Apple.cs:21-25` läser identifieraren ur `Info.plist`, `:31-33` registrerar i `FinishedLaunching`, `:137-160` sätter `ExpirationHandler` och bokar nästa körning *innan* arbetet börjar | Rätt ordning och rätt tidpunkt, och det är just den koden som flyttar. |
-| Bokning på iOS | `:45-49` (`DidEnterBackground`), `:162-167` (`BGAppRefreshTaskRequest` med `EarliestBeginDate`) | Samma mönster, men med tidigaste förfallotid över alla uppgifter. |
-| Byggsteget, iOS | `spine-widgets-build.sh:264-265` skriver `UIBackgroundModes: fetch` och `<ApplicationId>.spine-widgets.refresh` i `HostManifest.plist`, som blir `PartialAppManifest` (`Plugin.Maui.Spine.Widgets.targets:129`) | Upptar appens enda refresh-plats. Två refresh-identifierare kan inte samexistera (§4). |
-| Android | `SpineBackgroundReceiver.cs:50-64`: inexakt alarm (`SetAndAllowWhileIdle`), bokat vid `OnStop` (`SpineWidgetsExtensions.Android.cs:39`) och efter varje körning | Fungerar, men se de två fynden nedan. |
-| Attributupptäckt | `WidgetRegistry.cs:13-32` och `RegisterNavigables` (`MauiAppBuilderExtensions.cs:195`) skannar `SpineOptions.Assemblies` med reflektion | `BackgroundTaskRegistry` blir en tredje likadan skanning. |
-| Modulregistrering | `build/<Paket>.props` med `<SpineModule>` → `SpineModules.g.cs` med `[ModuleInitializer]` → `UseSpine()` kör modulerna sist (`MauiAppBuilderExtensions.cs:157`, issue #355) | Paketet registrerar sig självt, och därmed sina lifecycle-hookar, i tid. |
-| Tidiga hookar i Push | `FinishedLaunching` (`SpinePushNotificationsExtensions.Apple.cs:22`), `OnApplicationCreate` (`…Android.cs:17`), `SpinePushNotifications.Install()` före `UIApplication.Main` (`SpinePushNotifications.Apple.cs:53`) | Visar hur tidigt Spine redan når: Install behövs för delegatmetoder UIKit läser vid tilldelning. BGTaskScheduler behöver inte gå så tidigt. |
-| Push som väcker arbete | `HandleInternallyAsync` bygger om widgetar för `PushKind.Widget` (`SpinePushNotificationsExtensions.cs:164-178`); FCM ger 20 s (`SpinePushNotificationsMessagingService.cs:43`) | Naturlig ingång för `spine.task` (§8). |
-| Bakgrundsstart genom widgetknapp | #218: iOS startar appens process i bakgrunden för `SpineWidgetIntent`. Kallstarten tog ~4 s i simulatorn | Samma kallstart betalas av varje BGTask som startar en död app. Och en bakgrundsstart är precis det läge där sen registrering kraschar (§4). |
-| Delat plist-/entitlements-steg | `Plugin.Maui.Spine.Common.targets:1-24`: `<SpineEntitlement>`-items, ett mål skriver filen | Mönstret som behövs för `UIBackgroundModes` också. |
+| `IBackgroundRefreshHandler` + `UseBackgroundRefresh<T>()` | `Common/Core/IBackgroundRefreshHandler.cs:15`, `SpineWidgetsOptions.cs:31,48` | The model for `IBackgroundTask`: one method, one token, resolved through DI on every run. Becomes an adapter (§8). |
+| Registration on iOS | `SpineWidgetsExtensions.Apple.cs:21-25` reads the identifier from `Info.plist`, `:31-33` registers in `FinishedLaunching`, `:137-160` sets `ExpirationHandler` and schedules the next run *before* the work starts | The right order and the right time, and that is exactly the code that moves. |
+| Scheduling on iOS | `:45-49` (`DidEnterBackground`), `:162-167` (`BGAppRefreshTaskRequest` with `EarliestBeginDate`) | The same pattern, but with the earliest due time across all tasks. |
+| The build step, iOS | `spine-widgets-build.sh:264-265` writes `UIBackgroundModes: fetch` and `<ApplicationId>.spine-widgets.refresh` to `HostManifest.plist`, which becomes a `PartialAppManifest` (`Plugin.Maui.Spine.Widgets.targets:129`) | Occupies the app's only refresh slot. Two refresh identifiers cannot coexist (§4). |
+| Android | `SpineBackgroundReceiver.cs:50-64`: an inexact alarm (`SetAndAllowWhileIdle`), scheduled at `OnStop` (`SpineWidgetsExtensions.Android.cs:39`) and after every run | Works, but see the two findings below. |
+| Attribute discovery | `WidgetRegistry.cs:13-32` and `RegisterNavigables` (`MauiAppBuilderExtensions.cs:195`) scan `SpineOptions.Assemblies` with reflection | `BackgroundTaskRegistry` becomes a third scan of the same kind. |
+| Module registration | `build/<Package>.props` with `<SpineModule>` → `SpineModules.g.cs` with `[ModuleInitializer]` → `UseSpine()` runs the modules last (`MauiAppBuilderExtensions.cs:157`, issue #355) | The package registers itself, and with it its lifecycle hooks, in time. |
+| Early hooks in Push | `FinishedLaunching` (`SpinePushNotificationsExtensions.Apple.cs:22`), `OnApplicationCreate` (`…Android.cs:17`), `SpinePushNotifications.Install()` before `UIApplication.Main` (`SpinePushNotifications.Apple.cs:53`) | Shows how early Spine already reaches: Install is needed for delegate methods UIKit reads at assignment. BGTaskScheduler does not need to go that early. |
+| Push that wakes work | `HandleInternallyAsync` rebuilds widgets for `PushKind.Widget` (`SpinePushNotificationsExtensions.cs:164-178`); FCM gives 20 s (`SpinePushNotificationsMessagingService.cs:43`) | A natural entry point for `spine.task` (§8). |
+| Background launch through a widget button | #218: iOS launches the app's process in the background for `SpineWidgetIntent`. The cold start took ~4 s in the simulator | The same cold start is paid by every BGTask that launches a dead app. And a background launch is exactly the situation where late registration crashes (§4). |
+| Shared plist/entitlements step | `Plugin.Maui.Spine.Common.targets:1-24`: `<SpineEntitlement>` items, one target writes the file | The pattern that is needed for `UIBackgroundModes` as well. |
 
-**Två fynd i befintlig kod** som en implementation måste ta hand om. Båda är belägg ur källkoden, inte verifierade i ett bygge eller på enhet:
+**Two findings in the existing code** that an implementation has to deal with. Both are evidence from the source code, not verified in a build or on a device:
 
-1. **`UIBackgroundModes` skrivs av två `PartialAppManifest` och den ena vinner.** Push skriver `remote-notification` (`Plugin.Maui.Spine.PushNotifications.targets:76-77`), Widgets skriver `fetch`. SDK:ns `MergePartialPlistDictionary` (dotnet/macios, `CompileAppManifest.cs`) slår bara ihop *dictionaries*. En array ersätts. En app med båda paketen, som push-samplet, får alltså bara den ena moden. Den som förlorar `remote-notification` får inga tysta pushar i bakgrunden, och den som förlorar `fetch` får aldrig sin `BGAppRefreshTask`. Kontroll: `plutil -p` på det byggda push-samplets `Info.plist`. Åtgärd: `<SpineBackgroundMode>`-items i `Common.targets`, ett mål skriver en plist, som `<SpineEntitlement>`.
-2. **Android-körningen saknar tidsgräns och överlever inte omstart.** `SpineBackgroundReceiver` kör handlern med `CancellationToken.None` bakom `goAsync()` (`:36-42`), men Android förväntar sig att en broadcast avslutas *"very quickly (under 10 seconds)"*. Alarmet bokas bara vid `OnStop`, och alarm nollställs vid omstart (som redan konstaterats i `spine-local-notifications.md` §6). Efter en omstart står bakgrundskörningen alltså still tills appen öppnas.
+1. **`UIBackgroundModes` is written by two `PartialAppManifest` files and one of them wins.** Push writes `remote-notification` (`Plugin.Maui.Spine.PushNotifications.targets:76-77`), Widgets writes `fetch`. The SDK's `MergePartialPlistDictionary` (dotnet/macios, `CompileAppManifest.cs`) only merges *dictionaries*. An array is replaced. An app with both packages, such as the push sample, therefore gets only one of the modes. The one that loses `remote-notification` gets no silent pushes in the background, and the one that loses `fetch` never gets its `BGAppRefreshTask`. Check: `plutil -p` on the built push sample's `Info.plist`. Fix: `<SpineBackgroundMode>` items in `Common.targets`, where one target writes one plist, like `<SpineEntitlement>`.
+2. **The Android run has no time limit and does not survive a reboot.** `SpineBackgroundReceiver` runs the handler with `CancellationToken.None` behind `goAsync()` (`:36-42`), but Android expects a broadcast to finish *"very quickly (under 10 seconds)"*. The alarm is scheduled only at `OnStop`, and alarms are cleared on reboot (as already noted in `spine-local-notifications.md` §6). After a reboot the background run therefore stands still until the app is opened.
 
 ---
 
-## 3. Plattformarnas byggstenar
+## 3. The platforms' building blocks
 
 ### 3.1 iOS
 
-- **`BGAppRefreshTask`**: kort, *"small bits of information"*. Kräver `UIBackgroundModes: fetch`. Budgeten är omkring 30 s. Det står i Spines egen dokumentation (`IBackgroundRefreshHandler.cs`) och är vedertaget, men står inte i Apples API-referens.
-- **`BGProcessingTask`**: minuter, men *"Processing tasks run only when the device is idle. The system terminates any background processing tasks running when the user starts using the device."* Kräver `UIBackgroundModes: processing`. Begäran kan kräva nätverk (`RequiresNetworkConnectivity`) och laddning (`RequiresExternalPower`).
-- **`BGContinuedProcessingTask`** (iOS 26): startas från förgrunden *"in response to someone's action"* och fortsätter i bakgrunden med förlopp i en systemritad Live Activity. Det är inte schemaläggning, men det passar "exportera/ladda upp nu". Bundet i Microsoft.iOS, men som `NoMacCatalyst`, trots att Apples referens anger Mac Catalyst 26.
+- **`BGAppRefreshTask`**: short, *"small bits of information"*. Requires `UIBackgroundModes: fetch`. The budget is around 30 s. That is stated in Spine's own documentation (`IBackgroundRefreshHandler.cs`) and is generally accepted, but it is not in Apple's API reference.
+- **`BGProcessingTask`**: minutes, but *"Processing tasks run only when the device is idle. The system terminates any background processing tasks running when the user starts using the device."* Requires `UIBackgroundModes: processing`. The request can require network (`RequiresNetworkConnectivity`) and charging (`RequiresExternalPower`).
+- **`BGContinuedProcessingTask`** (iOS 26): started from the foreground *"in response to someone's action"* and continues in the background with progress shown in a system-drawn Live Activity. It is not scheduling, but it fits "export/upload now". Bound in Microsoft.iOS, but as `NoMacCatalyst`, even though Apple's reference lists Mac Catalyst 26.
 - **Info.plist:** `BGTaskSchedulerPermittedIdentifiers`. *"Every identifier in the [list] requires a handler."*
-- **Kvoter:** en väntande refresh-begäran och tio processing-begäranden per app. `EarliestBeginDate` är ett golv, aldrig en tid: *"the system doesn't guarantee launching the task at the specified date, but only that it won't begin sooner."*
-- **Bindningen:** `BackgroundTasks` finns i Microsoft.iOS, och Widgets använder den redan. I macios `main` är `Submit(request, out error)` markerad som föråldrad från iOS 27, till förmån för en variant med completion handler. Spine anropar den gamla (`SpineWidgetsExtensions.Apple.cs:165`).
+- **Quotas:** one pending refresh request and ten processing requests per app. `EarliestBeginDate` is a floor, never a time: *"the system doesn't guarantee launching the task at the specified date, but only that it won't begin sooner."*
+- **The binding:** `BackgroundTasks` is part of Microsoft.iOS, and Widgets already uses it. In macios `main`, `Submit(request, out error)` is marked obsolete from iOS 27, in favor of a variant with a completion handler. Spine calls the old one (`SpineWidgetsExtensions.Apple.cs:165`).
 
 ### 3.2 Mac Catalyst
 
-Klasserna är tillgängliga från Catalyst 13.1, men systemet startar inte appen för dem. Apples DTS svarade i november 2025: *"No. More specifically, the BackgroundTask framework will not launch your app on macOS, though I believe your tasks may run if your app is running already."* Rekommendationen där är en LaunchAgent via `SMAppService`, vilket ligger utanför Spine. Därför gäller samma modell som på Windows (§3.4).
+The classes are available from Catalyst 13.1, but the system does not launch the app for them. Apple's DTS answered in November 2025: *"No. More specifically, the BackgroundTask framework will not launch your app on macOS, though I believe your tasks may run if your app is running already."* The recommendation there is a LaunchAgent through `SMAppService`, which is outside Spine's scope. The same model as on Windows therefore applies (§3.4).
 
 ### 3.3 Android
 
-- **`JobScheduler`** (Mono.Android): `setPeriodic` med 15 minuter som golv, nätverks-, ladd- och idle-villkor, `setPersisted` (kräver `RECEIVE_BOOT_COMPLETED`, som Push redan deklarerar i `Permissions.cs:7`) och `setExpedited` från API 31. Jobbet körs i appens process i en `JobService` (`BIND_JOB_SERVICE`). Jobbens exakta tidsgräns har inte kontrollerats för den här studien.
-- **WorkManager** (`Xamarin.AndroidX.Work.Runtime` 2.11.2.1 för `net10.0-android36.0`): samma 15-minutersgolv. Ovanpå det finns unika köer, backoff, expedierat arbete med fallback (`OutOfQuotaPolicy`, och `getForegroundInfo` krävs på Android 11 och äldre), 10 minuter per worker och *"long-running"* via `setForeground`. Från Android 16 kan långkörande workers dock *"exhaust your app's job quota"*. Den persisterar i en egen SQLite-databas och bokar om efter omstart.
-- **Processen:** `MauiApplication.OnCreate` bygger `MauiApp` och skapar `IApplication` (appens `App`) innan en tjänst eller mottagare körs (dotnet/maui `MauiApplication.cs`). DI finns alltså när ett jobb körs, men appens `App`-konstruktor körs också i varje bakgrundsstart.
+- **`JobScheduler`** (Mono.Android): `setPeriodic` with 15 minutes as the floor, network, charging and idle constraints, `setPersisted` (requires `RECEIVE_BOOT_COMPLETED`, which Push already declares in `Permissions.cs:7`) and `setExpedited` from API 31. The job runs in the app's process in a `JobService` (`BIND_JOB_SERVICE`). The exact time limit for jobs has not been checked for this study.
+- **WorkManager** (`Xamarin.AndroidX.Work.Runtime` 2.11.2.1 for `net10.0-android36.0`): the same 15-minute floor. On top of that come unique queues, backoff, expedited work with a fallback (`OutOfQuotaPolicy`, and `getForegroundInfo` is required on Android 11 and older), 10 minutes per worker and *"long-running"* through `setForeground`. From Android 16, however, long-running workers can *"exhaust your app's job quota"*. It persists to its own SQLite database and reschedules after a reboot.
+- **The process:** `MauiApplication.OnCreate` builds `MauiApp` and creates `IApplication` (the app's `App`) before a service or receiver runs (dotnet/maui `MauiApplication.cs`). DI is therefore available when a job runs, but the app's `App` constructor also runs on every background launch.
 
 ### 3.4 Windows
 
-`Microsoft.Windows.ApplicationModel.Background.BackgroundTaskBuilder` i Windows App SDK registrerar en COM-klass som `backgroundtaskhost.exe` aktiverar, med triggers och villkor (`InternetAvailable` med flera). Microsofts egen dokumentation säger: *"Background tasks using the Windows App SDK `BackgroundTaskBuilder` require your app to be packaged with MSIX."* Utan MSIX hänvisar Microsoft till Task Scheduler. Det skulle starta hela MAUI-appen med fönster, och det kräver en huvudlös startväg som Spine inte har. Spines sampel kör `WindowsPackageType=None`. Vilken Windows App SDK-version som införde klassen har inte kontrollerats.
+`Microsoft.Windows.ApplicationModel.Background.BackgroundTaskBuilder` in the Windows App SDK registers a COM class that `backgroundtaskhost.exe` activates, with triggers and conditions (`InternetAvailable` among others). Microsoft's own documentation says: *"Background tasks using the Windows App SDK `BackgroundTaskBuilder` require your app to be packaged with MSIX."* Without MSIX, Microsoft points to Task Scheduler. That would launch the whole MAUI app with a window, and it requires a headless startup path that Spine does not have. Spine's samples run with `WindowsPackageType=None`. Which Windows App SDK version introduced the class has not been checked.
 
 ---
 
-## 4. Registreringstidpunkten på iOS
+## 4. The time of registration on iOS
 
-**Kravet.** *"Registration of all launch handlers must be complete before the end of `applicationDidFinishLaunching(_:)`."* Ett brott mot kravet ger `NSInternalInconsistencyException: All launch handlers must be registered before application finishes launching`, och det är en krasch, inte en varning. Dubbelregistrering är lika illa: *"The system kills the app on the second registration of the same task identifier."*
+**The requirement.** *"Registration of all launch handlers must be complete before the end of `applicationDidFinishLaunching(_:)`."* Violating the requirement gives `NSInternalInconsistencyException: All launch handlers must be registered before application finishes launching`, and that is a crash, not a warning. Registering twice is just as bad: *"The system kills the app on the second registration of the same task identifier."*
 
-**Varför det spelar roll just i Spine.** Kraschen syns först när appen startas *i bakgrunden*. I Apple-forumtråden 775182 (iOS 18.4) kom den från SwiftUI:s `.backgroundTask`, som registrerade för sent när appen startades av en widget, en genväg eller Kontrollcenter. Apples råd var att registrera i `didFinishLaunchingWithOptions`. Spines widgetknappar startar appen i bakgrunden (#218), så det här är ett scenario som faktiskt inträffar i Spine-appar.
+**Why it matters in Spine in particular.** The crash only shows when the app is launched *in the background*. In Apple forum thread 775182 (iOS 18.4) it came from SwiftUI's `.backgroundTask`, which registered too late when the app was launched by a widget, a shortcut or Control Center. Apple's advice was to register in `didFinishLaunchingWithOptions`. Spine's widget buttons launch the app in the background (#218), so this is a scenario that actually occurs in Spine apps.
 
-**Var MAUI placerar oss.** `MauiUIApplicationDelegate.WillFinishLaunching` anropar `CreateMauiApp()`, och därmed `UseSpine()` och modulerna. `FinishedLaunching` sätter applikationshanteraren, skapar fönstret *om appen saknar scenmanifest*, anropar `iOSLifecycle.FinishedLaunching`-händelserna och returnerar först därefter `true`. En registrering i `ios.FinishedLaunching(...)` som ett paket lagt till via `ConfigureLifecycleEvents` sker alltså i tid. Widgets gör redan så. Det här är läst ur MAUI:s källkod på `main`, inte stegat i en debugger.
+**Where MAUI puts us.** `MauiUIApplicationDelegate.WillFinishLaunching` calls `CreateMauiApp()`, and with it `UseSpine()` and the modules. `FinishedLaunching` sets the application handler, creates the window *if the app has no scene manifest*, raises the `iOSLifecycle.FinishedLaunching` events and only then returns `true`. A registration in `ios.FinishedLaunching(...)` that a package has added through `ConfigureLifecycleEvents` therefore happens in time. Widgets already does this. This is read from MAUI's source code on `main`, not stepped through in a debugger.
 
-**Det som *inte* är i tid**, och därför inte får förekomma:
+**What is *not* in time**, and therefore must not occur:
 
-- Registrering när `IBackgroundTasks` löses upp första gången. DI-upplösningen kan ske långt efter start.
-- Registrering från `App.CreateWindow`, `OnStart` eller en sidas `OnAppearing`. Med scenmanifest skapas fönstret i scenens `WillConnect`, efter `didFinishLaunching`.
-- Registrering som beror på att appen själv har anropat en `UseXxx()`. Modulen gör det via `UseSpine`, och en app utan `UseSpine` måste anropa `UseSpineBackgroundTasks()` i `MauiProgram`, vilket fortfarande sker i `willFinishLaunching`.
+- Registration when `IBackgroundTasks` is resolved for the first time. The DI resolution can happen long after startup.
+- Registration from `App.CreateWindow`, `OnStart` or a page's `OnAppearing`. With a scene manifest the window is created in the scene's `WillConnect`, after `didFinishLaunching`.
+- Registration that depends on the app itself having called a `UseXxx()`. The module does it through `UseSpine`, and an app without `UseSpine` has to call `UseSpineBackgroundTasks()` in `MauiProgram`, which still happens in `willFinishLaunching`.
 
-**Varför fasta identifierare löser resten.** Identifierarna måste stå i `Info.plist` vid bygget, men `[BackgroundTask]` upptäcks vid körning. Med en identifierare per uppgift skulle byggsteget behöva känna till uppgifterna. Då krävs antingen dubbeldeklarationen som widgetar har (`<SpineWidget>` i csproj *och* `[Widget]` i kod, `WidgetAttribute.cs:4-6`) eller en source generator. Med två fasta identifierare räcker det att byggsteget vet att paketet är refererat. `FinishedLaunching` registrerar alltid exakt de två som står i plist-filen, så *"every identifier requires a handler"* gäller per konstruktion. Kvoten på en refresh-begäran tvingar fram multiplexen ändå.
+**Why fixed identifiers solve the rest.** The identifiers have to be in `Info.plist` at build time, but `[BackgroundTask]` is discovered at run time. With one identifier per task the build step would need to know about the tasks. That requires either the double declaration widgets have (`<SpineWidget>` in the csproj *and* `[Widget]` in code, `WidgetAttribute.cs:4-6`) or a source generator. With two fixed identifiers it is enough for the build step to know that the package is referenced. `FinishedLaunching` always registers exactly the two that are in the plist file, so *"every identifier requires a handler"* holds by construction. The quota of one refresh request forces the multiplexing anyway.
 
-**Konsekvens för Widgets.** `…spine-widgets.refresh` och Spines nya refresh-identifierare kan inte samexistera. Båda skulle upptäcka att den andra ockuperar platsen, och `Submit` skulle misslyckas med *too many pending*. Därför måste bakgrundspaketet äga *den enda* registreringen, och Widgets blir en klient (§8). Under övergången får båda paketen aldrig registrera samma identifierare, eftersom det dödar appen.
+**Consequence for Widgets.** `…spine-widgets.refresh` and Spine's new refresh identifier cannot coexist. Each would find the other occupying the slot, and `Submit` would fail with *too many pending*. The background package therefore has to own *the only* registration, and Widgets becomes a client (§8). During the transition the two packages must never register the same identifier, because that kills the app.
 
 ---
 
-## 5. Alternativ och avvägningar
+## 5. Alternatives and trade-offs
 
-### 5.1 Placering
+### 5.1 Placement
 
-| | Eget paket (förslag) | I kärnan `Plugin.Maui.Spine` | Kvar i Widgets |
+| | A separate package (proposal) | In the core `Plugin.Maui.Spine` | Stays in Widgets |
 |---|---|---|---|
-| Vem betalar | Bara appar som refererar paketet får `fetch`-moden och ett nytt manifest-element | Varje Spine-app, eller en opt-in-flagga i kärnans targets | Bara widget-appar |
-| Push/Widgets når det | Via `Common`-kontrakt och `GetService`, som `IWidgetService` i dag | Direkt | Push når det via `IWidgetService`, men en app utan widgetar kan inte använda det |
-| Orientera "prefetch över natten" (ingen widget) | Ja | Ja | Nej |
-| Risk | Widgets får ett beroende till | Kärnan får plist- och manifestplumbing den inte har i dag | Fel hem |
+| Who pays | Only apps that reference the package get the `fetch` mode and a new manifest element | Every Spine app, or an opt-in flag in the core's targets | Only widget apps |
+| Push/Widgets reach it | Through `Common` contracts and `GetService`, like `IWidgetService` today | Directly | Push reaches it through `IWidgetService`, but an app without widgets cannot use it |
+| Orientera "prefetch overnight" (no widget) | Yes | Yes | No |
+| Risk | Widgets gets one more dependency | The core gets plist and manifest plumbing it does not have today | The wrong home |
 
-Eget paket, med `Widgets → BackgroundTasks → Common`. Kärnan är ett rimligt alternativ om ägaren hellre vill slippa ett paket till: på Android blir tillägget litet, eftersom `JobScheduler` inte drar in några beroenden.
+A separate package, with `Widgets → BackgroundTasks → Common`. The core is a reasonable alternative if the owner would rather avoid one more package: on Android the addition is small, because `JobScheduler` pulls in no dependencies.
 
-### 5.2 Attribut eller builder-API
+### 5.2 Attribute or builder API
 
-Attributet följer `[Widget]`, `[NavigableRegion]` och `[NavigableTab]`: identitet och standardpolicy står på klassen, och upptäckten sker via `SpineOptions.Assemblies`. Ett rent builder-API (`o.AddTask<T>("name", every: …)`) skulle vara det enda i Spine som registrerar en typ för hand. **Attribut för identitet och standard, options för det som ändras vid körning**, till exempel intervallet ur en användarinställning.
+The attribute follows `[Widget]`, `[NavigableRegion]` and `[NavigableTab]`: identity and default policy are on the class, and discovery goes through `SpineOptions.Assemblies`. A pure builder API (`o.AddTask<T>("name", every: …)`) would be the only thing in Spine that registers a type by hand. **Attributes for identity and defaults, options for what changes at run time**, for example the interval from a user setting.
 
-Issuens `Interval = "00:15"` fungerar inte som det står. Ett attribut kan inte ta en `TimeSpan`, och `"00:15"` kan läsas både som 15 minuter och 15 sekunder. Förslaget är `IntervalMinutes = 15`.
+The issue's `Interval = "00:15"` does not work as written. An attribute cannot take a `TimeSpan`, and `"00:15"` can be read as both 15 minutes and 15 seconds. The proposal is `IntervalMinutes = 15`.
 
-### 5.3 En identifierare per uppgift eller multiplex
+### 5.3 One identifier per task or multiplexing
 
-Med en identifierare per uppgift skulle iOS få bestämma ordningen, men kvoten på en refresh-begäran gör det omöjligt för mer än en kort uppgift, och varje uppgift skulle kräva byggtidskunskap. Med multiplex bestämmer Spine: vid varje refresh körs de uppgifter som är förfallna, mest försenad först, tills tiden tar slut. Priset är att en långsam uppgift kan äta upp budgeten för de andra. Uppgifter som är markerade `Long` går därför till processing-identifieraren i stället.
+With one identifier per task iOS would decide the order, but the quota of one refresh request makes that impossible for more than one short task, and every task would require build-time knowledge. With multiplexing Spine decides: on every refresh the tasks that are due run, the most overdue first, until time runs out. The price is that a slow task can eat the budget of the others. Tasks marked `Long` therefore go to the processing identifier instead.
 
-### 5.4 Android: alarm, JobScheduler eller WorkManager
+### 5.4 Android: alarm, JobScheduler or WorkManager
 
-| | Alarm (i dag) | JobScheduler (förslag) | WorkManager |
+| | Alarm (today) | JobScheduler (proposal) | WorkManager |
 |---|---|---|---|
-| Villkor (nätverk, laddning) | Nej | Ja | Ja |
-| Överlever omstart | Nej, kräver en egen boot-mottagare | `setPersisted` | Ja |
-| Tid per körning | Under ~10 s (`goAsync`) | Jobbets gräns (ej kontrollerad) | 10 min, längre via `setForeground` |
-| På begäran, snabbt | Nej | `setExpedited` (API 31+) | `setExpedited` med fallback |
-| Beroenden | Inga | Inga | Work.Runtime → Room, Kotlin-korutiner, Lifecycle 2.11, Startup |
+| Constraints (network, charging) | No | Yes | Yes |
+| Survives a reboot | No, requires its own boot receiver | `setPersisted` | Yes |
+| Time per run | Under ~10 s (`goAsync`) | The job's limit (not checked) | 10 min, longer through `setForeground` |
+| On request, quickly | No | `setExpedited` (API 31+) | `setExpedited` with a fallback |
+| Dependencies | None | None | Work.Runtime → Room, Kotlin coroutines, Lifecycle 2.11, Startup |
 
-JobScheduler ger det som saknas utan att öppna versionsbråket i `Directory.Packages.props` (Push-blocket) en gång till. WorkManager är det bättre valet om Spine vill ha retries/backoff och Android 16-kvothantering "gratis". Därför är valet ett ägarbeslut (§11).
+JobScheduler provides what is missing without reopening the version fight in `Directory.Packages.props` (the Push block) once more. WorkManager is the better choice if Spine wants retries/backoff and Android 16 quota handling "for free". The choice is therefore a decision for the owner (§11).
 
 ---
 
-## 6. Föreslagen API-yta
+## 6. Proposed API surface
 
-Kontrakten ligger i `Plugin.Maui.Spine.Common` (net10.0, utan MAUI), där `IWidgetService` också ligger:
+The contracts live in `Plugin.Maui.Spine.Common` (net10.0, without MAUI), where `IWidgetService` also lives:
 
 ```csharp
 [AttributeUsage(AttributeTargets.Class, Inherited = false)]
@@ -180,7 +180,7 @@ public interface IBackgroundTasks
 }
 ```
 
-I appen:
+In the app:
 
 ```csharp
 [BackgroundTask("standings", IntervalMinutes = 30, RequiresNetwork = true, Widgets = ["team"])]
@@ -190,107 +190,107 @@ public sealed class StandingsTask(IStandingsApi _api, StandingsStore _store) : I
         await _store.SaveAsync(await _api.FetchAsync(cancellationToken), cancellationToken);
 }
 
-builder.UseSpineBackgroundTasks(o => o.Interval("standings", settings.RefreshEvery)); // valfritt, TimeSpan.Zero stänger av
+builder.UseSpineBackgroundTasks(o => o.Interval("standings", settings.RefreshEvery)); // optional, TimeSpan.Zero turns it off
 ```
 
-**Byggsteget.** `SpineBackgroundTasksEnabled` är `true` som standard och ger en `fetch`-mod och `<ApplicationId>.spine.refresh`. `SpineBackgroundTasksProcessing` är `false` som standard och lägger till `processing` och `.spine.processing`. Processing är opt-in eftersom en bakgrundsmod appen inte använder inte ska deklareras. Vid start loggar Spine en varning för en `Long`-uppgift utan processing-identifierare och kör den som refresh, på samma sätt som Widgets validerar `[Widget]` mot `<SpineWidget>`. På Android skrivs `JobService` och `RECEIVE_BOOT_COMPLETED` i manifest-overlayen.
+**The build step.** `SpineBackgroundTasksEnabled` is `true` by default and gives a `fetch` mode and `<ApplicationId>.spine.refresh`. `SpineBackgroundTasksProcessing` is `false` by default and adds `processing` and `.spine.processing`. Processing is opt-in because a background mode the app does not use should not be declared. At startup Spine logs a warning for a `Long` task without a processing identifier and runs it as a refresh, in the same way that Widgets validates `[Widget]` against `<SpineWidget>`. On Android, `JobService` and `RECEIVE_BOOT_COMPLETED` are written to the manifest overlay.
 
-**Schemat** persisteras per uppgift (senast startad, senast klar, resultat, tidigast nästa) i `Preferences`, via en `JsonSerializerContext` som i lokala notiser. Det är vad `StatusOf` läser, och vad multiplexen använder på iOS för att välja uppgifter.
-
----
-
-## 7. DI-scope och vad en uppgift får röra
-
-- **Ett scope per körning.** `await using var scope = services.CreateAsyncScope()`, därefter `ActivatorUtilities.CreateInstance(scope.ServiceProvider, type)`, och scopet släpps efter körningen. Widgets skapar i dag handlers från rot-providern (`SpineWidgetsExtensions.cs:47,61,89`), vilket gör att transienta `IDisposable` lever tills processen dör.
-- **Trådpoolen, inte huvudtråden.** Widgetknappar körs på huvudtråden (`:87`) eftersom de kan röra appens tillstånd. En bakgrundsuppgift ska inte göra det, och huvudtråden kan vara upptagen med att bygga ett fönster som ingen ser.
-- **Tillåtet:** `HttpClient`, filer, `Preferences`, databaser, `IWidgetService`, `ILiveActivityService.UpdateAsync` och `ILocalNotificationService.SyncAsync`. Det sista är det Orientera behöver: planera om notiserna efter en synk.
-- **Inte tillåtet:** `INavigationService`, sidor, dialoger och tillståndsfrågor (`RequestPermissionAsync` visar en systemdialog). Det gäller också allt som förutsätter ett synligt fönster. Spine kan inte hindra det i typsystemet. Därför loggar dispatchern en varning om en uppgift löser upp `INavigationService` i sitt scope, och wikin säger det i första stycket.
-- **Samtidighet:** högst en körning per namn, med ett lås per uppgift. En `RequestAsync` i förgrunden och en BGTask-start får inte dubbelköra.
-- **Tidsgräns:** den token som skickas in avbryts av `ExpirationHandler` på iOS och av `onStopJob` på Android. En uppgift som struntar i token blir dödad, och Spine anropar då `SetTaskCompleted(false)` eller `jobFinished(…, true)`, precis en gång.
-- **Kallstart:** en bakgrundsstart kör `CreateMauiApp`, appens `App`-konstruktor och, på iOS utan scenmanifest, även `CreatePlatformWindow`. #218 mätte ~4 s i simulatorn. Det ryms i budgeten men ska stå i wikin: tung start i `App` stjäl tid från uppgiften.
+**The schedule** is persisted per task (last started, last completed, result, earliest next) in `Preferences`, through a `JsonSerializerContext` as in local notifications. That is what `StatusOf` reads, and what the multiplexing uses on iOS to pick tasks.
 
 ---
 
-## 8. Koppling till widgets och push
+## 7. DI scope and what a task may touch
 
-Det är den här kopplingen som gör paketet värt att bygga (#317: *"background tasks are what keep widget timelines fresh"*). WidgetKit-extensionen kör ingen .NET, och en `Refresh(after)` på iOS läser bara om JSON-filen eller hämtar en `RemoteSource`. Ny data blir bara till när appens process kör. Uppgiften är den processen.
-
-- **`Widgets = ["team"]`** på attributet: efter en körning som slutförts anropar dispatchern `IWidgetService.RefreshAsync(kind)` via `GetService`. På iOS skriver det trädet och anropar `reloadTimelines` genom bryggan, och på Android `AppWidgetManager` via `RemoteViewsRenderer`. En uppgift kan också anropa tjänsten själv.
-- **Widgets egen bakgrundskörning blir en inbyggd uppgift**, `spine.widgets`: först `IBackgroundRefreshHandler` om en sådan finns, sedan `RefreshAllAsync`, med intervallet `BackgroundRefreshInterval`. Det publika API:et är oförändrat. `SpineWidgetsBackgroundRefresh` och `.spine-widgets.refresh` pensioneras, och Widgets slutar registrera något själv.
-- **Push:** en ny nyckel `spine.task=<namn>` på `Silent`- och `Widget`-meddelanden. `HandleInternallyAsync` anropar `IBackgroundTasks.RequestAsync` med `Trigger = Push`. På iOS körs uppgiften direkt inom den tysta pushens fönster (~30 s). Den kan inte köras längre än så, och det finns ingen iOS-väg att lämna över långt arbete från en push. På Android kan den läggas som ett expedierat jobb som lever vidare efter FCM:s 20 s. Issuens användningsfall *"offload long work from the notification handler"* går alltså bara att uppfylla på Android.
-- **Förväntningar per app.** Puckkoll var 15:e minut är en önskan, inte ett löfte. Realtiden kommer från push, som #287 redan visade under en match. Almanackas bilder "vid midnatt" görs säkrast i förväg, som framtida timeline-poster och roterande assets. En uppgift som ska köras exakt vid midnatt gör inte det på iOS.
+- **One scope per run.** `await using var scope = services.CreateAsyncScope()`, then `ActivatorUtilities.CreateInstance(scope.ServiceProvider, type)`, and the scope is disposed after the run. Widgets today creates handlers from the root provider (`SpineWidgetsExtensions.cs:47,61,89`), which means transient `IDisposable` instances live until the process dies.
+- **The thread pool, not the main thread.** Widget buttons run on the main thread (`:87`) because they may touch the app's state. A background task should not do that, and the main thread may be busy building a window that nobody sees.
+- **Allowed:** `HttpClient`, files, `Preferences`, databases, `IWidgetService`, `ILiveActivityService.UpdateAsync` and `ILocalNotificationService.SyncAsync`. The last one is what Orientera needs: replanning the notifications after a sync.
+- **Not allowed:** `INavigationService`, pages, dialogs and permission prompts (`RequestPermissionAsync` shows a system dialog). That also applies to anything that assumes a visible window. Spine cannot prevent it in the type system. The dispatcher therefore logs a warning if a task resolves `INavigationService` in its scope, and the wiki says so in the first paragraph.
+- **Concurrency:** at most one run per name, with one lock per task. A `RequestAsync` in the foreground and a BGTask launch must not run the task twice at once.
+- **Time limit:** the token that is passed in is cancelled by `ExpirationHandler` on iOS and by `onStopJob` on Android. A task that ignores the token gets killed, and Spine then calls `SetTaskCompleted(false)` or `jobFinished(…, true)`, exactly once.
+- **Cold start:** a background launch runs `CreateMauiApp`, the app's `App` constructor and, on iOS without a scene manifest, `CreatePlatformWindow` as well. #218 measured ~4 s in the simulator. That fits in the budget but must be in the wiki: heavy startup work in `App` steals time from the task.
 
 ---
 
-## 9. Plattformar
+## 8. Connection to widgets and push
 
-| | Schemalagt | På begäran | Från push | Byggsten | Villkor |
+This connection is what makes the package worth building (#317: *"background tasks are what keep widget timelines fresh"*). The WidgetKit extension runs no .NET, and a `Refresh(after)` on iOS only re-reads the JSON file or fetches a `RemoteSource`. New data only comes into being when the app's process runs. The task is that process.
+
+- **`Widgets = ["team"]`** on the attribute: after a run that completed, the dispatcher calls `IWidgetService.RefreshAsync(kind)` through `GetService`. On iOS that writes the tree and calls `reloadTimelines` through the bridge, and on Android `AppWidgetManager` through `RemoteViewsRenderer`. A task can also call the service itself.
+- **Widgets' own background run becomes a built-in task**, `spine.widgets`: first `IBackgroundRefreshHandler` if there is one, then `RefreshAllAsync`, with the interval `BackgroundRefreshInterval`. The public API is unchanged. `SpineWidgetsBackgroundRefresh` and `.spine-widgets.refresh` are retired, and Widgets stops registering anything itself.
+- **Push:** a new key `spine.task=<name>` on `Silent` and `Widget` messages. `HandleInternallyAsync` calls `IBackgroundTasks.RequestAsync` with `Trigger = Push`. On iOS the task runs immediately within the silent push's window (~30 s). It cannot run longer than that, and there is no iOS route for handing long work over from a push. On Android it can be queued as an expedited job that lives on after FCM's 20 s. The issue's use case *"offload long work from the notification handler"* can therefore only be met on Android.
+- **Expectations per app.** Puckkoll every 15 minutes is a wish, not a promise. The real-time part comes from push, as #287 already showed during a game. Almanacka's pictures "at midnight" are most safely made in advance, as future timeline entries and rotating assets. A task that is meant to run exactly at midnight will not do so on iOS.
+
+---
+
+## 9. Platforms
+
+| | Scheduled | On request | From push | Building block | Constraints |
 |---|---|---|---|---|---|
-| iOS | Ja, när systemet vill; multiplexat | I förgrunden direkt, annars som `EarliestBeginDate = nu` utan garanti | Inom pushens ~30 s | `BGAppRefreshTask`, `BGProcessingTask` | Nätverk och laddning bara för `Long` |
-| Mac Catalyst | Bara medan appen kör | Direkt om appen kör | Som iOS om appen kör | Timer i processen | Nej |
-| Android | Ja, ≥ 15 min | Expedierat (API 31+) | Expedierat jobb | `JobScheduler` | Nätverk, laddning |
-| Windows | Bara medan appen kör | Direkt | Push finns inte på Windows i Spine | `PeriodicTimer` i processen | Nej |
+| iOS | Yes, when the system wants; multiplexed | Immediately in the foreground, otherwise as `EarliestBeginDate = now` with no guarantee | Within the push's ~30 s | `BGAppRefreshTask`, `BGProcessingTask` | Network and charging only for `Long` |
+| Mac Catalyst | Only while the app is running | Immediately if the app is running | As iOS if the app is running | In-process timer | No |
+| Android | Yes, ≥ 15 min | Expedited (API 31+) | Expedited job | `JobScheduler` | Network, charging |
+| Windows | Only while the app is running | Immediately | Push does not exist on Windows in Spine | In-process `PeriodicTimer` | No |
 
-Alla plattformar får en **ikappkörning vid start och vid återkomst till förgrunden**: förfallna uppgifter körs med `Trigger = CatchUp`. På Windows och Catalyst är det huvudvägen, på iOS och Android ett skyddsnät.
-
----
-
-## 10. Vad som inte går, och vad som inte är verifierat
-
-Studien gjordes i en Linux-container, utan Mac, utan enhet och utan Windows. **Inget är provat.** Allt nedan kommer från dokumentation och källkod.
-
-1. **iOS-tidpunkter är systemets.** Det finns ingen körning var 15:e minut, och ingen alls om användaren tvångsavslutat appen eller stängt av Bakgrundsuppdatering. Det står i wikin i första stycket, inte i en fotnot.
-2. **Multiplexens budget.** Att alla förfallna refresh-uppgifter ryms på ~30 s är ett antagande. Hur ofta iOS faktiskt ger en refresh till en app vars *enda* identifierare bär flera uppgifter är inte mätt.
-3. **Registreringstidpunkten** i §4 är läst ur MAUI:s källkod på `main`, inte stegad. Den ska verifieras med en bakgrundsstart via widgetknapp *och* via `_simulateLaunchForTaskWithIdentifier:` på en fysisk enhet. BGTask-starter kan inte provas i simulatorn (`docs/wiki/widgets.md`).
-4. **`UIBackgroundModes`-sammanslagningen** (§2, fynd 1) är en slutsats ur SDK-koden. Den ska bekräftas med `plutil -p` på push-samplets bygge innan något annat görs.
-5. **Mac Catalyst** vilar på ett DTS-svar i ett forum, inte på dokumentation. Om Apple ändrar beteendet ändras bara `RunsWhileClosed`.
-6. **JobScheduler-detaljer**: tidsgränsen per jobb, vilka villkor som tillåts med `setExpedited` och kvotbeteendet i Android 16 är inte kontrollerade. WorkManager-siffrorna (10 min, 15 min) är det.
-7. **Android-kallstart:** kan ett jobb startas innan `MauiApplication.OnCreate` är klar? `JobService.onStartJob` körs på huvudtråden efter `Application.onCreate` enligt Androids modell, men det är inte provat med MAUI. Dispatchern bör vänta på `IPlatformApplication.Current` i stället för att anta att den finns.
-8. **Skyddade filer på iOS**: en uppgift som körs medan enheten är låst kan inte läsa filer med `NSFileProtectionComplete`. Vad MAUI:s `Preferences` och `SecureStorage` använder som standard är inte kontrollerat.
-9. **`BGContinuedProcessingTask`** är med som möjlig v2. Bindningen och Apples dokumentation är oense om Catalyst.
+All platforms get a **catch-up run at startup and on return to the foreground**: tasks that are due run with `Trigger = CatchUp`. On Windows and Catalyst that is the main route, on iOS and Android a safety net.
 
 ---
 
-## 11. Leveransplan
+## 10. What cannot be done, and what is not verified
 
-**Beslut som behövs från ägaren innan steg 2:**
-- Eget paket eller kärnan (§5.1). Förslag: eget paket.
-- JobScheduler eller WorkManager (§5.4). Förslag: JobScheduler, i linje med beslutet i #171.
-- Får Widgets bryta med `SpineWidgetsBackgroundRefresh` och `.spine-widgets.refresh` i en minor-version, eller ska de ligga kvar ett varv som alias?
-- Ska `RequestAsync` i förgrunden köra direkt (förslag) eller alltid gå via plattformen?
+The study was done in a Linux container, without a Mac, without a device and without Windows. **Nothing has been tried.** Everything below comes from documentation and source code.
 
-**Steg:**
-1. **Rätta `UIBackgroundModes`** oavsett resten: `<SpineBackgroundMode>` i `Common.targets`, där Push och Widgets bidrar med items. Verifiera med `plutil -p` på push-samplet.
-2. **Kontrakt och dispatcher**: `Common`-typerna, `BackgroundTaskRegistry`, det persisterade schemat, ett scope per körning, lås, `StatusOf`, ikappkörning och timern för Windows och Catalyst. Allt utom plattformsdelen kan enhetstestas på net10.0.
-3. **iOS**: två fasta identifierare som registreras i `FinishedLaunching`, multiplex, `ExpirationHandler`, bokning vid `DidEnterBackground` och efter varje körning, och plist-nycklarna via steg 1.
-4. **Android**: `JobService`, ett jobb per uppgift (stabilt id, som `AndroidNotifications.StableId`), villkor, `setPersisted` och expedierat jobb på begäran.
-5. **Widgets flyttar in**: `spine.widgets` som inbyggd uppgift, `IBackgroundRefreshHandler` som adapter, `SpineBackgroundReceiver` och BGTask-koden bort, samt `Widgets = [...]` på attributet.
-6. **Push**: `spine.task` i `HandleInternallyAsync`, och på sikt `IPushSender.RunTaskAsync` i `Plugin.Maui.Spine.Server`.
-7. **Sampel, wiki, skill och enhet**: en uppgift i push-samplet som skriver en stämpel i widgeten. På iPhone via LLDB `_simulateLaunchForTaskWithIdentifier:` och `_simulateExpirationForTaskWithIdentifier:`, på Android via `adb shell cmd jobscheduler run -f <paket> <id>`. Därefter ett dygn i Puckkoll med `StatusOf` loggat, för att få verkliga siffror på hur ofta iOS faktiskt kör.
+1. **iOS timing belongs to the system.** There is no run every 15 minutes, and none at all if the user has force-quit the app or turned off Background App Refresh. That goes in the first paragraph of the wiki, not in a footnote.
+2. **The multiplexing budget.** That all due refresh tasks fit in ~30 s is an assumption. How often iOS actually gives a refresh to an app whose *only* identifier carries several tasks has not been measured.
+3. **The time of registration** in §4 is read from MAUI's source code on `main`, not stepped through. It must be verified with a background launch through a widget button *and* through `_simulateLaunchForTaskWithIdentifier:` on a physical device. BGTask launches cannot be tried in the simulator (`docs/wiki/widgets.md`).
+4. **The `UIBackgroundModes` merge** (§2, finding 1) is a conclusion from the SDK code. It must be confirmed with `plutil -p` on the push sample's build before anything else is done.
+5. **Mac Catalyst** rests on a DTS answer in a forum, not on documentation. If Apple changes the behavior, only `RunsWhileClosed` changes.
+6. **JobScheduler details**: the time limit per job, which constraints are allowed with `setExpedited` and the quota behavior in Android 16 have not been checked. The WorkManager figures (10 min, 15 min) have.
+7. **Android cold start:** can a job start before `MauiApplication.OnCreate` has finished? `JobService.onStartJob` runs on the main thread after `Application.onCreate` according to Android's model, but that has not been tried with MAUI. The dispatcher should wait for `IPlatformApplication.Current` instead of assuming it exists.
+8. **Protected files on iOS**: a task that runs while the device is locked cannot read files with `NSFileProtectionComplete`. What MAUI's `Preferences` and `SecureStorage` use by default has not been checked.
+9. **`BGContinuedProcessingTask`** is included as a possible v2. The binding and Apple's documentation disagree about Catalyst.
 
 ---
 
-## Beslut (2026-09-30)
+## 11. Delivery plan
 
-Jonatan gick igenom studiens frågor 2026-09-30 och följde rekommendationerna. Rader märkta **Förslag** saknade rekommendation i studien; där står ett förslag med skäl, som gäller tills han säger annat.
+**Decisions needed from the owner before step 2:**
+- A separate package or the core (§5.1). Proposal: a separate package.
+- JobScheduler or WorkManager (§5.4). Proposal: JobScheduler, in line with the decision in #171.
+- May Widgets break with `SpineWidgetsBackgroundRefresh` and `.spine-widgets.refresh` in a minor version, or should they stay for one release as aliases?
+- Should `RequestAsync` in the foreground run immediately (proposal) or always go through the platform?
 
-- **Placering.** Eget paket `Plugin.Maui.Spine.BackgroundTasks`, med kontrakten i Common (§5.1).
-- **Android.** `JobScheduler`, inte WorkManager, i linje med #171 (§5.4).
-- **Widgets gamla ytor** — **Förslag.** `SpineWidgetsBackgroundRefresh` och `.spine-widgets.refresh` ligger kvar ett varv som alias, med en byggvarning som pekar på det nya, och tas bort i versionen efter. Paketen ligger på nuget.org och Puckkoll, Almanacka och Orientera följer dem via `SpineVersion`; en identifierare som försvinner i en minor slutar köra tyst i bakgrunden i stället för att ge ett byggfel.
-- **`RequestAsync` i förgrunden.** Kör uppgiften direkt, utan omväg via plattformen.
-- **iOS-identifierare.** Två fasta (`.spine.refresh` och `.spine.processing`) som Spine multiplexar, inte en per uppgift (§5.3).
-- **Deklaration.** Attribut för identitet och standardvärden, options för ändringar i körtid. `IntervalMinutes = 15` i stället för issuens `Interval = "00:15"` (§5.2).
-- **Windows och Mac Catalyst.** Timer i processen och ikappkörning vid start, synligt som `RunsWhileClosed = false`.
-- **`processing`-läget.** Opt-in: `SpineBackgroundTasksProcessing=false` som standard.
-- **`UIBackgroundModes`.** Rättas först, oavsett resten (steg 1). Felet är bekräftat på ett bygge av push-samplet 2026-09-30: [#435](https://github.com/jonatansoderberg/Maui.Spine/issues/435).
-- **Push.** Nyckeln `spine.task=<namn>` triggar en uppgift; `IPushSender.RunTaskAsync` kommer senare.
-- **`BGContinuedProcessingTask`.** Inte i v1.
+**Steps:**
+1. **Fix `UIBackgroundModes`** regardless of the rest: `<SpineBackgroundMode>` in `Common.targets`, where Push and Widgets contribute items. Verify with `plutil -p` on the push sample.
+2. **Contracts and dispatcher**: the `Common` types, `BackgroundTaskRegistry`, the persisted schedule, one scope per run, locks, `StatusOf`, the catch-up run and the timer for Windows and Catalyst. Everything except the platform part can be unit tested on net10.0.
+3. **iOS**: two fixed identifiers registered in `FinishedLaunching`, multiplexing, `ExpirationHandler`, scheduling at `DidEnterBackground` and after every run, and the plist keys through step 1.
+4. **Android**: `JobService`, one job per task (stable id, like `AndroidNotifications.StableId`), constraints, `setPersisted` and an expedited job on request.
+5. **Widgets moves in**: `spine.widgets` as a built-in task, `IBackgroundRefreshHandler` as an adapter, `SpineBackgroundReceiver` and the BGTask code removed, and `Widgets = [...]` on the attribute.
+6. **Push**: `spine.task` in `HandleInternallyAsync`, and eventually `IPushSender.RunTaskAsync` in `Plugin.Maui.Spine.Server`.
+7. **Sample, wiki, skill and device**: a task in the push sample that writes a timestamp to the widget. On iPhone through LLDB `_simulateLaunchForTaskWithIdentifier:` and `_simulateExpirationForTaskWithIdentifier:`, on Android through `adb shell cmd jobscheduler run -f <package> <id>`. After that, 24 hours in Puckkoll with `StatusOf` logged, to get real figures for how often iOS actually runs.
 
 ---
 
-## 12. Referenser
+## Decisions (2026-09-30)
 
-Lästa i repot: `SpineWidgetsExtensions.Apple.cs`, `SpineWidgetsExtensions.cs`, `SpineBackgroundReceiver.cs`, `SpineWidgetsExtensions.Android.cs`, `WidgetRegistry.cs`, `Plugin.Maui.Spine.Widgets.targets`, `spine-widgets-build.sh`, `Plugin.Maui.Spine.PushNotifications.targets`, `Plugin.Maui.Spine.Common.targets`, `Plugin.Maui.Spine.targets`, push-paketets lifecycle-filer, `MauiAppBuilderExtensions.cs`, `docs/wiki/widgets.md`, `docs/wiki/push-notifications.md`, `issues/171-…`, `issues/218-…`, `issues/287-…`, `issues/355-…`.
+Jonatan went through the study's questions on 2026-09-30 and followed the recommendations. Rows marked **Proposal** had no recommendation in the study; they carry a proposal with reasons, which applies until he says otherwise.
+
+- **Placement.** A separate package `Plugin.Maui.Spine.BackgroundTasks`, with the contracts in Common (§5.1).
+- **Android.** `JobScheduler`, not WorkManager, in line with #171 (§5.4).
+- **Widgets' old surfaces** — **Proposal.** `SpineWidgetsBackgroundRefresh` and `.spine-widgets.refresh` stay for one release as aliases, with a build warning that points to the new ones, and are removed in the version after. The packages are on nuget.org, and Puckkoll, Almanacka and Orientera follow them through `SpineVersion`; an identifier that disappears in a minor version silently stops running in the background instead of giving a build error.
+- **`RequestAsync` in the foreground.** Runs the task immediately, without a detour through the platform.
+- **iOS identifiers.** Two fixed ones (`.spine.refresh` and `.spine.processing`) that Spine multiplexes, not one per task (§5.3).
+- **Declaration.** Attributes for identity and defaults, options for changes at run time. `IntervalMinutes = 15` instead of the issue's `Interval = "00:15"` (§5.2).
+- **Windows and Mac Catalyst.** An in-process timer and a catch-up run at startup, visible as `RunsWhileClosed = false`.
+- **The `processing` mode.** Opt-in: `SpineBackgroundTasksProcessing=false` by default.
+- **`UIBackgroundModes`.** Fixed first, regardless of the rest (step 1). The bug is confirmed on a build of the push sample on 2026-09-30: [#435](https://github.com/jonatansoderberg/Maui.Spine/issues/435).
+- **Push.** The key `spine.task=<name>` triggers a task; `IPushSender.RunTaskAsync` comes later.
+- **`BGContinuedProcessingTask`.** Not in v1.
+
+---
+
+## 12. References
+
+Read in the repo: `SpineWidgetsExtensions.Apple.cs`, `SpineWidgetsExtensions.cs`, `SpineBackgroundReceiver.cs`, `SpineWidgetsExtensions.Android.cs`, `WidgetRegistry.cs`, `Plugin.Maui.Spine.Widgets.targets`, `spine-widgets-build.sh`, `Plugin.Maui.Spine.PushNotifications.targets`, `Plugin.Maui.Spine.Common.targets`, `Plugin.Maui.Spine.targets`, the push package's lifecycle files, `MauiAppBuilderExtensions.cs`, `docs/wiki/widgets.md`, `docs/wiki/push-notifications.md`, `issues/171-…`, `issues/218-…`, `issues/287-…`, `issues/355-…`.
 
 - Apple, `register(forTaskWithIdentifier:using:launchHandler:)`: https://developer.apple.com/documentation/backgroundtasks/bgtaskscheduler/register(fortaskwithidentifier:using:launchhandler:)
 - Apple, `submit(_:)` (1 refresh + 10 processing): https://developer.apple.com/documentation/backgroundtasks/bgtaskscheduler/submit(_:)
@@ -298,10 +298,10 @@ Lästa i repot: `SpineWidgetsExtensions.Apple.cs`, `SpineWidgetsExtensions.cs`, 
 - Apple, *Using background tasks to update your app*: https://developer.apple.com/documentation/uikit/using-background-tasks-to-update-your-app
 - Apple, `earliestBeginDate`: https://developer.apple.com/documentation/backgroundtasks/bgtaskrequest/earliestbegindate
 - Apple, *Performing long-running tasks on iOS and iPadOS* (`BGContinuedProcessingTask`): https://developer.apple.com/documentation/backgroundtasks/performing-long-running-tasks-on-ios-and-ipados
-- Apple Developer Forums, Mac Catalyst och BackgroundTasks (DTS, nov 2025): https://developer.apple.com/forums/thread/807388
-- Apple Developer Forums, kraschen vid sen registrering (iOS 18.4): https://developer.apple.com/forums/thread/775182
-- dotnet/macios, BackgroundTasks-bindningen: https://github.com/dotnet/macios/blob/main/src/backgroundtasks.cs
-- dotnet/macios, `CompileAppManifest.cs` (sammanslagning av partiella plist-filer): https://github.com/dotnet/macios/blob/main/msbuild/Xamarin.MacDev.Tasks/Tasks/CompileAppManifest.cs
+- Apple Developer Forums, Mac Catalyst and BackgroundTasks (DTS, Nov 2025): https://developer.apple.com/forums/thread/807388
+- Apple Developer Forums, the crash on late registration (iOS 18.4): https://developer.apple.com/forums/thread/775182
+- dotnet/macios, the BackgroundTasks binding: https://github.com/dotnet/macios/blob/main/src/backgroundtasks.cs
+- dotnet/macios, `CompileAppManifest.cs` (merging of partial plist files): https://github.com/dotnet/macios/blob/main/msbuild/Xamarin.MacDev.Tasks/Tasks/CompileAppManifest.cs
 - dotnet/maui, `MauiUIApplicationDelegate.cs`: https://github.com/dotnet/maui/blob/main/src/Core/src/Platform/iOS/MauiUIApplicationDelegate.cs
 - dotnet/maui, `MauiApplication.cs` (Android): https://github.com/dotnet/maui/blob/main/src/Core/src/Platform/Android/MauiApplication.cs
 - Android, WorkManager *Define work*: https://developer.android.com/develop/background-work/background-tasks/persistent/getting-started/define-work
@@ -309,5 +309,5 @@ Lästa i repot: `SpineWidgetsExtensions.Apple.cs`, `SpineWidgetsExtensions.cs`, 
 - Android, *Persistent work*: https://developer.android.com/develop/background-work/background-tasks/persistent
 - Android, *Broadcasts* (`goAsync`, under 10 s): https://developer.android.com/develop/background-work/background-tasks/broadcasts
 - Android, `JobInfo.Builder`: https://developer.android.com/reference/android/app/job/JobInfo.Builder
-- NuGet, `Xamarin.AndroidX.Work.Runtime` 2.11.2.1 (nuspec-beroenden): https://www.nuget.org/packages/Xamarin.AndroidX.Work.Runtime
-- Microsoft, *Using background tasks in Windows apps* (lästa via källan i MicrosoftDocs/windows-dev-docs, eftersom learn.microsoft.com var spärrad från containern): https://learn.microsoft.com/en-us/windows/apps/windows-app-sdk/applifecycle/background-tasks
+- NuGet, `Xamarin.AndroidX.Work.Runtime` 2.11.2.1 (nuspec dependencies): https://www.nuget.org/packages/Xamarin.AndroidX.Work.Runtime
+- Microsoft, *Using background tasks in Windows apps* (read through the source in MicrosoftDocs/windows-dev-docs, because learn.microsoft.com was blocked from the container): https://learn.microsoft.com/en-us/windows/apps/windows-app-sdk/applifecycle/background-tasks
