@@ -26,9 +26,14 @@ internal sealed class RollingNumber : IDisposable
     private readonly SKColor _color;
     private readonly float _baselinePx;
     private readonly bool _increases;
+    private readonly float _fromWidthPx;
+    private readonly float _toWidthPx;
 
-    /// <remarks>Takes ownership of <paramref name="font"/>.</remarks>
-    public RollingNumber(string from, string to, SKFont font, SKColor color, CultureInfo culture)
+    /// <remarks>
+    /// Takes ownership of <paramref name="font"/>. <paramref name="fromEnd"/> pairs the characters
+    /// from the end, for a text that is aligned to the end.
+    /// </remarks>
+    public RollingNumber(string from, string to, SKFont font, SKColor color, CultureInfo culture, bool fromEnd = false)
     {
         _font = font;
         _color = color;
@@ -40,9 +45,11 @@ internal sealed class RollingNumber : IDisposable
         // Rounded up like AnimatedLabel's text image, so the last frame lands where the image is drawn.
         HeightPx = MathF.Ceiling(metrics.Descent - metrics.Ascent);
 
-        var fromX = Offsets(from, font);
-        var toX = Offsets(to, font);
-        var columns = Pair(from, to);
+        var fromX = Offsets(from, font, out float fromWidth);
+        var toX = Offsets(to, font, out float toWidth);
+        var columns = Pair(from, to, fromEnd);
+        _fromWidthPx = fromWidth;
+        _toWidthPx = toWidth;
 
         _glyphs = new Glyph[columns.Length];
         for (int i = 0; i < columns.Length; i++)
@@ -56,16 +63,24 @@ internal sealed class RollingNumber : IDisposable
 
     public float HeightPx { get; }
 
-    /// <summary>Draws the change at <paramref name="progress"/> (0 to 1), with the top of the line at y = 0.</summary>
-    public void Draw(SKCanvas canvas, float progress)
+    /// <summary>
+    /// Draws the change at <paramref name="progress"/> (0 to 1), with the top of the line at y = 0.
+    /// The text is placed in <paramref name="widthPx"/> by <paramref name="align"/>: 0 start, 0.5 centre, 1 end.
+    /// </summary>
+    public void Draw(SKCanvas canvas, float progress, float widthPx = 0f, float align = 0f)
     {
         float t = Ease(Math.Clamp(progress, 0f, 1f));
         float leave = (_increases ? -HeightPx : HeightPx) * t;
         float arrive = (_increases ? HeightPx : -HeightPx) * (1f - t);
+        float fromLeft = Left(widthPx, _fromWidthPx, align);
+        float toLeft = Left(widthPx, _toWidthPx, align);
 
         foreach (var g in _glyphs)
         {
-            float x = g.FromX + (g.ToX - g.FromX) * t;
+            // A character that arrives or leaves has one place only, and rolls there.
+            float startX = g.From is null ? toLeft + g.ToX : fromLeft + g.FromX;
+            float endX = g.To is null ? fromLeft + g.FromX : toLeft + g.ToX;
+            float x = startX + (endX - startX) * t;
 
             if (!g.Rolls)
             {
@@ -96,38 +111,87 @@ internal sealed class RollingNumber : IDisposable
         _paint.Dispose();
     }
 
+    /// <summary>Where a text of <paramref name="textPx"/> starts in <paramref name="availablePx"/>, in whole pixels.</summary>
+    internal static float Left(float availablePx, float textPx, float align) =>
+        MathF.Max(0f, MathF.Floor((availablePx - textPx) * align));
+
+    /// <summary>The width of <paramref name="text"/> as <see cref="DrawLine"/> draws it.</summary>
+    internal static float Measure(string text, SKFont font)
+    {
+        Offsets(text, font, out float width);
+        return width;
+    }
+
+    /// <summary>Draws a text at rest the way the last frame of a roll draws it, so the two are the same pixels.</summary>
+    internal static void DrawLine(SKCanvas canvas, string text, float baselinePx, SKFont font, SKPaint paint)
+    {
+        var x = Offsets(text, font, out _);
+        var e = StringInfo.GetTextElementEnumerator(text);
+        for (int i = 0; e.MoveNext(); i++)
+            canvas.DrawText(e.GetTextElement(), x[i], baselinePx, font, paint);
+    }
+
     internal static float Ease(float t) => 1f - (1f - t) * (1f - t) * (1f - t);
 
     /// <summary>
-    /// Pairs the characters of the two texts into columns. A shared prefix without digits stays put
-    /// (<c>Score 9</c> → <c>Score 10</c>); the rest is aligned from the right, so the ones stay over
-    /// the ones when the number gains or loses a digit.
+    /// Pairs the characters of the two texts into columns, from the left: <c>99</c> → <c>100</c> is
+    /// 9 → 1, 9 → 0 and a new 0 at the end, so nothing moves sideways. When both texts are built the
+    /// same way (<c>9:59</c> and <c>10:00</c>, <c>9 pts</c> and <c>10 pts</c>), each run of digits and
+    /// each run of other characters is paired on its own, so the colon and the unit do not roll.
+    /// With <paramref name="fromEnd"/> the runs are paired from the right instead, which keeps the
+    /// ones over the ones in a text that is aligned to the end.
     /// </summary>
-    internal static Column[] Pair(string from, string to)
+    internal static Column[] Pair(string from, string to, bool fromEnd = false)
     {
         var a = Elements(from);
         var b = Elements(to);
+        var runsA = Runs(a);
+        var runsB = Runs(b);
+        var columns = new List<Column>(Math.Max(a.Length, b.Length));
 
-        int prefix = 0;
-        while (prefix < a.Length && prefix < b.Length && a[prefix] == b[prefix] && !IsDigit(a[prefix]))
-            prefix++;
+        bool sameShape = runsA.Count == runsB.Count && runsA.Count > 0 && IsDigit(a[0]) == IsDigit(b[0]);
 
-        int tail = Math.Max(a.Length, b.Length) - prefix;
-        var columns = new Column[prefix + tail];
-
-        for (int i = 0; i < prefix; i++)
-            columns[i] = new Column(a[i], b[i], i, i);
-
-        for (int i = 0; i < tail; i++)
+        if (sameShape)
         {
-            int ia = a.Length - tail + i;
-            int ib = b.Length - tail + i;
-            if (ia < prefix) ia = -1;
-            if (ib < prefix) ib = -1;
-            columns[prefix + i] = new Column(ia >= 0 ? a[ia] : null, ib >= 0 ? b[ib] : null, ia, ib);
+            for (int i = 0; i < runsA.Count; i++)
+                PairRun(a, runsA[i], b, runsB[i], fromEnd, columns);
+        }
+        else
+        {
+            PairRun(a, (0, a.Length), b, (0, b.Length), fromEnd, columns);
         }
 
-        return columns;
+        return [.. columns];
+    }
+
+    private static void PairRun(string[] a, (int Start, int Length) runA, string[] b, (int Start, int Length) runB, bool fromEnd, List<Column> columns)
+    {
+        int length = Math.Max(runA.Length, runB.Length);
+        for (int i = 0; i < length; i++)
+        {
+            int ka = fromEnd ? runA.Length - length + i : i;
+            int kb = fromEnd ? runB.Length - length + i : i;
+            int ia = ka >= 0 && ka < runA.Length ? runA.Start + ka : -1;
+            int ib = kb >= 0 && kb < runB.Length ? runB.Start + kb : -1;
+            columns.Add(new Column(ia >= 0 ? a[ia] : null, ib >= 0 ? b[ib] : null, ia, ib));
+        }
+    }
+
+    // Consecutive digits, and consecutive characters that are not digits.
+    private static List<(int Start, int Length)> Runs(string[] elements)
+    {
+        var runs = new List<(int Start, int Length)>();
+        int start = 0;
+        for (int i = 1; i <= elements.Length; i++)
+        {
+            if (i < elements.Length && IsDigit(elements[i]) == IsDigit(elements[start]))
+                continue;
+
+            runs.Add((start, i - start));
+            start = i;
+        }
+
+        return runs;
     }
 
     /// <summary>
@@ -202,13 +266,48 @@ internal sealed class RollingNumber : IDisposable
         return [.. elements];
     }
 
-    // Measured over the whole prefix rather than summed per element, so kerning matches the final text.
-    private static float[] Offsets(string text, SKFont font)
+    // Every digit gets a cell as wide as the font's widest digit and is centred in it (tabular
+    // figures), so a number keeps its width while it counts. Other characters are measured over
+    // their run rather than summed one by one, which keeps their kerning.
+    private static float[] Offsets(string text, SKFont font, out float width)
     {
-        var offsets = new List<float>(text.Length);
-        var e = StringInfo.GetTextElementEnumerator(text);
-        while (e.MoveNext())
-            offsets.Add(e.ElementIndex == 0 ? 0f : font.MeasureText(text.AsSpan(0, e.ElementIndex)));
-        return [.. offsets];
+        var elements = Elements(text);
+        var offsets = new float[elements.Length];
+        float cell = DigitCell(font);
+        float cursor = 0f;
+
+        foreach (var (start, length) in Runs(elements))
+        {
+            if (IsDigit(elements[start]))
+            {
+                for (int i = start; i < start + length; i++)
+                {
+                    offsets[i] = cursor + (cell - font.MeasureText(elements[i])) * 0.5f;
+                    cursor += cell;
+                }
+
+                continue;
+            }
+
+            string run = string.Empty;
+            for (int i = start; i < start + length; i++)
+            {
+                offsets[i] = cursor + (run.Length == 0 ? 0f : font.MeasureText(run));
+                run += elements[i];
+            }
+
+            cursor += font.MeasureText(run);
+        }
+
+        width = cursor;
+        return offsets;
+    }
+
+    private static float DigitCell(SKFont font)
+    {
+        float cell = 0f;
+        for (char d = '0'; d <= '9'; d++)
+            cell = MathF.Max(cell, font.MeasureText(d.ToString()));
+        return cell;
     }
 }

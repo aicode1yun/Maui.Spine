@@ -59,11 +59,13 @@
                 <Border Padding="10,6" BackgroundColor="#282828" StrokeShape="RoundRectangle 8">
                     <AnimatedLabel Text="{Binding Score}" Mode="RollingNumber"
                                    FontSize="28" FontAttributes="Bold" TextColor="White"
+                                   HorizontalTextAlignment="{Binding RollAlignment}"
                                    RollDurationMs="{Binding RollDuration}" />
                 </Border>
                 <Border Padding="10,6" BackgroundColor="#282828" StrokeShape="RoundRectangle 8">
                     <AnimatedLabel Text="{Binding Countdown}" Mode="RollingNumber"
                                    FontSize="20" TextColor="White"
+                                   HorizontalTextAlignment="{Binding RollAlignment}"
                                    RollDurationMs="{Binding RollDuration}" />
                 </Border>
                 <HorizontalStackLayout Spacing="8">
@@ -77,7 +79,8 @@
                 &lt;AnimatedLabel Text="{Binding Score}"
                                Mode="RollingNumber" /&gt;
 
-                // Optional, shown with its default
+                // Optional, shown with their defaults
+                HorizontalTextAlignment="Start"
                 RollDurationMs="350"
             </Example.Code>
         </Example>

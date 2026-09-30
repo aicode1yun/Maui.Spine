@@ -29,6 +29,9 @@ public partial class MarqueePageViewModel : SampleViewModel
     [ObservableProperty]
     public partial int RollDuration { get; set; } = 350;
 
+    [ObservableProperty]
+    public partial TextAlignment RollAlignment { get; set; } = TextAlignment.Start;
+
     private CancellationTokenSource? _countdown;
 
     private static readonly string[] _latinWords =
@@ -85,6 +88,18 @@ public partial class MarqueePageViewModel : SampleViewModel
         new ToggleOption("Start over", "Scrolling restarts from the beginning of the new text. Off, it carries on from where it was.", () => RestartOnChange, v => RestartOnChange = v));
 
     [RelayCommand]
-    private Task ShowRollOptions() => ShowOptionsAsync("Rolling",
-        new SliderOption("Duration, ms", 100, 1500, () => RollDuration, v => RollDuration = (int)v, "0"));
+    private Task ShowRollOptions()
+    {
+        var alignment = new ChoiceGroup("Alignment",
+        [
+            new("Start", "A digit the number gains comes in at the end; the rest stay where they are.", () => RollAlignment = TextAlignment.Start),
+            new("Center", "The number stays centred, so it shifts half a digit when it gains one.", () => RollAlignment = TextAlignment.Center),
+            new("End", "The ones stay over the ones; a digit the number gains comes in at the front.", () => RollAlignment = TextAlignment.End),
+        ]);
+        alignment.Select((int)RollAlignment);
+
+        return ShowOptionsAsync("Rolling",
+            alignment,
+            new SliderOption("Duration, ms", 100, 1500, () => RollDuration, v => RollDuration = (int)v, "0"));
+    }
 }

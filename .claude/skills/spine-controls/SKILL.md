@@ -92,7 +92,7 @@ A SkiaSharp label that scrolls (marquee) or fades text that does not fit. `UseSp
 
 Give it a `HeightRequest`; it measures on the Skia canvas, not through MAUI's text layout.
 
-`Mode="RollingNumber"` is for a score, count or clock: on a `Text` change the characters that differ roll vertically (up when the number grows, down when it shrinks), the rest stand still, and the text does not marquee. `RollDurationMs` (350) sets the speed; Reduce Motion falls back to the fade.
+`Mode="RollingNumber"` is for a score, count or clock: on a `Text` change the characters that differ roll vertically (up when the number grows, down when it shrinks), the rest stand still, and the text does not marquee. Digits are tabular (equal width) and paired from the left, so `99` → `100` gains its new digit at the end; `HorizontalTextAlignment="End"` pairs from the right and keeps the ones over the ones. `RollDurationMs` (350) sets the speed; Reduce Motion falls back to the fade. `HorizontalTextAlignment` (`Start`, `Center`, `End`) also places a marquee text that fits.
 
 ```xml
 <AnimatedLabel Text="{Binding Score}" Mode="RollingNumber" FontSize="28" />

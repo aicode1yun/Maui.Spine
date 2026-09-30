@@ -72,9 +72,10 @@ With `Mode="RollingNumber"` the label is meant for a score, a count or a clock. 
 <AnimatedLabel Text="{Binding Score}" Mode="RollingNumber" FontSize="28" />
 ```
 
-- **Which characters roll.** Text before the number that has not changed stays put (`Score 9` → `Score 10`). The rest is lined up from the right, so the ones stay over the ones when the number gains a digit (`99` → `100`). A separator that is the same on both sides, such as the colon in `12:59` → `13:00`, stands still.
+- **Which characters roll.** The characters are paired from the left, so `99` → `100` is 9 → 1, 9 → 0 and a new 0 that rolls in at the end, and nothing moves sideways. When both texts are built the same way, each group of digits is paired on its own: in `9:59` → `10:00` the colon does not roll, and in `9 pts` → `10 pts` the unit does not.
 - **Which way.** When the number grows, the old digits leave upwards and the new ones come in from below. When it shrinks, as in a countdown, they roll the other way. The number is read with the app's culture, so `1,5` is one and a half in Swedish. A text that is not a plain number, like a time, compares its digits in order.
-- **Width.** A column that moves sideways because the number gained or lost a digit glides to its new place during the roll.
+- **Tabular figures.** Every digit gets the width of the font's widest digit, so a number keeps its width while it counts and the digits beside a rolling one stay where they are. Other characters keep their own widths.
+- **Alignment.** `HorizontalTextAlignment` places the number at the start, the centre or the end of the label. With `End` the characters are paired from the right instead, so the ones stay over the ones and a digit the number gains comes in at the front. With `Center` the number shifts half a digit when it gains one.
 - **Reduce Motion.** With Reduce Motion (Remove animations on Android) turned on, the label fades as in `Marquee` mode, or changes at once if `EnableFadeOnTextChange` is `False`.
 - **No marquee.** In this mode the text does not scroll sideways, since numbers are short. Text that is too wide is clipped.
 
@@ -101,6 +102,7 @@ A change that comes while a roll is still running starts a new roll from the lat
 | `EndPaddingDp` | `double` | `2` | Extra padding at the end of the text before the scroll reverses |
 | `FadeEdgeWidthDp` | `double` | `8` | Width of the left/right fade edges (dp) |
 | `Mode` | `AnimatedLabelMode` | `Marquee` | `Marquee` scrolls and fades; `RollingNumber` rolls the characters that change |
+| `HorizontalTextAlignment` | `TextAlignment` | `Start` | Where a text that fits is placed: `Start`, `Center` or `End`. A text that is too wide starts at the start |
 | `RollDurationMs` | `int` | `350` | How long a change takes to roll in `RollingNumber` mode (ms) |
 
 ---

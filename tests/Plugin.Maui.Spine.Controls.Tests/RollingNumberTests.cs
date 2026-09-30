@@ -1,5 +1,6 @@
 using System.Globalization;
 using Plugin.Maui.Spine.Controls;
+using SkiaSharp;
 using Xunit;
 
 namespace Plugin.Maui.Spine.Controls.Tests;
@@ -10,8 +11,8 @@ public class RollingNumberTests
     private static readonly CultureInfo Swedish = CultureInfo.GetCultureInfo("sv-SE");
     private static readonly CultureInfo English = CultureInfo.GetCultureInfo("en-US");
 
-    private static (string? From, string? To)[] Pair(string from, string to) =>
-        [.. RollingNumber.Pair(from, to).Select(c => (c.From, c.To))];
+    private static (string? From, string? To)[] Pair(string from, string to, bool fromEnd = false) =>
+        [.. RollingNumber.Pair(from, to, fromEnd).Select(c => (c.From, c.To))];
 
     [Fact]
     public void Only_the_changed_digit_rolls()
@@ -23,15 +24,16 @@ public class RollingNumberTests
     }
 
     [Fact]
-    public void A_new_digit_arrives_on_the_left()
+    public void A_new_digit_arrives_at_the_end()
     {
-        Assert.Equal([(null, "1"), ("9", "0"), ("9", "0")], Pair("99", "100"));
+        Assert.Equal([("9", "1"), ("9", "0"), (null, "0")], Pair("99", "100"));
     }
 
     [Fact]
-    public void A_lost_digit_leaves_on_the_left()
+    public void A_lost_digit_leaves_at_the_end()
     {
-        Assert.Equal([("1", null), ("0", "9")], Pair("10", "9"));
+        Assert.Equal([("1", "9"), ("0", "9"), ("0", null)], Pair("100", "99"));
+        Assert.Equal([("1", "1"), ("0", null)], Pair("10", "1"));
     }
 
     [Fact]
@@ -41,13 +43,13 @@ public class RollingNumberTests
 
         Assert.Equal(("S", "S"), columns[0]);
         Assert.Equal((" ", " "), columns[5]);
-        Assert.Equal([(null, "1"), ("9", "0")], columns[6..]);
+        Assert.Equal([("9", "1"), (null, "0")], columns[6..]);
     }
 
     [Fact]
-    public void Text_after_the_number_stays_put()
+    public void Text_after_the_number_does_not_roll()
     {
-        Assert.Equal([(null, "1"), ("9", "0"), (" ", " "), ("s", "s")], Pair("9 s", "10 s"));
+        Assert.Equal([("9", "1"), (null, "0"), (" ", " "), ("s", "s")], Pair("9 s", "10 s"));
     }
 
     [Fact]
@@ -60,10 +62,25 @@ public class RollingNumberTests
     }
 
     [Fact]
-    public void A_leading_digit_is_not_taken_as_a_shared_prefix()
+    public void Each_group_of_digits_grows_on_its_own()
     {
-        // Left-aligned, "10" -> "1" would keep the 1 and drop the 0; on an odometer the tens go.
-        Assert.Equal([("1", null), ("0", "1")], Pair("10", "1"));
+        Assert.Equal([("9", "1"), (null, "0"), (":", ":"), ("5", "0"), ("9", "0")], Pair("9:59", "10:00"));
+        Assert.Equal([("9", "1"), (null, "0"), (".", "."), ("7", "5"), ("5", null)], Pair("9.75", "10.5"));
+    }
+
+    [Fact]
+    public void Texts_built_differently_are_paired_from_the_left()
+    {
+        Assert.Equal([("5", "5"), (null, " "), (null, "p"), (null, "t"), (null, "s")], Pair("5", "5 pts"));
+        Assert.Equal([("-", "3"), ("5", null)], Pair("-5", "3"));
+    }
+
+    [Fact]
+    public void Aligned_to_the_end_a_new_digit_arrives_at_the_front()
+    {
+        Assert.Equal([(null, "1"), ("9", "0"), ("9", "0")], Pair("99", "100", fromEnd: true));
+        Assert.Equal([(null, "1"), ("9", "0"), (":", ":"), ("5", "0"), ("9", "0")], Pair("9:59", "10:00", fromEnd: true));
+        Assert.Equal([("1", null), ("0", "1")], Pair("10", "1", fromEnd: true));
     }
 
     [Fact]
@@ -71,8 +88,8 @@ public class RollingNumberTests
     {
         var columns = RollingNumber.Pair("9", "10");
 
-        Assert.Equal((-1, 0), (columns[0].FromIndex, columns[0].ToIndex));
-        Assert.Equal((0, 1), (columns[1].FromIndex, columns[1].ToIndex));
+        Assert.Equal((0, 0), (columns[0].FromIndex, columns[0].ToIndex));
+        Assert.Equal((-1, 1), (columns[1].FromIndex, columns[1].ToIndex));
     }
 
     [Fact]
@@ -106,6 +123,40 @@ public class RollingNumberTests
     {
         Assert.False(RollingNumber.Increases("1,5", "1,25", Swedish));
         Assert.True(RollingNumber.Increases("1,5", "1,75", Swedish));
+    }
+
+    [Theory]
+    [InlineData("111", "888")]
+    [InlineData("1:11", "0:48")]
+    [InlineData("Score 17", "Score 40")]
+    public void Digits_are_tabular(string narrow, string wide)
+    {
+        using var font = new SKFont(SKTypeface.Default, 40f);
+
+        Assert.Equal(RollingNumber.Measure(wide, font), RollingNumber.Measure(narrow, font));
+    }
+
+    [Fact]
+    public void Text_without_digits_keeps_its_own_width()
+    {
+        using var font = new SKFont(SKTypeface.Default, 40f);
+
+        Assert.Equal(font.MeasureText("pts"), RollingNumber.Measure("pts", font), 3);
+    }
+
+    [Theory]
+    [InlineData(0f, 0f)]
+    [InlineData(0.5f, 30f)]
+    [InlineData(1f, 60f)]
+    public void The_text_is_placed_by_its_alignment(float align, float left)
+    {
+        Assert.Equal(left, RollingNumber.Left(100f, 40f, align));
+    }
+
+    [Fact]
+    public void Text_that_is_too_wide_starts_at_the_start()
+    {
+        Assert.Equal(0f, RollingNumber.Left(30f, 40f, 1f));
     }
 
     [Fact]

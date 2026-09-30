@@ -123,6 +123,13 @@ public sealed class AnimatedLabel : SKCanvasView
         AnimatedLabelMode.Marquee,
         propertyChanged: static (b, _, _) => ((AnimatedLabel)b).OnModeChanged());
 
+    public static readonly BindableProperty HorizontalTextAlignmentProperty = BindableProperty.Create(
+        nameof(HorizontalTextAlignment),
+        typeof(TextAlignment),
+        typeof(AnimatedLabel),
+        TextAlignment.Start,
+        propertyChanged: static (b, _, _) => ((AnimatedLabel)b).OnAlignmentChanged());
+
     public static readonly BindableProperty RollDurationMsProperty = BindableProperty.Create(
         nameof(RollDurationMs),
         typeof(int),
@@ -238,6 +245,17 @@ public sealed class AnimatedLabel : SKCanvasView
         set => SetValue(ModeProperty, value);
     }
 
+    /// <summary>
+    /// Where a text that fits is placed in the label: start, centre or end. A text that is too wide
+    /// starts at the start. In <see cref="AnimatedLabelMode.RollingNumber"/>, <see cref="TextAlignment.End"/>
+    /// also keeps the ones over the ones when the number gains a digit.
+    /// </summary>
+    public TextAlignment HorizontalTextAlignment
+    {
+        get => (TextAlignment)GetValue(HorizontalTextAlignmentProperty);
+        set => SetValue(HorizontalTextAlignmentProperty, value);
+    }
+
     /// <summary>How long a change takes to roll in <see cref="AnimatedLabelMode.RollingNumber"/>.</summary>
     public int RollDurationMs
     {
@@ -258,6 +276,7 @@ public sealed class AnimatedLabel : SKCanvasView
     private SKImage? _textImage;
     private int _textImageWidthPx;
     private int _textImageHeightPx;
+    private float _textWidthPx;
 
     private float _scale = MinScale;
     private float _scrollOffsetDp;
@@ -418,14 +437,16 @@ public sealed class AnimatedLabel : SKCanvasView
         {
             canvas.Save();
             canvas.ClipRect(SKRect.Create(0, 0, info.Width, info.Height));
-            canvas.Translate(0, (info.Height - _roll.HeightPx) * 0.5f);
-            _roll.Draw(canvas, RollDurationMs <= 0 ? 1f : (float)(_rollElapsedMs / RollDurationMs));
+            canvas.Translate(0, MathF.Floor((info.Height - _roll.HeightPx) * 0.5f));
+            _roll.Draw(canvas, RollDurationMs <= 0 ? 1f : (float)(_rollElapsedMs / RollDurationMs), info.Width, AlignmentFactor);
             canvas.Restore();
             return;
         }
 
         float scrollPx = _scrollOffsetDp * _scale;
-        float yPx = (info.Height - _textImageHeightPx) * 0.5f;
+        // Whole pixels: at a half pixel the image is resampled and blurs, while a roll's glyphs snap
+        // to the pixel grid, so the text would shift when a roll hands over to the image.
+        float yPx = MathF.Floor((info.Height - _textImageHeightPx) * 0.5f);
 
         byte alpha = (byte)Math.Clamp((int)Math.Round(_opacity * 255f), 0, 255);
         _imagePaint.Color = SKColors.White.WithAlpha(alpha);
@@ -441,7 +462,7 @@ public sealed class AnimatedLabel : SKCanvasView
 
         canvas.Save();
         canvas.ClipRect(SKRect.Create(0, 0, info.Width, info.Height));
-        canvas.Translate(-scrollPx, yPx);
+        canvas.Translate(RollingNumber.Left(info.Width, _textWidthPx, AlignmentFactor) - scrollPx, yPx);
         canvas.DrawImage(_textImage, 0, 0, Sampling, _imagePaint);
         canvas.Restore();
 
@@ -516,10 +537,16 @@ public sealed class AnimatedLabel : SKCanvasView
     private void OnModeChanged()
     {
         EndRoll();
-        RecalculateOverflow();
+        RebuildAndRecalculate();
         ResetScrollState();
         InvalidateSurface();
         UpdateAnimationRegistration();
+    }
+
+    private void OnAlignmentChanged()
+    {
+        EndRoll();
+        InvalidateSurface();
     }
 
     private void OnFadeEdgeWidthChanged()
@@ -567,6 +594,7 @@ public sealed class AnimatedLabel : SKCanvasView
         {
             _textImageWidthPx = 0;
             _textImageHeightPx = 0;
+            _textWidthPx = 0f;
             InvalidateSurface();
             return;
         }
@@ -575,7 +603,8 @@ public sealed class AnimatedLabel : SKCanvasView
 
         font.GetFontMetrics(out var metrics);
 
-        float rawTextWidthPx = font.MeasureText(_bufferedText);
+        bool rolling = Mode == AnimatedLabelMode.RollingNumber;
+        float rawTextWidthPx = rolling ? RollingNumber.Measure(_bufferedText, font) : font.MeasureText(_bufferedText);
         float endPaddingPx = Math.Max(0f, (float)(EndPaddingDp * _scale));
 
         int widthPx = Math.Max(1, (int)Math.Ceiling(rawTextWidthPx + endPaddingPx + 2));
@@ -592,11 +621,15 @@ public sealed class AnimatedLabel : SKCanvasView
         };
 
         float baselineY = -metrics.Ascent;
-        canvas.DrawText(_bufferedText, 0, baselineY, font, textPaint);
+        if (rolling)
+            RollingNumber.DrawLine(canvas, _bufferedText, baselineY, font, textPaint);
+        else
+            canvas.DrawText(_bufferedText, 0, baselineY, font, textPaint);
 
         _textImage = SKImage.FromBitmap(bitmap);
         _textImageWidthPx = widthPx;
         _textImageHeightPx = heightPx;
+        _textWidthPx = rawTextWidthPx;
 
         InvalidateSurface();
     }
@@ -618,6 +651,13 @@ public sealed class AnimatedLabel : SKCanvasView
             Subpixel = true
         };
     }
+
+    private float AlignmentFactor => HorizontalTextAlignment switch
+    {
+        TextAlignment.Center => 0.5f,
+        TextAlignment.End => 1f,
+        _ => 0f
+    };
 
     private Color ResolveEffectiveTextColor()
     {
@@ -683,7 +723,8 @@ public sealed class AnimatedLabel : SKCanvasView
         _bufferedText = next;
         RebuildAndRecalculate();
 
-        _roll = new RollingNumber(from, next, CreateFont(), ResolveEffectiveTextColor().ToSKColor(), CultureInfo.CurrentCulture);
+        _roll = new RollingNumber(from, next, CreateFont(), ResolveEffectiveTextColor().ToSKColor(), CultureInfo.CurrentCulture,
+            fromEnd: HorizontalTextAlignment == TextAlignment.End);
         _rollElapsedMs = 0d;
         RegisterWithTicker();
     }
@@ -1132,6 +1173,7 @@ public sealed class AnimatedLabel : SKCanvasView
         _textImage = null;
         _textImageWidthPx = 0;
         _textImageHeightPx = 0;
+        _textWidthPx = 0f;
     }
 
     private void EnsureFadePaints(int widthPx, float edgePx)
