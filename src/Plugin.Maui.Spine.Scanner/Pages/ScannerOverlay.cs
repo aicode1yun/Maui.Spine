@@ -15,7 +15,7 @@ internal enum ReticleShape
 }
 
 /// <summary>
-/// Drawn over the camera in <see cref="BarcodeScannerPage"/>: the pulsing corners of the area to aim at, and after a
+/// Drawn over the camera in <see cref="BarcodeScannerPage"/>: the breathing corners of the area to aim at, and after a
 /// hit the code that was read, outlined in the accent colour with its lamp grid for a light grid.
 /// </summary>
 internal sealed class ScannerOverlay : GraphicsView, IDrawable
@@ -31,7 +31,7 @@ internal sealed class ScannerOverlay : GraphicsView, IDrawable
 
     public ReticleShape Reticle { get; set; } = ReticleShape.Square;
 
-    /// <summary>0 to 1, driven by the page's pulse animation.</summary>
+    /// <summary>0 to 1, driven by the page's pulse animation: how far the corners have breathed out.</summary>
     public double Pulse { get; set; }
 
     /// <summary>The code to mark, or <see langword="null"/> while scanning.</summary>
@@ -49,7 +49,7 @@ internal sealed class ScannerOverlay : GraphicsView, IDrawable
         if (Hit is { Corners.Count: 4 } hit)
             DrawHit(canvas, hit, accent);
         else if (Reticle != ReticleShape.None && Hit is null)
-            DrawReticle(canvas, rect, accent);
+            DrawReticle(canvas, rect);
     }
 
     /// <summary>Where the aim corners go in a view of the given size; the page places its prompt below it.</summary>
@@ -72,14 +72,18 @@ internal sealed class ScannerOverlay : GraphicsView, IDrawable
         return new RectF(rect.Center.X - width / 2, rect.Center.Y - height / 2, width, height);
     }
 
-    private void DrawReticle(ICanvas canvas, RectF rect, Color accent)
+    // White corners with a soft dark shadow, as the system code scanner draws them: they read on a bright scene as
+    // well as a dark one. They breathe outwards rather than fade, so they stay as easy to see at every moment.
+    private void DrawReticle(ICanvas canvas, RectF rect)
     {
         var frame = ReticleFor(rect, Reticle);
+        float arm = Math.Min(frame.Width, frame.Height) * 0.2f, radius = arm * 0.5f;
+        frame = frame.Inflate(arm * 0.18f * (float)Pulse, arm * 0.18f * (float)Pulse);
         float left = frame.Left, top = frame.Top, width = frame.Width, height = frame.Height;
-        float arm = Math.Min(width, height) * 0.2f, radius = arm * 0.35f;
 
-        canvas.StrokeColor = accent.WithAlpha(0.35f + 0.65f * (float)Pulse);
-        canvas.StrokeSize = 5;
+        canvas.SetShadow(new SizeF(0, 1), 6, Colors.Black.WithAlpha(0.45f));
+        canvas.StrokeColor = Colors.White;
+        canvas.StrokeSize = 7;
         canvas.StrokeLineCap = LineCap.Round;
         canvas.StrokeLineJoin = LineJoin.Round;
         canvas.Antialias = true;

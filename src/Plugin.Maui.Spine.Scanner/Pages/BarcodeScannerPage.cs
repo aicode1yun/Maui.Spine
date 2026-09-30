@@ -9,7 +9,7 @@ namespace Plugin.Maui.Spine.Scanner;
 /// <summary>
 /// A sheet that scans until it reads one code and returns it; closing returns no value. The camera fills the sheet
 /// under a transparent header with a close button and, when the camera has one, a torch. By default it opens at half
-/// height, shows pulsing corners where to aim, and on a hit lets the marked code burst towards the user before it
+/// height, shows breathing corners where to aim, and on a hit lets the marked code burst towards the user before it
 /// closes; <see cref="BarcodeScanOptions"/> changes each of these.
 /// </summary>
 /// <example>
@@ -177,13 +177,13 @@ public sealed class BarcodeScannerPage : SpinePage<BarcodeScannerPageViewModel>,
             return;
         if (ReduceMotion.IsEnabled)
         {
-            _overlay.Pulse = 1;
+            _overlay.Pulse = 0;
             _overlay.Invalidate();
             return;
         }
-        // One pulse a second, up and down in one cycle, so each repeat starts where the last one ended
-        new Animation(v => { _overlay.Pulse = Math.Sin(Math.PI * v); _overlay.Invalidate(); }, 0, 1, Easing.Linear)
-            .Commit(this, PulseAnimation, length: 1000, repeat: () => !_detected, finished: (_, _) => { });
+        // Out and back in one cycle, eased at both ends like a breath, so each repeat starts where the last one ended
+        new Animation(v => { _overlay.Pulse = (1 - Math.Cos(2 * Math.PI * v)) / 2; _overlay.Invalidate(); }, 0, 1, Easing.Linear)
+            .Commit(this, PulseAnimation, length: 1600, repeat: () => !_detected, finished: (_, _) => { });
     }
 
     private async void OnDetected(object? sender, BarcodeDetectedEventArgs e)
