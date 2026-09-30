@@ -1,6 +1,6 @@
 # Plugin.Maui.Spine.Scanner
 
-Camera barcode scanning for .NET MAUI: a `BarcodeScannerView` and a ready-made scan sheet with pulsing aim corners, a burst when a code is read, a sound, a torch and a size chosen per scan. Vision reads the standard codes on iOS and Mac Catalyst, ML Kit on Android. When `LightGrid` is set, a light-grid reader runs next to them and reads a code shown by a grid of lamps, such as a 12 × 12 word clock.
+Camera barcode scanning for .NET MAUI: a `BarcodeScannerView` and a ready-made scan sheet with breathing aim corners, a burst when a code is read, a sound, a torch and a size chosen per scan. Vision reads the standard codes on iOS and Mac Catalyst, ML Kit on Android. When `LightGrid` is set, a light-grid reader runs next to them and reads a code shown by a grid of lamps, such as a 12 × 12 word clock.
 
 ```bash
 dotnet add package Plugin.Maui.Spine.Scanner

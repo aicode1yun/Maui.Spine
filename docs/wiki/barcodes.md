@@ -172,7 +172,7 @@ The view asks for the camera permission the first time it shows.
 By default:
 - it opens at half height and can be pulled to full screen;
 - the camera fills the sheet under a transparent header, with Spine's close button and, when the device has one, a torch that turns white while it is on and taps with a light haptic;
-- **aim corners** in the accent colour pulse once a second where to point the camera: square for 2D codes and light grids, wide when only linear codes are read;
+- **aim corners**, white with a soft shadow like the system code scanner, breathe outwards where to point the camera: square for 2D codes and light grids, wide when only linear codes are read;
 - on a hit, the frame stops, the code is redrawn as accent dots in the perspective it was found in and **bursts towards the user** while the frame dims to half, with the success haptic and a short sound; the sheet closes when that has finished, about half a second later.
 
 For a light grid the dots are the code encoded again from its value and turned to match the lamps that were lit, so each dot lands on its lamp. For a 2D code from the platform reader the code is encoded again with default options, so the dots may differ in detail from the pattern on screen.
@@ -194,7 +194,7 @@ if (scan is { IsSuccess: true, Value: { } code })
 | `Formats` | The standard symbologies to read; default `All`. `None` reads only `LightGrid` |
 | `LightGrid` | A grid of lamps to read as well, such as `new LightGridOptions(12, 12)`; `null` skips it |
 | `Title` | The sheet's title; `null` for the localised "Scan code" |
-| `ShowReticle` | The pulsing aim corners; default `true` |
+| `ShowReticle` | The breathing aim corners; default `true` |
 | `ShowDetection` | The burst on a hit before the sheet closes; default `true`. Off returns at once |
 | `PlaySound` | A short sound on a hit: the "Tink" system sound on iOS (muted by the silent switch), the acknowledge tone on Android; default `true` |
 | `ShowTorch` | A torch in the header when the device has one; default `true` |

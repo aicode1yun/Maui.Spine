@@ -38,7 +38,7 @@ public sealed record BarcodeScanOptions
     public string? Title { get; init; }
 
     /// <summary>
-    /// Corners in the accent colour that pulse around the area to aim at: square for 2D codes and light grids,
+    /// White corners that breathe around the area to aim at: square for 2D codes and light grids,
     /// wide when <see cref="Formats"/> holds only linear codes. On by default.
     /// </summary>
     public bool ShowReticle { get; init; } = true;

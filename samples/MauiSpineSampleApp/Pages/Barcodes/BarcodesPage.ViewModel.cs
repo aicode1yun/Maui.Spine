@@ -102,7 +102,7 @@ public partial class BarcodesPageViewModel(INavigationService _navigation) : Sam
 
         return ShowOptionsAsync("Scanner",
             size,
-            new ToggleOption("Aim corners", "ShowReticle: pulsing corners in the accent colour where to aim; wide for linear codes.", () => ShowReticle, v => ShowReticle = v),
+            new ToggleOption("Aim corners", "ShowReticle: white corners that breathe where to aim; wide for linear codes.", () => ShowReticle, v => ShowReticle = v),
             new ToggleOption("Show the hit", "ShowDetection: the frame stops and the marked code bursts towards you before the sheet closes.", () => ShowDetection, v => ShowDetection = v),
             new ToggleOption("Sound", "PlaySound: a short sound on a hit, muted by the silent switch on iOS.", () => PlaySound, v => PlaySound = v),
             new ToggleOption("Prompt", "ShowPrompt: a text box at the bottom with Prompt.", () => ShowPrompt, v => ShowPrompt = v),
