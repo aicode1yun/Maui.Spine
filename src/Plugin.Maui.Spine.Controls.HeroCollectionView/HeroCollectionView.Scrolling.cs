@@ -14,6 +14,10 @@ public partial class HeroCollectionView
     private const double LayoutEpsilon          = 0.5;
     private const double DirectionChangeMinDelta = 3.0;
 
+    // The share of the collapse that passes before the overlay starts to fade in, so the image
+    // stays untouched while the header has only just begun to shrink.
+    private const double OverlayFadeStart = 0.3;
+
     private double _lastAcceptedOffset = -1;
 
     // How far the list is pulled past its top; the header is stretched by the same amount.
@@ -127,9 +131,10 @@ public partial class HeroCollectionView
         // TranslationY: 0 = fully expanded, -(maxH - minH) = fully collapsed.
         double translation    = -(maxH - _currentHeight);
         double progress       = Math.Clamp((maxH - _currentHeight) / collapseZone, 0, 1);
-        // Eased out, so the overlay is already clear a short way into the collapse rather than
-        // reaching full strength only as the header closes.
-        double t              = Math.Round(1 - Math.Pow(1 - progress, 3), 2);
+        double fade           = Math.Max(0, (progress - OverlayFadeStart) / (1 - OverlayFadeStart));
+        // Eased out, so the overlay is clear well before the header closes rather than reaching
+        // full strength only then.
+        double t              = Math.Round(1 - Math.Pow(1 - fade, 3), 2);
         bool   opacityChanged = t != _lastOverlayOpacity;
         if (opacityChanged) _lastOverlayOpacity = t;
 
