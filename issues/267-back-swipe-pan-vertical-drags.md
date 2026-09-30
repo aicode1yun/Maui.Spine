@@ -2,7 +2,7 @@
 
 **GitHub:** https://github.com/jonatansoderberg/Maui.Spine/issues/267
 **Branch:** issue/267-back-swipe-pan-vertical-drags
-**Status:** In Progress
+**Status:** Completed
 
 ## Plan
 

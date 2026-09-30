@@ -2,7 +2,7 @@
 
 **GitHub:** https://github.com/jonatansoderberg/Maui.Spine/issues/151
 **Branch:** issue/151-hem-tokens-och-typografi-for-den-nya-kortanatomin
-**Status:** In Progress
+**Status:** Completed
 
 ## Plan
 

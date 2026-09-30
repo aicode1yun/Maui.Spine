@@ -2,7 +2,7 @@
 
 **GitHub:** https://github.com/jonatansoderberg/Maui.Spine/issues/161
 **Branch:** issue/161-android-flikraden-rapporterar-sin-hojd
-**Status:** In Progress
+**Status:** Completed
 
 ## Plan
 
