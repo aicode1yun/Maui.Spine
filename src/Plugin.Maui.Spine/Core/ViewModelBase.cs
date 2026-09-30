@@ -152,6 +152,10 @@ public abstract partial class ViewModelBase : ObservableObject
     [ObservableProperty]
     public partial Color? HeaderBarForeground { get; set; }
 
+    /// <summary>The glass of the header bar's buttons on iOS 26: frosted, or clear over a photo.</summary>
+    [ObservableProperty]
+    public partial HeaderBarGlass HeaderBarGlass { get; set; }
+
     /// <summary>The status bar style Spine applies while this page is shown.</summary>
     [ObservableProperty]
     public partial StatusBarStyle StatusBarStyle { get; set; }

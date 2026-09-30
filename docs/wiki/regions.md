@@ -38,6 +38,7 @@ public partial class SettingsPage { public SettingsPage() => InitializeComponent
 | `LargeTitle` | `bool` | `false` | The page opens on its own large title, which collapses into the header bar as it scrolls. See [Large title](#large-title) |
 | `HeaderBarBackground` | `HeaderBarBackground` | `Auto` | What is behind the header bar when content is under it: `Auto`, `Solid`, `Transparent`, `SoftEdge`, `SoftStatusBar` or `HardEdge`. See [Backgrounds](#backgrounds) |
 | `HeaderBarForeground` | `string?` | `null` (Auto) | A fixed colour (hex) for the header bar's title and action icons; `null` follows the theme |
+| `HeaderBarGlass` | `HeaderBarGlass` | `Regular` | The Liquid Glass of the header bar's buttons on iOS 26: `Regular`, or `Clear` for a bar that lies over a photo or a map. No effect where the buttons are not glass |
 | `StatusBarStyle` | `StatusBarStyle` | `Auto` | `Auto` follows the theme; `LightContent` or `DarkContent` fix the status bar's clock and icons while the page is shown |
 | `ScrollInset` | `SafeAreaEdges` | `None` | Edges on which the page's first `ScrollView` / `CollectionView` takes the safe-area inset as a native content inset, so it can scroll under an excluded bar and still reach its last row. See [Scrolling under a bar](#scrolling-under-a-bar) |
 

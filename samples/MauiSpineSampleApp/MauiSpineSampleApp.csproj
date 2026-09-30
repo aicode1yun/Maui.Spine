@@ -131,6 +131,15 @@
       <DependentUpon>ShortcutsPage.cs</DependentUpon>
     </Compile>
 
+    <MauiXaml Update="Pages\Hero\HeroPage.View.xaml">
+      <DependentUpon>HeroPage.cs</DependentUpon>
+      <Generator>MSBuild:Compile</Generator>
+    </MauiXaml>
+
+    <Compile Include="Pages\Hero\HeroPage.ViewModel.cs">
+      <DependentUpon>HeroPage.cs</DependentUpon>
+    </Compile>
+
     <MauiXaml Update="Pages\Haptics\HapticsPage.View.xaml">
       <DependentUpon>HapticsPage.cs</DependentUpon>
       <Generator>MSBuild:Compile</Generator>

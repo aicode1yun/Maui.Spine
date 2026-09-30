@@ -52,6 +52,7 @@ public partial class HeroCollectionView : CollectionView
     private double _maxHeight    = 230.0;
     private double _minHeight    = 42.0;
     private double _collapseZone = 188.0;
+    private bool   _centerImage  = true;
 
     // ────────────────────────────────────────────────────────────────────────
     // Named parts

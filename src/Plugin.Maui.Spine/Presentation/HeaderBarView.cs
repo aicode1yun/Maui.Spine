@@ -45,6 +45,22 @@ internal class HeaderBarView : Microsoft.Maui.Controls.ContentView
         set => SetValue(ForegroundProperty, value);
     }
 
+    /// <summary>The glass of the actions' buttons on iOS 26.</summary>
+    public static readonly BindableProperty GlassProperty = BindableProperty.Create(
+        nameof(Glass), typeof(HeaderBarGlass), typeof(HeaderBarView), HeaderBarGlass.Regular,
+        propertyChanged: static (b, _, v) =>
+        {
+            var bar = (HeaderBarView)b;
+            bar._primaryPageActionView.Glass = (HeaderBarGlass)v;
+            bar._secondaryPageActionView.Glass = (HeaderBarGlass)v;
+        });
+
+    public HeaderBarGlass Glass
+    {
+        get => (HeaderBarGlass)GetValue(GlassProperty);
+        set => SetValue(GlassProperty, value);
+    }
+
     public static readonly BindableProperty PrimaryPageActionProperty = BindableProperty.Create(
         nameof(PrimaryPageAction), typeof(PageAction), typeof(HeaderBarView), default, propertyChanged: PrimaryPageActionChanged);
 

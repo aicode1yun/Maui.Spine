@@ -28,6 +28,16 @@ internal sealed class PageActionView : ContentView
         nameof(Foreground), typeof(Color), typeof(PageActionView), null,
         propertyChanged: static (b, _, _) => ((PageActionView)b).ForEachFace(f => f.ApplyForeground()));
 
+    public static readonly BindableProperty GlassProperty = BindableProperty.Create(
+        nameof(Glass), typeof(HeaderBarGlass), typeof(PageActionView), HeaderBarGlass.Regular,
+        propertyChanged: static (b, _, _) => ((PageActionView)b).ForEachFace(f => f.ApplyGlass()));
+
+    public HeaderBarGlass Glass
+    {
+        get => (HeaderBarGlass)GetValue(GlassProperty);
+        set => SetValue(GlassProperty, value);
+    }
+
     public Color? Foreground
     {
         get => (Color?)GetValue(ForegroundProperty);
@@ -361,12 +371,11 @@ internal sealed class PageActionView : ContentView
                 _textButton.Margin = new Thickness(0);
                 _textButton.Padding = new Thickness(14, 8);
                 _textButton.VerticalOptions = LayoutOptions.Center;
-                Glass.SetStyle(_textButton, GlassStyle.Regular);
 
                 // The glass makes the slot visible, so the icon becomes a circle centred in it
                 // rather than a pill hugging the screen edge.
                 _imageButton.HorizontalOptions = LayoutOptions.Center;
-                Glass.SetStyle(_imageButton, GlassStyle.Regular);
+                ApplyGlass();
             }
 
             _badgeLabel = new Label
@@ -494,9 +503,7 @@ internal sealed class PageActionView : ContentView
             _prominent = prominent;
             if (_owner._glass)
             {
-                var style = prominent ? GlassStyle.Prominent : GlassStyle.Regular;
-                Glass.SetStyle(_imageButton, style);
-                Glass.SetStyle(_textButton, style);
+                ApplyGlass();
             }
             else
             {
@@ -568,6 +575,19 @@ internal sealed class PageActionView : ContentView
         {
             if (!_prominent || _owner._glass)
                 _imageButton.ApplyCommonVisualStates(_owner.HideDisabled);
+        }
+
+        public void ApplyGlass()
+        {
+            if (!_owner._glass)
+                return;
+
+            var clear = _owner.Glass == HeaderBarGlass.Clear;
+            var style = _prominent
+                ? clear ? GlassStyle.ProminentClear : GlassStyle.Prominent
+                : clear ? GlassStyle.Clear : GlassStyle.Regular;
+            Extensions.Glass.SetStyle(_imageButton, style);
+            Extensions.Glass.SetStyle(_textButton, style);
         }
 
         public void ApplyForeground()

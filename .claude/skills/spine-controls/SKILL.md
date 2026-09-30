@@ -79,7 +79,7 @@ A `CollectionView` with a collapsing sticky header, a title overlay and content 
 </HeroCollectionView>
 ```
 
-Slots: `HeaderTopContent`, `HeaderBottomContent`, `HeaderOverlayContent`, `Footer`. `EnableAdaptiveOverlay="True"` samples the image as it scrolls and switches `AdaptiveLightColor` / `AdaptiveDarkColor` on the registered children, and on Windows `AdaptiveCaptionButtons` recolors the window's caption buttons. On Windows the header is the window's drag region by default. Use it as a page's root content with `[NavigableRegion(IsHeaderBarVisible = false, SafeAreaEdges = SafeAreaEdges.None)]` so the image runs under the status bar.
+Slots: `HeaderTopContent`, `HeaderBottomContent`, `HeaderOverlayContent`, `Footer`. The image stays centred in what is left showing as the header collapses; `HeaderImageCollapse="Slide"` moves it up with the header instead. `EnableAdaptiveOverlay="True"` samples the image as it scrolls and switches `AdaptiveLightColor` / `AdaptiveDarkColor` on the registered children, and on Windows `AdaptiveCaptionButtons` recolors the window's caption buttons. On Windows the header is the window's drag region by default. Use it as a page's root content with `[NavigableRegion(IsHeaderBarVisible = false, SafeAreaEdges = SafeAreaEdges.None)]` so the image runs under the status bar.
 
 ## AnimatedLabel (`Plugin.Maui.Spine.Controls.AnimatedLabel`)
 

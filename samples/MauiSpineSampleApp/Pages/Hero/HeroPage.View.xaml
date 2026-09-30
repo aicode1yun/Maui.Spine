@@ -1,0 +1,73 @@
+<SpinePage
+    xmlns="http://schemas.microsoft.com/dotnet/maui/global"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    x:Class="MauiSpineSampleApp.Pages.Hero.HeroPage"
+    x:TypeArguments="HeroPageViewModel"
+    x:DataType="HeroPageViewModel">
+
+    <Grid>
+
+        <HeroCollectionView
+            ItemsSource="{Binding Rows}"
+            HeaderImageSource="mountain.png"
+            HeaderTitle=""
+            HeaderImageCollapse="{Binding ImageCollapse}"
+            CanReorderItems="{Binding CanReorder}"
+            HeaderMaxHeight="{Binding HeaderMaxHeight}"
+            HeaderMinHeight="{Binding HeaderMinHeight}">
+
+            <HeroCollectionView.HeaderOverlayContent>
+                <!-- Fades in as the hero collapses: a blur of the photo behind the header bar. -->
+                <Border Material.Preset="BlurUltraThin" StrokeThickness="0" IsVisible="{Binding Blur}" />
+            </HeroCollectionView.HeaderOverlayContent>
+
+            <HeroCollectionView.ItemTemplate>
+                <HeroRowTemplateSelector>
+                    <HeroRowTemplateSelector.Intro>
+                        <DataTemplate x:DataType="HeroPageViewModel">
+                            <VerticalStackLayout Margin="{x:Static HeaderBarConstants.PagePadding}" Padding="0,16,0,14" Spacing="12">
+                                <ExampleCodeSwitch />
+                                <PackageChips Packages="Plugin.Maui.Spine.Controls.HeroCollectionView" />
+
+                                <Example Title="Collapsing header"
+                                         Summary="A list under a photo that shrinks to a compact header as the list scrolls, and stretches when the list is pulled down. Choose what the photo does on the way, and what lies over it once the header is compact."
+                                         OptionsCommand="{Binding ShowOptionsCommand}"
+                                         Code="{Binding Code}"
+                                         Margin="0,12,0,0">
+                                    <VerticalStackLayout BindableLayout.ItemsSource="{Binding Groups}" Spacing="2">
+                                        <BindableLayout.ItemTemplate>
+                                            <DataTemplate x:DataType="ChoiceGroup">
+                                                <Label FontSize="15">
+                                                    <Label.FormattedText>
+                                                        <FormattedString>
+                                                            <Span Text="{Binding Name}" />
+                                                            <Span Text=": " />
+                                                            <Span Text="{Binding Selected.Label}" FontAttributes="Bold" />
+                                                        </FormattedString>
+                                                    </Label.FormattedText>
+                                                </Label>
+                                            </DataTemplate>
+                                        </BindableLayout.ItemTemplate>
+                                    </VerticalStackLayout>
+                                </Example>
+                            </VerticalStackLayout>
+                        </DataTemplate>
+                    </HeroRowTemplateSelector.Intro>
+                    <HeroRowTemplateSelector.Row>
+                        <DataTemplate x:DataType="Swatch">
+                            <Border Margin="20,6" Padding="16,14" StrokeThickness="0" StrokeShape="RoundRectangle 14" BackgroundColor="{Binding Colour}">
+                                <VerticalStackLayout Spacing="4">
+                                    <Label Text="{Binding Name}" TextColor="White" FontAttributes="Bold" FontSize="17" />
+                                    <Label Text="{Binding Text}" TextColor="White" FontSize="14" />
+                                </VerticalStackLayout>
+                            </Border>
+                        </DataTemplate>
+                    </HeroRowTemplateSelector.Row>
+                </HeroRowTemplateSelector>
+            </HeroCollectionView.ItemTemplate>
+
+        </HeroCollectionView>
+
+    </Grid>
+
+</SpinePage>
