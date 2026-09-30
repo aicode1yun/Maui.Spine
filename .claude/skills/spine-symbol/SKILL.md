@@ -62,7 +62,7 @@ These rules are measured from the set; follow them exactly:
   - Full-width lines run 7.81–42.19.
 - Draw the glyph in `currentColor`, which is what takes the tint. A fixed colour (the yellow sun in the weather symbols) is only for a part that means that colour; it stays the same in both themes, so it must read on light and dark. Never draw white "cut-outs" on a filled part, since white vanishes on a white tint in dark mode: make the hole with `fill-rule="evenodd"` instead (`RepeatOne`). One concept per icon, and it has to read at 24 points.
 - Name files after the symbol in PascalCase with no dots (`.run` would become a culture suffix). Numbers are fine: `Battery25`.
-- Use existing icons and sites such as phosphoricons.com only as inspiration for the idea. Draw the shape yourself in this style; never copy path data.
+- Use existing icons and sites such as https://fluenticons.co/browse/ (Fluent's icons by letter, e.g. `/browse/h/`, with one page per icon at `/icon/<name>/`) and phosphoricons.com only as inspiration for the idea. Draw the shape yourself in this style; never copy path data.
 
 ## Step 3 — Render and check it yourself
 

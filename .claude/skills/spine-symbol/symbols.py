@@ -28,9 +28,11 @@ COUNT_FILES = [
     "src/Plugin.Maui.Spine.Svg.Icons/README.md",
     ".claude/skills/spine-controls/SKILL.md",
     ".claude/skills/spine-setup/SKILL.md",
-    "samples/MauiSpineSampleApp/Pages/SvgIcons/SvgIconsPage.ViewModel.cs",
+    "samples/MauiSpineSampleApp/Pages/SvgIcons/SvgIconsPage.View.xaml",
+    "samples/MauiSpineSampleApp/Pages/MainPage.ViewModel.cs",
 ]
-COUNT_PATTERNS = [r"(\d+)( ready-made)", r"(\d+)( embedded SVG icons)", r"\((\d+)( SVG glyphs)", r"(the set has )(\d+)"]
+COUNT_PATTERNS = [r"(\d+)( ready-made)", r"(\d+)( embedded SVG icons)", r"\((\d+)( SVG glyphs)", r"(the set has )(\d+)",
+                  r"(\d+)( icons ready to use)", r"(\d+)( bundled icons)"]
 
 K = 0.5522847498
 G = 50 / 32  # the set's grid step: 1.56, 3.13, 4.69, 6.25, 7.81, 9.38, 10.94, 12.5 ...
