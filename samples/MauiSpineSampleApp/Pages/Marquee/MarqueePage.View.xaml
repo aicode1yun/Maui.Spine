@@ -52,6 +52,39 @@
             </Example.Code>
         </Example>
 
+        <Example Title="Numbers that roll"
+                 Summary="For a score, a count or a countdown. Only the digits that change roll, upwards when the number grows and downwards when it shrinks. With Reduce Motion on, the number fades instead."
+                 OptionsCommand="{Binding ShowRollOptionsCommand}">
+            <VerticalStackLayout Spacing="10">
+                <Border Padding="10,6" BackgroundColor="#282828" StrokeShape="RoundRectangle 8">
+                    <AnimatedLabel Text="{Binding Score}" Mode="RollingNumber"
+                                   FontSize="28" FontAttributes="Bold" TextColor="White"
+                                   HorizontalTextAlignment="{Binding RollAlignment}"
+                                   RollDurationMs="{Binding RollDuration}" />
+                </Border>
+                <Border Padding="10,6" BackgroundColor="#282828" StrokeShape="RoundRectangle 8">
+                    <AnimatedLabel Text="{Binding Countdown}" Mode="RollingNumber"
+                                   FontSize="20" TextColor="White"
+                                   HorizontalTextAlignment="{Binding RollAlignment}"
+                                   RollDurationMs="{Binding RollDuration}" />
+                </Border>
+                <HorizontalStackLayout Spacing="8">
+                    <Button Text="−1" Command="{Binding AddCommand}" CommandParameter="-1" />
+                    <Button Text="+1" Command="{Binding AddCommand}" CommandParameter="1" />
+                    <Button Text="+95" Command="{Binding AddCommand}" CommandParameter="95" />
+                    <Button Text="Count down" Command="{Binding CountDownCommand}" />
+                </HorizontalStackLayout>
+            </VerticalStackLayout>
+            <Example.Code>
+                &lt;AnimatedLabel Text="{Binding Score}"
+                               Mode="RollingNumber" /&gt;
+
+                // Optional, shown with their defaults
+                HorizontalTextAlignment="Start"
+                RollDurationMs="350"
+            </Example.Code>
+        </Example>
+
     </SampleLayout>
 
 </SpinePage>
