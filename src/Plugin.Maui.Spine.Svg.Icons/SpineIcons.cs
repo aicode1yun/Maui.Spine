@@ -264,6 +264,8 @@ public static class SpineIcons
     public const string Sort = "Sort.svg";
     /// <summary>The <c>Speaker.svg</c> icon.</summary>
     public const string Speaker = "Speaker.svg";
+    /// <summary>The <c>SpineLogo.svg</c> icon.</summary>
+    public const string SpineLogo = "SpineLogo.svg";
     /// <summary>The <c>Spot.svg</c> icon.</summary>
     public const string Spot = "Spot.svg";
     /// <summary>The <c>Stack.svg</c> icon.</summary>
@@ -579,6 +581,7 @@ public static class SpineIcons
         SmokeDetector,
         Sort,
         Speaker,
+        SpineLogo,
         Spot,
         Stack,
         Star,
