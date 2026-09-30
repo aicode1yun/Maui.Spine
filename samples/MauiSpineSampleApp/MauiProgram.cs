@@ -46,14 +46,14 @@ public static class MauiProgram
                 options.Windows.MinWidth = 400;
                 options.Windows.MinHeight = 400;
                 options.Windows.ShowTrayIcon = true;
-                options.Windows.TrayIconSvg = "water.svg";
+                options.Windows.TrayIconSvg = "spinelogo.svg";
                 options.Windows.ShowInTaskbar = true;
                 options.Windows.CloseToBackground = true;
                 options.Windows.IsMaximizable = true;
                 //options.Windows.IsMinimizable = true;
                 //options.Windows.IsAlwaysOnTop = true;
                 options.MacOS.ShowTrayIcon = true;
-                options.MacOS.TrayIconSvg = "water.svg";
+                options.MacOS.TrayIconSvg = "spinelogo.svg";
                 options.MacOS.CloseToBackground = true;
             })
             // The crest on the SVG Icons page has its own colours; its red gets an exact dark tone,
