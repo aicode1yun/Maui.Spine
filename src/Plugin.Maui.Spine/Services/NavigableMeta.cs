@@ -30,6 +30,7 @@ internal static class NavigableMeta
         vm.LargeTitle = meta.LargeTitle;
         vm.HeaderBarBackground = meta.HeaderBarBackground;
         vm.HeaderBarForeground = meta.HeaderBarForeground is { } hex && Color.TryParse(hex, out var foreground) ? foreground : null;
+        vm.HeaderBarGlass = meta.HeaderBarGlass;
         vm.StatusBarStyle = meta.StatusBarStyle;
 
         if (meta is NavigableTabAttribute tabMeta)
@@ -53,7 +54,7 @@ internal static class NavigableMeta
         vm.EffectiveHeaderBarBackground = ResolveBackground(view, vm, meta);
 
         // Populate raw system bar dimensions and the per-page complement insets.
-        var insets = insetsProvider.SystemBarInsets;
+        var insets = Presentation.NavigationRegion.SystemBarInsetsFor(vm, insetsProvider, meta is NavigableRegionAttribute);
         vm.SystemBarInsets = insets;
         vm.SafeAreaInsets = Presentation.NavigationRegion.SafeAreaInsetsFor(vm, insets);
 
@@ -68,7 +69,7 @@ internal static class NavigableMeta
         if (vm.HeaderBarFloats)
             HeaderBar.Track(view, vm);
 
-        vm.ReapplyHeaderBar = () => ReapplyHeaderBar(view, vm, meta);
+        vm.ReapplyHeaderBar = () => ReapplyHeaderBar(view, vm, meta, insetsProvider);
     }
 
     /// <summary>
@@ -77,9 +78,10 @@ internal static class NavigableMeta
     /// shown: the page may now float under the bar, or no longer, which changes the insets its
     /// content keeps clear.
     /// </summary>
-    static void ReapplyHeaderBar(View view, ViewModelBase vm, NavigableAttribute meta)
+    static void ReapplyHeaderBar(View view, ViewModelBase vm, NavigableAttribute meta, ISystemInsetsProvider insetsProvider)
     {
         vm.EffectiveHeaderBarBackground = ResolveBackground(view, vm, meta);
+        vm.SystemBarInsets = Presentation.NavigationRegion.SystemBarInsetsFor(vm, insetsProvider, meta is NavigableRegionAttribute);
         vm.SafeAreaInsets = Presentation.NavigationRegion.SafeAreaInsetsFor(vm, vm.SystemBarInsets);
 
         if (vm.HeaderBarFloats)

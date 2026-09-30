@@ -59,6 +59,7 @@ public partial class HeroCollectionView
                 void ResetHeader()
                 {
                     _headerBorder!.TranslationY = 0;
+                    if (_headerImage != null) _headerImage.TranslationY = 0;
                     if (_headerBottomActionsLayout != null) _headerBottomActionsLayout.TranslationY = 0;
                     if (_overlayView != null) _overlayView.Opacity = 0;
                 }
@@ -139,10 +140,19 @@ public partial class HeroCollectionView
         if (opacityChanged) _lastOverlayOpacity = t;
 
         _headerBorder.TranslationY = translation;
+        ApplyImageOffset();
         if (_headerBottomActionsLayout != null) _headerBottomActionsLayout.TranslationY = translation;
         if (_overlayView != null && opacityChanged) _overlayView.Opacity = t;
         ScheduleDragRegionUpdate();
         UpdateWindowButtonClearance();
+    }
+
+    // The border clips the image, which moves back down by half the collapse so its middle stays
+    // in the middle of what is left showing.
+    private void ApplyImageOffset()
+    {
+        if (_headerImage != null)
+            _headerImage.TranslationY = _centerImage && _currentHeight >= 0 ? (_maxHeight - _currentHeight) / 2 : 0;
     }
 
     // Scales the whole header uniformly from its top edge, so the image keeps its aspect ratio while

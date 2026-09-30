@@ -41,6 +41,9 @@ public abstract class NavigableDefaults
     /// </summary>
     public string? HeaderBarForeground { get; set; }
 
+    /// <summary>Default <see cref="Core.HeaderBarGlass"/>: <see cref="HeaderBarGlass.Regular"/>.</summary>
+    public HeaderBarGlass HeaderBarGlass { get; set; } = HeaderBarGlass.Regular;
+
     /// <summary>Default <see cref="StatusBarStyle"/>: <see cref="StatusBarStyle.Auto"/>.</summary>
     public StatusBarStyle StatusBarStyle { get; set; } = StatusBarStyle.Auto;
 }

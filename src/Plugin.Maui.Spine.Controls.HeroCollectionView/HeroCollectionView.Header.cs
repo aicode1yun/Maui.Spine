@@ -119,6 +119,13 @@ public partial class HeroCollectionView
         if (_headerBorder is { TranslationY: 0 }) _currentHeight = value;
     }
 
+    private void OnHeaderImageCollapseChanged(HeroImageCollapse value)
+    {
+        _centerImage = value == HeroImageCollapse.Center;
+        ApplyImageOffset();
+        ScheduleAdaptiveUpdate();
+    }
+
     private void OnHeaderMinHeightChanged(double value)
     {
         _minHeight    = value;

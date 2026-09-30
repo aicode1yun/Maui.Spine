@@ -53,6 +53,7 @@ public abstract class NavigableAttribute : Attribute
         LargeTitle = source.LargeTitleSet ? source.LargeTitle : defaults.LargeTitle;
         HeaderBarBackground = source.HeaderBarBackgroundSet ? source.HeaderBarBackground : defaults.HeaderBarBackground;
         HeaderBarForeground = source.HeaderBarForegroundSet ? source.HeaderBarForeground : defaults.HeaderBarForeground;
+        HeaderBarGlass = source.HeaderBarGlassSet ? source.HeaderBarGlass : defaults.HeaderBarGlass;
         StatusBarStyle = source.StatusBarStyleSet ? source.StatusBarStyle : defaults.StatusBarStyle;
     }
 
@@ -143,6 +144,16 @@ public abstract class NavigableAttribute : Attribute
     /// </summary>
     public string? HeaderBarForeground { get => field; set { field = value; _headerBarForegroundSet = true; } }
     internal bool HeaderBarForegroundSet => _headerBarForegroundSet;
+
+    private bool _headerBarGlassSet;
+    /// <summary>
+    /// The Liquid Glass of the header bar's buttons on iOS 26: <see cref="Core.HeaderBarGlass.Regular"/>,
+    /// or <see cref="Core.HeaderBarGlass.Clear"/> for a bar that lies over a photo or a map. Nothing
+    /// changes where the buttons are not glass. When not set the value is inherited from the relevant
+    /// <c>DefaultsConfig</c>.
+    /// </summary>
+    public HeaderBarGlass HeaderBarGlass { get => field; set { field = value; _headerBarGlassSet = true; } }
+    internal bool HeaderBarGlassSet => _headerBarGlassSet;
 
     private bool _statusBarStyleSet;
     /// <summary>

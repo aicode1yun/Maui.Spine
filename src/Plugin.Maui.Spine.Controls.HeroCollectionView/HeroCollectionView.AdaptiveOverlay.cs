@@ -121,9 +121,10 @@ public partial class HeroCollectionView
                 targetBounds.Height);
 
             var pixelRect = MapToBitmap(relative, imageRect, _adaptiveBitmap);
-            var color = SampleColor(_adaptiveBitmap, pixelRect);
+            _adaptiveLastColors.TryGetValue(target, out var lastColor);
+            var color = SampleColor(_adaptiveBitmap, pixelRect, lastColor);
 
-            if (!_adaptiveLastColors.TryGetValue(target, out var lastColor) || lastColor != color)
+            if (lastColor != color)
             {
                 _adaptiveLastColors[target] = color;
                 ApplyColor(target, color);
@@ -145,7 +146,7 @@ public partial class HeroCollectionView
                 captionButtonsHeight);
 
             var captionPixelRect = MapToBitmap(captionRelative, imageRect, _adaptiveBitmap);
-            var captionColor = SampleColor(_adaptiveBitmap, captionPixelRect);
+            var captionColor = SampleColor(_adaptiveBitmap, captionPixelRect, _lastCaptionColor);
 
             if (captionColor != _lastCaptionColor)
             {
@@ -236,8 +237,8 @@ public partial class HeroCollectionView
 
     private static Rect GetBoundsRelativeTo(VisualElement element, VisualElement? ancestor)
     {
-        double x = element.Bounds.X;
-        double y = element.Bounds.Y;
+        double x = element.Bounds.X + element.TranslationX;
+        double y = element.Bounds.Y + element.TranslationY;
         var parent = element.Parent as VisualElement;
 
         while (parent != null && parent != ancestor)
@@ -317,23 +318,35 @@ public partial class HeroCollectionView
     // Sampling / colour application
     // ────────────────────────────────────────────────────────────────────────
 
-    private Color SampleColor(SKBitmap bitmap, SKRectI rect)
+    // A background has to get this bright before its element turns dark, and this dim again before
+    // it turns back. Between the two the element keeps its colour, so one that sits near the
+    // boundary does not flicker while the header moves.
+    private const double DarkAboveLuminance  = 185;
+    private const double LightBelowLuminance = 165;
+    private const int    SampleGrid          = 6;
+
+    private Color SampleColor(SKBitmap bitmap, SKRectI rect, Color? current)
     {
         double total = 0;
 
-        for (int i = 0; i < 5; i++)
+        for (int row = 0; row < SampleGrid; row++)
         {
-            int x = rect.Left + (i * (rect.Width - 1) / 4);
-            int y = rect.Top + (i * (rect.Height - 1) / 4);
+            int y = rect.Top + (row * (rect.Height - 1) / (SampleGrid - 1));
 
-            var p = bitmap.GetPixel(x, y);
+            for (int col = 0; col < SampleGrid; col++)
+            {
+                int x = rect.Left + (col * (rect.Width - 1) / (SampleGrid - 1));
+                var p = bitmap.GetPixel(x, y);
 
-            total += 0.299 * p.Red + 0.587 * p.Green + 0.114 * p.Blue;
+                total += 0.299 * p.Red + 0.587 * p.Green + 0.114 * p.Blue;
+            }
         }
 
-        double avg = total / 5;
+        double avg = total / (SampleGrid * SampleGrid);
 
-        return avg > 160 ? AdaptiveDarkColor : AdaptiveLightColor;
+        if (avg > DarkAboveLuminance) return AdaptiveDarkColor;
+        if (avg < LightBelowLuminance) return AdaptiveLightColor;
+        return current ?? AdaptiveLightColor;
     }
 
     private static void ApplyColor(VisualElement target, Color color)

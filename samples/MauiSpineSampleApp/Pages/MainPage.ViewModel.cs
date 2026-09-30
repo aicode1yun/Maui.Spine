@@ -11,10 +11,17 @@ public partial class MainPageViewModel(INavigationService _navigation) : SampleV
     // The collapsed hero: a bar below the status bar with the title and the theme button centred on one line.
     private const double CompactBar = 36;
 
-    // On the Mac the theme button mirrors the close button, whose centre is this far in from the
-    // window's top-left corner (in the iPad idiom's points, which the Mac draws at 77 %). The
+    // On the Mac the theme button sits on the close button's line, whose centre is this far down from the
+    // window's top edge (in the iPad idiom's points, which the Mac draws at 77 %). The
     // collapsed bar is centred on the window buttons, so the title shares their line.
     private const double MacCloseButtonCentre = 20;
+
+    // The glass circle keeps this far from the window's right edge, clear of its rounded corner.
+    private const double MacThemeButtonInset = 12;
+
+    // The theme button's glass circle on Apple platforms is small enough to stay inside the compact
+    // bar; Android has no circle to show, so its button keeps the full touch target.
+    private static double ThemeButton => DeviceInfo.Platform == DevicePlatform.Android ? 44 : 32;
 
     public double HeaderMinHeight => DeviceInfo.Platform == DevicePlatform.MacCatalyst
         ? 2 * MacCloseButtonCentre
@@ -26,8 +33,8 @@ public partial class MainPageViewModel(INavigationService _navigation) : SampleV
     public Thickness GearMargin => DeviceInfo.Platform == DevicePlatform.WinUI
         ? new Thickness(0, 0, 144, 0)
         : DeviceInfo.Platform == DevicePlatform.MacCatalyst
-            ? new Thickness(0, MacCloseButtonCentre - 44 / 2, MacCloseButtonCentre - 44 / 2, 0)
-            : new Thickness(0, SystemBarInsets.Top + (CompactBar - 44) / 2, HeaderBarConstants.PageMargin + SystemBarInsets.Right, 0);
+            ? new Thickness(0, MacCloseButtonCentre - ThemeButton / 2, MacThemeButtonInset, 0)
+            : new Thickness(0, SystemBarInsets.Top + (CompactBar - ThemeButton) / 2, HeaderBarConstants.PageMargin + SystemBarInsets.Right, 0);
 
     // The photo runs edge to edge; the title and the rows keep clear of the Dynamic Island and the
     // rounded corners in landscape.
@@ -82,6 +89,7 @@ public partial class MainPageViewModel(INavigationService _navigation) : SampleV
         new("Barcodes", "QR, Data Matrix and linear codes from any text, a pairing code on a 12 × 12 word clock, and a camera scanner that reads both", "qrcode.svg", "Plugin.Maui.Spine.Barcodes, Plugin.Maui.Spine.Scanner", n => n.NavigateToAsync<Barcodes.BarcodesPage>()),
         new("Calendar", "Month calendar to pick a date, with days marked from your own service", "calendar.svg", "Plugin.Maui.Spine.Controls.Calendar", n => n.NavigateToAsync<Dates.DatesPage>()),
         new("DataGrid", "One set of columns, a layout per width: a table when wide, two-line rows on a phone", "grid.svg", "Plugin.Maui.Spine.Controls.DataGrid, Plugin.Maui.Spine.Svg.Icons", n => n.NavigateToAsync<DataGrid.DataGridPage>()),
+        new("HeroCollectionView", "A list under a photo that collapses to a compact header: the photo centred or sliding, a blur that fades in, a stretch when pulled", "image.svg", "Plugin.Maui.Spine.Controls.HeroCollectionView", n => n.NavigateToAsync<Hero.HeroPage>()),
         new("Rows", "Settings and key/value rows in one control, any view as a button with press feedback, one screen-reader element per row", "list.svg", "Plugin.Maui.Spine.Controls.Rows, Plugin.Maui.Spine", n => n.NavigateToAsync<Rows.RowsPage>()),
         new("Shimmer", "Loading placeholders: a shimmer over empty blocks, or the real layout as its own skeleton", "lightstrip.svg", "Plugin.Maui.Spine.Controls.Shimmer", n => n.NavigateToAsync<Shimmer.ShimmerPage>()),
         new("Theming", "Light, dark or the system, an app-wide accent, colours that follow the theme, a repaint hook for code-drawn views", "theme.svg", "Plugin.Maui.Spine", n => n.NavigateToAsync<Theme.ThemePage>()),

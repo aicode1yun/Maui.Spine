@@ -130,6 +130,7 @@ Interactive elements (buttons, etc.) inside the header are automatically exclude
 |---|---|---|---|
 | `HeaderMaxHeight` | `double` | `230` | Fully expanded header height |
 | `HeaderMinHeight` | `double` | `42` | Fully collapsed header height |
+| `HeaderImageCollapse` | `HeroImageCollapse` | `Center` | What the image does as the header collapses: `Center` keeps it centred in the part still showing, `Slide` moves it up with the header so its bottom edge remains |
 | `HeaderScrollBarInset` | `double` | `0` | Inset applied to the scroll bar to avoid overlap with the header |
 
 ## Property reference — Content slots

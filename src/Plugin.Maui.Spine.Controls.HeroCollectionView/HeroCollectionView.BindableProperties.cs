@@ -82,6 +82,20 @@ public partial class HeroCollectionView
         set => SetValue(HeaderMinHeightProperty, value);
     }
 
+    /// <summary>
+    /// What the header image does as the header collapses: stay centred in what is left showing,
+    /// or slide up with the header so that its bottom edge remains.
+    /// </summary>
+    public static readonly BindableProperty HeaderImageCollapseProperty =
+        BindableProperty.Create(nameof(HeaderImageCollapse), typeof(HeroImageCollapse), typeof(HeroCollectionView), HeroImageCollapse.Center,
+            propertyChanged: (b, _, n) => ((HeroCollectionView)b).OnHeaderImageCollapseChanged((HeroImageCollapse)n));
+
+    public HeroImageCollapse HeaderImageCollapse
+    {
+        get => (HeroImageCollapse)GetValue(HeaderImageCollapseProperty);
+        set => SetValue(HeaderImageCollapseProperty, value);
+    }
+
     // ────────────────────────────────────────────────────────────────────────
     // Header overlay / content slots
     // ────────────────────────────────────────────────────────────────────────

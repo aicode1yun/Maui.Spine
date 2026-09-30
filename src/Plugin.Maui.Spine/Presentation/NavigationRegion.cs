@@ -174,9 +174,14 @@ public sealed partial class NavigationRegion : ContentView
                 && vm is not null
                 && !vm.IsHeaderBarVisible
                 && vm.SafeAreaEdges == SpineSafeArea.None;
-            _container.Margin = fullBleed
+            bool overlay = titleBarH > 0 && vm is not null && ViewModel.Presentation is NavigationPresentation.Region && OverlaysTitleBar(vm);
+            _container.Margin = fullBleed || overlay
                 ? new Thickness(0, -titleBarH, 0, 0)
                 : Thickness.Zero;
+
+            // The page starts under the title bar; its header bar stays below it.
+            if (overlay)
+                insets.Top = titleBarH;
 
             // A full-bleed page draws its own top, so the window's title would sit on the page.
             if (ViewModel.Presentation is NavigationPresentation.Region
@@ -207,6 +212,24 @@ public sealed partial class NavigationRegion : ContentView
         ViewModel.BackView.SetSheetOverhang(overhang);
     }
 
+    /// <summary>
+    /// The system bar insets as a page sees them. On Mac Catalyst a region page whose header bar lies
+    /// over its content starts under the window's title bar, which is then its top bar, as the status
+    /// bar is on a phone.
+    /// </summary>
+    internal static Thickness SystemBarInsetsFor(ViewModelBase vm, ISystemInsetsProvider provider, bool region)
+    {
+        var insets = provider.SystemBarInsets;
+#if MACCATALYST
+        if (region && OverlaysTitleBar(vm) && provider is SystemInsetsProvider mac)
+            insets.Top = mac.MacTitleBarHeight;
+#endif
+        return insets;
+    }
+
+    private static bool OverlaysTitleBar(ViewModelBase vm) =>
+        vm.IsHeaderBarVisible && vm.HeaderBarMode == HeaderBarMode.Overlay;
+
     private void OnSystemInsetsChanged()
     {
         MainThread.BeginInvokeOnMainThread(() =>
@@ -220,7 +243,7 @@ public sealed partial class NavigationRegion : ContentView
 
                 // Push the updated insets to the ViewModel so bindings that depend on
                 // SystemBarInsets / SafeAreaInsets reflect the measured values.
-                var insets = _insetsProvider.SystemBarInsets;
+                var insets = SystemBarInsetsFor(vm, _insetsProvider, ViewModel.Presentation is NavigationPresentation.Region);
                 vm.SystemBarInsets = insets;
                 vm.SafeAreaInsets = SafeAreaInsetsFor(vm, insets);
             }
@@ -296,6 +319,7 @@ public sealed partial class NavigationRegion : ContentView
             _frameActionView?.SetBinding(HeaderBarView.IsBackButtonVisibleProperty, new Binding("IsBackButtonVisible", source: header));
             _frameActionView?.SetBinding(HeaderBarView.IsTitleBarVisibleProperty, new Binding("IsTitleBarVisible", source: header));
             _frameActionView?.SetBinding(HeaderBarView.ForegroundProperty, new Binding(nameof(ViewModelBase.HeaderBarForeground), source: header));
+            _frameActionView?.SetBinding(HeaderBarView.GlassProperty, new Binding(nameof(ViewModelBase.HeaderBarGlass), source: header));
         }
 
         if (e.PropertyName == nameof(ViewModel.CurrentRegionViewModel))
@@ -357,7 +381,12 @@ public sealed partial class NavigationRegion : ContentView
 
         if (e.PropertyName is nameof(ViewModelBase.HeaderBarMode) or nameof(ViewModelBase.EffectiveHeaderBarBackground)
             or nameof(ViewModelBase.LargeTitle))
+        {
             ApplySafeAreaPadding(_contentHostFront, page);
+#if MACCATALYST
+            UpdateContainerMargin();
+#endif
+        }
         else if (e.PropertyName is nameof(ViewModelBase.StatusBarStyle) && ViewModel.Presentation is NavigationPresentation.Region)
             StatusBar.Apply(page.StatusBarStyle);
     }
