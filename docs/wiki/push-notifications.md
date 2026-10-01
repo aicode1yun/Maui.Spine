@@ -408,7 +408,9 @@ Here the halves are furthest apart, and Spine does not pretend otherwise.
    team, both environments and all push types.
 3. **Entitlements.** Spine's build contributes `aps-environment` — `development` in Debug,
    `production` otherwise, overridable with `SpinePushNotificationsEnvironment`. An app that owns its own
-   entitlements file keeps it, and the build then tells you which key to add.
+   entitlements file keeps it, and the build then tells you which key to add. It also adds the
+   `remote-notification` background mode, which lets a silent push wake the app, to `Info.plist`
+   beside the modes the app declares itself and the `fetch` that Spine.Widgets adds.
 4. **Environment matters.** A debug build on a device gets a sandbox token, TestFlight and the App
    Store get production tokens, and one never works against the other. The app reports which it got,
    so the server picks the right host.

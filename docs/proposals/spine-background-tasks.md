@@ -282,7 +282,7 @@ Jonatan went through the study's questions on 2026-09-30 and followed the recomm
 - **Declaration.** Attributes for identity and defaults, options for changes at run time. `IntervalMinutes = 15` instead of the issue's `Interval = "00:15"` (§5.2).
 - **Windows and Mac Catalyst.** An in-process timer and a catch-up run at startup, visible as `RunsWhileClosed = false`.
 - **The `processing` mode.** Opt-in: `SpineBackgroundTasksProcessing=false` by default.
-- **`UIBackgroundModes`.** Fixed first, regardless of the rest (step 1). The bug is confirmed on a build of the push sample on 2026-09-30: [#435](https://github.com/jonatansoderberg/Maui.Spine/issues/435).
+- **`UIBackgroundModes`.** Fixed first, regardless of the rest (step 1). The bug is confirmed on a build of the push sample on 2026-09-30: [#435](https://github.com/jonatansoderberg/Maui.Spine/issues/435). Fixed by #435 with `<SpineBackgroundMode>` items in `Plugin.Maui.Spine.Common.targets`; a background-tasks package contributes `processing` the same way.
 - **Push.** The key `spine.task=<name>` triggers a task; `IPushSender.RunTaskAsync` comes later.
 - **`BGContinuedProcessingTask`.** Not in v1.
 

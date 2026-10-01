@@ -49,6 +49,8 @@
 		<SpineEntitlement Include="com.apple.developer.aps-environment" Kind="string" Value="$(SpinePushNotificationsEnvironment)"
 						  Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'maccatalyst'"
 						  Because="Mac Catalyst has been documented under both spellings." />
+		<!-- Lets a silent push wake the app. Written with the other packages' modes in Plugin.Maui.Spine.Common. -->
+		<SpineBackgroundMode Include="remote-notification" />
 	</ItemGroup>
 
 	<Target Name="_SpinePushNotificationsAppleManifest"
@@ -64,8 +66,8 @@
 		<MakeDir Directories="$(_SpinePushNotificationsOutDir)" />
 
 		<!--
-			remote-notification lets a silent push wake the app; SpinePushNotificationsEnvironment is read back at
-			runtime so the installation can tell the server which APNs host its token belongs to.
+			SpinePushNotificationsEnvironment is read back at runtime so the installation can tell the server
+			which APNs host its token belongs to.
 		-->
 		<ItemGroup>
 			<!-- '?' is a wildcard in an Include; see the note in Plugin.Maui.Spine.Common.targets. -->
@@ -73,8 +75,6 @@
 			<_SpinePushNotificationsManifestLine Include="&lt;!DOCTYPE plist PUBLIC &quot;-//Apple//DTD PLIST 1.0//EN&quot; &quot;http://www.apple.com/DTDs/PropertyList-1.0.dtd&quot;&gt;" />
 			<_SpinePushNotificationsManifestLine Include="&lt;plist version=&quot;1.0&quot;&gt;" />
 			<_SpinePushNotificationsManifestLine Include="&lt;dict&gt;" />
-			<_SpinePushNotificationsManifestLine Include="&lt;key&gt;UIBackgroundModes&lt;/key&gt;" />
-			<_SpinePushNotificationsManifestLine Include="&lt;array&gt;&lt;string&gt;remote-notification&lt;/string&gt;&lt;/array&gt;" />
 			<_SpinePushNotificationsManifestLine Include="&lt;key&gt;SpinePushNotificationsEnvironment&lt;/key&gt;" />
 			<_SpinePushNotificationsManifestLine Include="&lt;string&gt;$(SpinePushNotificationsEnvironment)&lt;/string&gt;" />
 			<_SpinePushNotificationsManifestLine Include="&lt;/dict&gt;" />
