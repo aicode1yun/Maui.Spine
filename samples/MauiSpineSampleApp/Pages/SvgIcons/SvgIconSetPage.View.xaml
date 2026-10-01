@@ -5,13 +5,14 @@
     x:TypeArguments="SvgIconSetPageViewModel"
     x:DataType="SvgIconSetPageViewModel">
 
-    <CollectionView ItemsSource="{Binding Icons}" Margin="12,0">
+    <!-- No side margin on the list: the header bar's scroll edge is as wide as the list under it. -->
+    <CollectionView ItemsSource="{Binding Icons}">
         <CollectionView.ItemsLayout>
             <GridItemsLayout Orientation="Vertical" Span="4" VerticalItemSpacing="12" />
         </CollectionView.ItemsLayout>
         <CollectionView.Header>
             <Label Text="Every icon in Plugin.Maui.Spine.Svg.Icons, by the name you give SvgImageSource.Svg. Try them in dark mode from the palette button."
-                   FontSize="15" TextColor="Gray" Padding="8,8,8,16" />
+                   FontSize="15" TextColor="Gray" Padding="20,8,20,16" />
         </CollectionView.Header>
         <CollectionView.ItemTemplate>
             <DataTemplate x:DataType="x:String">

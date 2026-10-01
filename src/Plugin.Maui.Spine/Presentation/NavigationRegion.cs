@@ -213,9 +213,10 @@ public sealed partial class NavigationRegion : ContentView
     }
 
     /// <summary>
-    /// The system bar insets as a page sees them. On Mac Catalyst a region page whose header bar lies
-    /// over its content starts under the window's title bar, which is then its top bar, as the status
-    /// bar is on a phone.
+    /// The system bar insets as a page sees them. On Mac Catalyst a region page whose header bar floats
+    /// over its content (an overlay, a large title, or any background but Solid) starts under the
+    /// window's title bar, which is then its top bar, as the status bar is on a phone. The page's
+    /// background then reaches the top of the window.
     /// </summary>
     internal static Thickness SystemBarInsetsFor(ViewModelBase vm, ISystemInsetsProvider provider, bool region)
     {
@@ -228,7 +229,7 @@ public sealed partial class NavigationRegion : ContentView
     }
 
     private static bool OverlaysTitleBar(ViewModelBase vm) =>
-        vm.IsHeaderBarVisible && vm.HeaderBarMode == HeaderBarMode.Overlay;
+        vm.IsHeaderBarVisible && vm.HeaderBarFloats;
 
     private void OnSystemInsetsChanged()
     {
