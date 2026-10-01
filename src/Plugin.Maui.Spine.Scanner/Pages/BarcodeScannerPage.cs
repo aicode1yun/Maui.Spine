@@ -24,6 +24,7 @@ namespace Plugin.Maui.Spine.Scanner;
     HeaderBar = HeaderBarMode.Overlay,
     HeaderBarBackground = HeaderBarBackground.Transparent,
     HeaderBarForeground = "#FFFFFF",
+    HeaderBarGlass = HeaderBarGlass.Clear,
     SafeAreaEdges = SafeAreaEdges.None)]
 public sealed class BarcodeScannerPage : SpinePage<BarcodeScannerPageViewModel>,
     INavigableWithParameter<BarcodeScanOptions>, INavigableWithResult<BarcodeScanResult>

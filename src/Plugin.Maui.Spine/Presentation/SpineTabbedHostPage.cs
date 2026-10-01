@@ -67,6 +67,7 @@ public partial class SpineTabbedHostPage : TabbedPage, ISpineHost, IDisposable
         (NavigationRegionViewModel)(_sheets.IsSheetActive ? SheetNavigationRegion.BindingContext : _activeSlot.Page.Region.BindingContext);
 
     NavigationRegionViewModel ISpineHost.ActiveRegionViewModel => ActiveRegionViewModel;
+    Task ISpineHost.WhenSheetClosed => _sheets.WhenClosed;
 
     /// <summary>Whether a bottom sheet is currently presented over this host.</summary>
     internal bool IsSheetActive => _sheets.IsSheetActive;

@@ -19,6 +19,11 @@ internal sealed class BottomSheetCoordinator : IDisposable
     /// <summary>Whether a bottom sheet is currently presented.</summary>
     public bool IsSheetActive { get; private set; }
 
+    private TaskCompletionSource? _closed;
+
+    /// <summary>Completes once no sheet is presented: at once when none is, else when the open one has gone.</summary>
+    public Task WhenClosed => _closed?.Task ?? Task.CompletedTask;
+
     /// <summary>Backdrop material applied to the sheet surface on Windows.</summary>
     public WindowBackdrop SheetBackdrop { get; set; }
 
@@ -36,6 +41,7 @@ internal sealed class BottomSheetCoordinator : IDisposable
                     return;
 
                 IsSheetActive = true;
+                var closed = _closed = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
 
                 if (_sheetRegion.BindingContext is not NavigationRegionViewModel vm)
                     return;
@@ -61,6 +67,7 @@ internal sealed class BottomSheetCoordinator : IDisposable
 
                 await bottomSheetTask;
                 IsSheetActive = false;
+                closed.TrySetResult();
 #else
                 await Task.CompletedTask;
 #endif

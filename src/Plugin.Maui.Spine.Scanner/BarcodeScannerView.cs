@@ -14,6 +14,9 @@ namespace Plugin.Maui.Spine.Scanner;
 /// shows; when anything stops it from scanning, <see cref="Problem"/> and <see cref="ProblemChanged"/> say why.</para>
 /// <para>The camera runs only while the native view is in a window and <see cref="IsScanning"/> is true. It stops,
 /// with the torch off, the moment the view leaves its window, whether or not the page tells anyone it closed.</para>
+/// <para>The camera focuses continuously; a tap on the view focuses on that spot until the scene changes (iOS) or for
+/// five seconds (Android). On iOS the scanner also zooms in when the camera cannot focus close, as on the Pro iPhones,
+/// and, when only linear codes are read, keeps autofocus to near distances.</para>
 /// </remarks>
 /// <example>
 /// <code language="xml"><![CDATA[
@@ -58,7 +61,21 @@ public class BarcodeScannerView : View
     private string? _lastValue;
     private DateTime _lastAt;
 
+    internal const string FocusCommand = "SpineScannerFocus";
+
     static BarcodeScannerView() => ScannerStrings.EnsureRegistered();
+
+    public BarcodeScannerView()
+    {
+        // A tap focuses and exposes on that spot for a moment, then the camera goes back to focusing by itself
+        var tap = new TapGestureRecognizer();
+        tap.Tapped += (_, e) =>
+        {
+            if (e.GetPosition(this) is { } point)
+                Handler?.Invoke(FocusCommand, point);
+        };
+        GestureRecognizers.Add(tap);
+    }
 
     /// <summary>The standard symbologies to read. <see cref="BarcodeFormat.None"/> leaves only <see cref="LightGrid"/>.</summary>
     public BarcodeFormat Formats

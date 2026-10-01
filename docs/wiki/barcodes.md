@@ -236,6 +236,11 @@ For a scanner inside a page of the app's own:
 
 The camera runs only while the native view is in a window and `IsScanning` is true, and it stops, with the torch off, the moment the view leaves its window. That follows the native view, not MAUI's `Loaded` and `Unloaded` or the page's lifecycle, which a closing sheet does not always raise; a camera left running there would fight the next scanner for the device. When scanning stops the view keeps the last frame on screen. The torch is switched on the camera's own queue and only the latest wish is applied, so fast taps do not queue up. Frames are 1280 × 720, or the closest size the camera has: enough detail for a 12 × 12 grid across a room, small enough to read every frame.
 
+The camera focuses continuously on the middle of the picture. A tap on the view focuses and meters on that spot instead: on iOS until the phone moves on to a new scene, on Android for five seconds; then the camera focuses by itself again. On iOS the scanner also sets the lens for what it reads:
+
+- when it reads only linear codes and no light grid, autofocus is kept to near distances, where product codes are scanned;
+- unless it reads a light grid, it zooms in when the camera cannot focus close: far enough that an EAN-13 held at the closest sharp distance spans half the preview, at most 3×. That is about 2× on the Pro iPhones, whose wide camera focuses no closer than about 20 cm, and nothing on a camera that focuses close. With a light grid it stays at 1×, to see a clock across a room.
+
 A code held in front of the camera is seen many times a second. `RepeatInterval` turns that into one report: the same value is reported again only after the camera has not seen it for that long. A different value is reported at once. To stop after the first hit, set `IsScanning` to false in the command, as the scan sheet does.
 
 On iOS the standard formats are tried first on each frame, then the light grid. On Android the light grid comes first, because ML Kit reads asynchronously and holds the frame until it is done.

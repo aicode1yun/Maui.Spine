@@ -28,6 +28,9 @@ internal interface ISpineHost
     /// </summary>
     NavigationRegionViewModel ActiveRegionViewModel { get; }
 
+    /// <summary>Completes once no sheet is presented over this host.</summary>
+    Task WhenSheetClosed { get; }
+
     /// <summary>Raised when <see cref="RootNavigationRegion"/> changes (tab switch). Never raised by <see cref="SpineHostPage"/>.</summary>
     event Action? ActiveRegionChanged;
 

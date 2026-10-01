@@ -260,10 +260,17 @@ internal partial class NavigationRegionViewModel : ObservableObject
     /// Cancels any pending <see cref="INavigationService.NavigateToWithResultAsync{TPage,TResult}"/> task.
     /// </summary>
     [RelayCommand(CanExecute = nameof(CloseEnabled))]
-    public async Task CloseAsync()
+    public Task CloseAsync() => CloseSheetAsync();
+
+    /// <summary>
+    /// <see cref="CloseAsync"/>, saying whether the sheet goes: <see langword="false"/> when this is
+    /// not a sheet or the sheet's guard refuses. The sheet is on its way out, not yet gone; await
+    /// <see cref="ISpineHost.WhenSheetClosed"/> for that.
+    /// </summary>
+    internal async Task<bool> CloseSheetAsync()
     {
         if (Presentation is not NavigationPresentation.Sheet)
-            return;
+            return false;
 
         // If the current page has a pending result TCS, cancel it before dismissing.
         if (CurrentRegionViewModel is { PendingResult: { } tcs } closedVm)
@@ -274,9 +281,9 @@ internal partial class NavigationRegionViewModel : ObservableObject
         }
 
 #if WINDOWS || ANDROID || IOS || MACCATALYST
-        BottomSheetPageExtensions.DismissActiveBottomSheet();
+        return await BottomSheetPageExtensions.DismissActiveBottomSheet();
 #else
-        await Task.CompletedTask;
+        return await Task.FromResult(false);
 #endif
     }
 

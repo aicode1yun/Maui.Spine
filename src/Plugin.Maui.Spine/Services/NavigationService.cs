@@ -137,9 +137,18 @@ internal sealed class NavigationService : INavigationService
             : _host.RootNavigationRegion.BindingContext as NavigationRegionViewModel ?? active;
 
         // A region page, found or pushed, lies under an open sheet, where it would not be seen; the
-        // sheet goes first.
+        // sheet goes first, and is gone before the page is shown. Closing only starts the sheet on
+        // its way, so a page handed its parameter at once could open a sheet that went into the one
+        // still closing, and its result never came: a shortcut that opens the scanner, used while
+        // the scanner was up, left the scan button busy for good. A sheet that refuses to close
+        // keeps the user where they are.
         if (!isSheetPage && active.Presentation is NavigationPresentation.Sheet)
-            await active.CloseAsync();
+        {
+            if (!await active.CloseSheetAsync())
+                return;
+
+            await _host.WhenSheetClosed;
+        }
 
         if (region?.Find(pageType) is not { } existing)
         {

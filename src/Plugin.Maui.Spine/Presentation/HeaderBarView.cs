@@ -318,22 +318,26 @@ internal class HeaderBarView : Microsoft.Maui.Controls.ContentView
 
         _primaryPageActionView.HeightRequest = HeaderBarConstants.Height;
 
-        _primaryPageActionView.Padding = Presentation is NavigationPresentation.Sheet
+        _primaryPageActionView.ButtonPadding = Presentation is NavigationPresentation.Sheet
             ? new Thickness(HeaderBarConstants.SheetButtonPadding)
             : new Thickness(HeaderBarConstants.RegionButtonPadding);
 
         // No top margin here: NavigationRegion already offsets the whole header bar by
         // SheetTopPadding. Adding it a second time on each action pushed the buttons a full
         // row below the title, which lives in the page content and never got the offset.
-        _primaryPageActionView.Margin = new Thickness(HeaderBarConstants.SheetButtonPadding, 0, -HeaderBarConstants.SheetButtonPadding, 0);
+        // No shift: the side margin and the button's padding already place a 24-point glyph about 16 points
+        // from the edge on both sides, as Material's top app bar does. Both slots used to be shifted right by
+        // the padding on Android, which put the back button that much further in and the trailing action
+        // that much closer to the edge (the padding is zero on Apple and Windows).
+        _primaryPageActionView.Margin = new Thickness(0);
 
         _secondaryPageActionView.HeightRequest = HeaderBarConstants.Height;
 
-        _secondaryPageActionView.Padding = Presentation is NavigationPresentation.Sheet
+        _secondaryPageActionView.ButtonPadding = Presentation is NavigationPresentation.Sheet
             ? new Thickness(HeaderBarConstants.SheetButtonPadding)
             : new Thickness(HeaderBarConstants.RegionButtonPadding);
 
-        _secondaryPageActionView.Margin = new Thickness(HeaderBarConstants.SheetButtonPadding, 0, -HeaderBarConstants.SheetButtonPadding, 0);
+        _secondaryPageActionView.Margin = new Thickness(0);
 
 
         UpdateSecondaryActionVisibility();
@@ -414,7 +418,7 @@ internal class HeaderBarView : Microsoft.Maui.Controls.ContentView
             VerticalOptions = LayoutOptions.Center,
             HeightRequest = HeaderBarConstants.Height,
             IconWidth = HeaderBarConstants.SheetButtonWidth,
-            Padding = HeaderBarConstants.SheetButtonPadding,
+            ButtonPadding = HeaderBarConstants.SheetButtonPadding,
             Opacity = 0,
             IsVisible = false
         };
@@ -425,7 +429,7 @@ internal class HeaderBarView : Microsoft.Maui.Controls.ContentView
             VerticalOptions = LayoutOptions.Center,
             HeightRequest = HeaderBarConstants.Height,
             IconWidth = HeaderBarConstants.SheetButtonWidth,
-            Padding = HeaderBarConstants.SheetButtonPadding,
+            ButtonPadding = HeaderBarConstants.SheetButtonPadding,
             Opacity = 0,
             IsVisible = false
         };

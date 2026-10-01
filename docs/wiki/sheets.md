@@ -152,6 +152,11 @@ and Spine keeps the page out of it: the content starts below the drag handle
 top padding to clear the close button (`Padding="16,36,16,16"` and the like) — padding you add is
 spacing of your own, on top of that.
 
+On Android a page with a floating header bar (`HeaderBar = HeaderBarMode.Overlay`) and `SafeAreaEdges = None`
+runs to the sheet's edges, as a camera does: the drag handle is drawn over its top, and its bottom reaches the
+screen's edge under the navigation bar. The header bar still sits below the handle. Every other page ends one
+navigation bar above the screen's edge.
+
 ### Buttons: a checkmark and an X in the header, the footer for a primary action
 
 - **Confirming or cancelling the sheet** (save, done, cancel) is a page action in the sheet's header bar,

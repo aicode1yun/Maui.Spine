@@ -32,6 +32,20 @@ internal sealed class PageActionView : ContentView
         nameof(Glass), typeof(HeaderBarGlass), typeof(PageActionView), HeaderBarGlass.Regular,
         propertyChanged: static (b, _, _) => ((PageActionView)b).ForEachFace(f => f.ApplyGlass()));
 
+    /// <summary>
+    /// Padding inside an icon button, between its slot and its glyph. Not the view's own
+    /// <see cref="Microsoft.Maui.Controls.Layout.Padding"/>: that pads the slot as well, and the two together
+    /// put a header bar's buttons twice the padding in from the edge.
+    /// </summary>
+    public static readonly BindableProperty ButtonPaddingProperty = BindableProperty.Create(
+        nameof(ButtonPadding), typeof(Thickness), typeof(PageActionView), Thickness.Zero);
+
+    public Thickness ButtonPadding
+    {
+        get => (Thickness)GetValue(ButtonPaddingProperty);
+        set => SetValue(ButtonPaddingProperty, value);
+    }
+
     public HeaderBarGlass Glass
     {
         get => (HeaderBarGlass)GetValue(GlassProperty);
@@ -358,8 +372,18 @@ internal sealed class PageActionView : ContentView
             };
             _imageButton.ApplyCommonVisualStates(owner.HideDisabled);
 
-            _imageButton.SetBinding(VisualElement.HeightRequestProperty, new Binding(nameof(HeightRequest), source: owner));
-            _imageButton.SetBinding(ImageButton.PaddingProperty, new Binding(nameof(Padding), source: owner));
+            if (Circles)
+            {
+                _imageButton.HeightRequest = FilledSize;
+                _imageButton.CornerRadius = (int)(FilledSize / 2);
+                _imageButton.HorizontalOptions = LayoutOptions.Center;
+                _imageButton.Margin = new Thickness(CircleInset, 0);
+            }
+            else
+            {
+                _imageButton.SetBinding(VisualElement.HeightRequestProperty, new Binding(nameof(HeightRequest), source: owner));
+            }
+            _imageButton.SetBinding(ImageButton.PaddingProperty, new Binding(nameof(ButtonPadding), source: owner));
             ApplyIconWidth();
 
             if (owner._glass)
@@ -478,10 +502,89 @@ internal sealed class PageActionView : ContentView
         public void ApplyIconWidth()
         {
             _imageButton.RemoveBinding(VisualElement.WidthRequestProperty);
-            _imageButton.WidthRequest = _owner._glass ? _owner.HeightRequest : _prominent ? FilledSize : _owner.IconWidth;
+            _imageButton.WidthRequest = _owner._glass ? _owner.HeightRequest : Filled || Circles ? FilledSize : _owner.IconWidth;
         }
 
         const double FilledSize = 40;
+
+        // How far an SVG glyph sits inside its button: SvgImageSourceBehavior's default padding.
+        const double GlyphInset = 5;
+
+        // Material 3's icon button: a 40-point circle (the state layer, or the fill) centred in a 48-point
+        // touch target, with a 24-point icon. Every icon button on Android has that shape, filled or not, so
+        // they all sit the same way: the circle 8 points from the edge and the icon at the page margin.
+        static readonly bool Circles = DeviceInfo.Platform == DevicePlatform.Android;
+        const double CircleInset = 4;
+
+        // Over a photo or a camera a bare icon disappears against light parts of the picture. Where there is no
+        // glass to clear it, a clear-glass bar puts each button on a dark translucent circle, as Google's camera
+        // and scanner apps do and Material asks for icon buttons over imagery.
+        static readonly Color ScrimFill = Colors.Black.WithAlpha(0.4f);
+
+        bool Scrim => !_owner._glass && !_prominent && _owner.Glass == HeaderBarGlass.Clear;
+
+        bool Filled => _prominent || Scrim;
+
+        bool _filledShape;
+
+        /// <summary>
+        /// Without glass, a 40-point circle inside the slot for a filled button (Material 3's filled icon button),
+        /// clear of the sheet's edge; otherwise the icon fills the slot.
+        /// </summary>
+        void ApplyShape()
+        {
+            var filled = Filled;
+            if (filled == _filledShape)
+                return;
+
+            _filledShape = filled;
+            if (Circles)
+            {
+                // Only what is inside the circle changes: a filled one draws its glyph with its own inset
+                if (filled)
+                {
+                    _imageButton.RemoveBinding(ImageButton.PaddingProperty);
+                    _imageButton.Padding = new Thickness(0);
+                }
+                else
+                {
+                    _imageButton.SetBinding(ImageButton.PaddingProperty, new Binding(nameof(ButtonPadding), source: _owner));
+                }
+            }
+            else if (filled)
+            {
+                // The circle's outer edge goes where a bare glyph's would be, on whichever side the slot is,
+                // so a circle and an icon line up with each other and with the page's content
+                var leading = _owner.HorizontalOptions.Alignment == LayoutAlignment.Start;
+                var outer = (leading ? _owner.ButtonPadding.Left : _owner.ButtonPadding.Right) + GlyphInset;
+                _imageButton.HorizontalOptions = leading ? LayoutOptions.Start : LayoutOptions.End;
+                _imageButton.RemoveBinding(VisualElement.HeightRequestProperty);
+                _imageButton.RemoveBinding(ImageButton.PaddingProperty);
+                _imageButton.HeightRequest = FilledSize;
+                _imageButton.Padding = new Thickness(0);
+                _imageButton.Margin = leading ? new Thickness(outer, 0, 0, 0) : new Thickness(0, 0, outer, 0);
+            }
+            else
+            {
+                _imageButton.HorizontalOptions = LayoutOptions.End;
+                _imageButton.Margin = new Thickness(0);
+                _imageButton.SetBinding(VisualElement.HeightRequestProperty, new Binding(nameof(HeightRequest), source: _owner));
+                _imageButton.SetBinding(ImageButton.PaddingProperty, new Binding(nameof(ButtonPadding), source: _owner));
+            }
+            _imageButton.CornerRadius = filled || Circles ? (int)(FilledSize / 2) : 0;
+            _textButton.CornerRadius = filled ? (int)Math.Round(_owner.HeightRequest / 2) : -1;
+            if (!filled)
+                _imageButton.ApplyCommonVisualStates(_owner.HideDisabled);
+
+            if (_imageButton.Behaviors.OfType<SvgImageSourceBehavior>().FirstOrDefault() is { } svg)
+            {
+                if (filled)
+                    svg.Padding = new Thickness(8);
+                else
+                    svg.ClearValue(SvgImageSourceBehavior.PaddingProperty);
+                svg.UpdateImage();
+            }
+        }
 
         /// <summary>
         /// The prominent look of a confirm: the glass tinted with the accent (iOS 26's prominent bar button), or
@@ -502,32 +605,9 @@ internal sealed class PageActionView : ContentView
 
             _prominent = prominent;
             if (_owner._glass)
-            {
                 ApplyGlass();
-            }
             else
-            {
-                // Material 3's filled icon button: a 40-point circle inside the slot, clear of the sheet's edge
-                if (prominent)
-                {
-                    _imageButton.RemoveBinding(VisualElement.HeightRequestProperty);
-                    _imageButton.RemoveBinding(ImageButton.PaddingProperty);
-                    _imageButton.HeightRequest = FilledSize;
-                    _imageButton.Padding = new Thickness(0);
-                    _imageButton.Margin = new Thickness(6, 0);
-                }
-                else
-                {
-                    _imageButton.Margin = new Thickness(0);
-                    _imageButton.SetBinding(VisualElement.HeightRequestProperty, new Binding(nameof(HeightRequest), source: _owner));
-                    _imageButton.SetBinding(ImageButton.PaddingProperty, new Binding(nameof(Padding), source: _owner));
-                }
-                _imageButton.CornerRadius = prominent ? (int)(FilledSize / 2)
-                    : DeviceInfo.Platform == DevicePlatform.Android ? 24 : 0;
-                _textButton.CornerRadius = prominent ? (int)Math.Round(_owner.HeightRequest / 2) : -1;
-                if (!prominent)
-                    _imageButton.ApplyCommonVisualStates(_owner.HideDisabled);
-            }
+                ApplyShape();
             ApplyIconWidth();
             ApplyForeground();
         }
@@ -573,14 +653,19 @@ internal sealed class PageActionView : ContentView
 
         public void ApplyHideDisabled()
         {
-            if (!_prominent || _owner._glass)
+            if (!Filled || _owner._glass)
                 _imageButton.ApplyCommonVisualStates(_owner.HideDisabled);
         }
 
         public void ApplyGlass()
         {
             if (!_owner._glass)
+            {
+                ApplyShape();
+                ApplyIconWidth();
+                ApplyForeground();
                 return;
+            }
 
             var clear = _owner.Glass == HeaderBarGlass.Clear;
             var style = _prominent
@@ -593,10 +678,10 @@ internal sealed class PageActionView : ContentView
         public void ApplyForeground()
         {
             // Read again on every theme or accent change, so the prominent fill follows the accent
-            var fill = _prominent ? Fill() : Colors.Transparent;
+            var fill = _prominent ? Fill() : Scrim ? ScrimFill : Colors.Transparent;
             _imageButton.BackgroundColor = fill;
             _textButton.BackgroundColor = fill;
-            if (_prominent && !_owner._glass)
+            if (Filled && !_owner._glass)
                 ApplyFilledStates(fill);
 
             if (_prominent)
@@ -673,7 +758,7 @@ internal sealed class PageActionView : ContentView
                     // in the 40-point filled circle
                     if (_owner._glass)
                         behavior.Padding = new Thickness(10);
-                    else if (_prominent)
+                    else if (Filled)
                         behavior.Padding = new Thickness(8);
                     _imageButton.Behaviors.Add(behavior);
                     _currentSvg = action.Svg;

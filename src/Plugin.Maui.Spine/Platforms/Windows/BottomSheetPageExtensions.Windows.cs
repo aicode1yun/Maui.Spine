@@ -32,9 +32,10 @@ namespace Plugin.Maui.Spine;
 /// </summary>
 internal static class BottomSheetPageExtensions
 {
-    internal static Action? ActiveBottomSheetDismiss { get; private set; }
+    /// <summary>Asks the open sheet to close: <see langword="true"/> once it goes, <see langword="false"/> when its guard refuses.</summary>
+    internal static Func<Task<bool>>? ActiveBottomSheetDismiss { get; private set; }
 
-    internal static void DismissActiveBottomSheet() => ActiveBottomSheetDismiss?.Invoke();
+    internal static Task<bool> DismissActiveBottomSheet() => ActiveBottomSheetDismiss?.Invoke() ?? Task.FromResult(false);
 
     /// <summary>
     /// Displays a bottom sheet on Windows by embedding <paramref name="bottomSheetFactory"/>'s content
@@ -91,15 +92,16 @@ internal static class BottomSheetPageExtensions
             return true;
         }
 
-        async Task RequestDismissAsync(bool result = false)
+        async Task<bool> RequestDismissAsync(bool result = false)
         {
             if (!await CanDismissAsync())
             {
                 AnimateToDetent(lastSettledHeight);
-                return;
+                return false;
             }
 
             userInteraction.Release(result);
+            return true;
         }
 
         var size = xamlRoot.Content.ActualSize;
@@ -453,10 +455,7 @@ internal static class BottomSheetPageExtensions
             storyboard.Begin();
         }
 
-        ActiveBottomSheetDismiss = () =>
-        {
-            _ = MainThread.InvokeOnMainThreadAsync(async () => await RequestDismissAsync(false));
-        };
+        ActiveBottomSheetDismiss = () => MainThread.InvokeOnMainThreadAsync(() => RequestDismissAsync(false));
 
         overlay.PointerPressed += Overlay_PointerPressed;
 

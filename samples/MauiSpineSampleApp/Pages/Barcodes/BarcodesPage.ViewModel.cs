@@ -100,6 +100,15 @@ public partial class BarcodesPageViewModel(INavigationService _navigation) : Sam
     [ObservableProperty]
     public partial string OpensAt { get; set; } = SheetDetent.Medium;
 
+    [ObservableProperty]
+    public partial bool EanOnly { get; set; }
+
+    private static readonly (string Label, bool EanOnly, string Description)[] Modes =
+    [
+        ("Any code", false, "Formats = All, plus the word clock's 12 × 12 light grid. Square aim corners."),
+        ("EAN only", true, "Formats = Ean13 | Ean8: product barcodes only. Only linear codes, so the aim corners are wide."),
+    ];
+
     private static readonly (string Label, string Detent, string Description)[] Sizes =
     [
         ("Half", SheetDetent.Medium, "Medium: half the screen, and it can be pulled up to full screen."),
@@ -114,7 +123,12 @@ public partial class BarcodesPageViewModel(INavigationService _navigation) : Sam
             [.. Sizes.Select(s => new Choice(s.Label, s.Description, () => OpensAt = s.Detent))]);
         size.Select(Array.FindIndex(Sizes, s => s.Detent == OpensAt));
 
+        var mode = new ChoiceGroup("Reads",
+            [.. Modes.Select(m => new Choice(m.Label, m.Description, () => EanOnly = m.EanOnly))]);
+        mode.Select(Array.FindIndex(Modes, m => m.EanOnly == EanOnly));
+
         return ShowOptionsAsync("Scanner",
+            mode,
             size,
             new ToggleOption("Aim corners", "ShowReticle: white corners that breathe where to aim; wide for linear codes.", () => ShowReticle, v => ShowReticle = v),
             new ToggleOption("Show the hit", "ShowDetection: the frame stops and the marked code bursts towards you before the sheet closes.", () => ShowDetection, v => ShowDetection = v),
@@ -130,13 +144,13 @@ public partial class BarcodesPageViewModel(INavigationService _navigation) : Sam
         var result = await _navigation.NavigateToWithResultAsync<BarcodeScannerPage, BarcodeScanOptions, BarcodeScanResult>(
             new BarcodeScanOptions
             {
-                Formats = BarcodeFormat.All,
-                LightGrid = new LightGridOptions(12, 12),
+                Formats = EanOnly ? BarcodeFormat.Ean13 | BarcodeFormat.Ean8 : BarcodeFormat.All,
+                LightGrid = EanOnly ? null : new LightGridOptions(12, 12),
                 ShowReticle = ShowReticle,
                 ShowDetection = ShowDetection,
                 PlaySound = PlaySound,
                 ShowPrompt = ShowPrompt,
-                Prompt = "Point the camera at a code",
+                Prompt = EanOnly ? "Point the camera at a product barcode" : "Point the camera at a code",
                 ShowTorch = ShowTorch,
                 ShowDiagnostics = ShowScanDiagnostics,
                 // The sheet can always be pulled to full screen from where it opens
