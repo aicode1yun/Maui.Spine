@@ -408,7 +408,7 @@ public sealed class SyncHandler(IRaceService _races) : IBackgroundRefreshHandler
 }
 ```
 
-The interval is a request: iOS decides when a task actually runs from how the app is used (typically a few times an hour, sometimes not for hours), Android batches alarms in Doze. `TimeSpan.Zero` turns the runs off. The build adds `UIBackgroundModes: fetch` and the task identifier to `Info.plist` (`SpineWidgetsBackgroundRefresh=false` to leave them out) and the alarm receiver to the Android manifest. On iOS the task cannot be exercised in the simulator; on a device, pause in the debugger and run `e -l objc -- (void)[[BGTaskScheduler sharedScheduler] _simulateLaunchForTaskWithIdentifier:@"<ApplicationId>.spine-widgets.refresh"]`.
+The interval is a request: iOS decides when a task actually runs from how the app is used (typically a few times an hour, sometimes not for hours), Android batches alarms in Doze. `TimeSpan.Zero` turns the runs off. The build adds `UIBackgroundModes: fetch` (beside the modes the app declares itself) and the task identifier to `Info.plist` (`SpineWidgetsBackgroundRefresh=false` to leave them out) and the alarm receiver to the Android manifest. On iOS the task cannot be exercised in the simulator; on a device, pause in the debugger and run `e -l objc -- (void)[[BGTaskScheduler sharedScheduler] _simulateLaunchForTaskWithIdentifier:@"<ApplicationId>.spine-widgets.refresh"]`.
 
 ### Remote source
 

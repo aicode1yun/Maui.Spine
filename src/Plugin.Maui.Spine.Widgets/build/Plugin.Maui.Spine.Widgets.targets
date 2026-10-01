@@ -47,6 +47,12 @@
 						  Because="The app and the widget extension share data through it." />
 	</ItemGroup>
 
+	<!-- The mode background runs need, written with the other packages' modes in Plugin.Maui.Spine.Common.
+	     Only when there is a widget, which is also when the script writes the task identifier. -->
+	<ItemGroup Condition="'$(_SpineWidgetsApple)' == 'true' And '$(SpineWidgetsEnabled)' == 'true' And '$(SpineWidgetsBackgroundRefresh)' == 'true' And '@(SpineWidget)' != ''">
+		<SpineBackgroundMode Include="fetch" />
+	</ItemGroup>
+
 	<Target Name="_SpineWidgetsPrepare"
 			Condition="'$(SpineWidgetsEnabled)' == 'true' And '$(_SpineWidgetsApple)' == 'true' And '@(SpineWidget)' != '' And '$(RuntimeIdentifier)' != '' And '$(DesignTimeBuild)' != 'true' And $([MSBuild]::IsOSPlatform('OSX'))">
 		<PropertyGroup>

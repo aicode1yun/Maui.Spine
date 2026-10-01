@@ -261,7 +261,6 @@ fi
 PLIST
   if [[ "$BACKGROUND" == "true" ]]; then
     cat <<PLIST
-	<key>UIBackgroundModes</key><array><string>fetch</string></array>
 	<key>BGTaskSchedulerPermittedIdentifiers</key><array><string>$(plist_escape "$URL_SCHEME").spine-widgets.refresh</string></array>
 PLIST
   fi

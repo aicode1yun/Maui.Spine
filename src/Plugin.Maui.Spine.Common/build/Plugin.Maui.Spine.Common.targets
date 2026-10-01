@@ -73,4 +73,62 @@
 				 Condition="'$(_SpineEntitlementsAppOwned)' != 'true'" />
 	</Target>
 
+	<!--
+		UIBackgroundModes has the same problem in Info.plist. The SDK merges every PartialAppManifest over
+		the app's Info.plist, and merges dictionaries but replaces arrays: two packages each writing the key
+		leave only the last one's mode, and either one erases the modes the app declares itself. So the
+		packages contribute <SpineBackgroundMode> items, and this target writes one partial plist with
+		those and the app's own modes.
+
+		  <SpineBackgroundMode Include="remote-notification" />
+	-->
+	<Target Name="_SpineWriteBackgroundModes"
+			Condition="'$(_SpineEntitlementsApplies)' == 'true' And '@(SpineBackgroundMode)' != ''"
+			DependsOnTargets="_DetectAppManifest"
+			BeforeTargets="CollectAppManifests;_CompileAppManifestInputs;_CompileAppManifest">
+
+		<PropertyGroup>
+			<_SpineBackgroundModesFile>$([MSBuild]::NormalizePath('$(MSBuildProjectDirectory)', '$(IntermediateOutputPath)', 'spine', 'BackgroundModes.plist'))</_SpineBackgroundModesFile>
+		</PropertyGroup>
+
+		<!-- An Info.plist has a DOCTYPE, which XmlPeek refuses unless DTDs are allowed; the DTD itself is
+		     not fetched. -->
+		<XmlPeek XmlInputPath="$(AppBundleManifest)" ProhibitDtd="false"
+				 Query="/plist/dict/key[.='UIBackgroundModes']/following-sibling::*[1]/string/text()"
+				 Condition="'$(AppBundleManifest)' != '' And Exists('$(AppBundleManifest)')">
+			<Output TaskParameter="Result" ItemName="_SpineAppBackgroundMode" />
+		</XmlPeek>
+
+		<ItemGroup>
+			<_SpineBackgroundModeAll Include="@(_SpineAppBackgroundMode);@(SpineBackgroundMode)" />
+		</ItemGroup>
+		<RemoveDuplicates Inputs="@(_SpineBackgroundModeAll)">
+			<Output TaskParameter="Filtered" ItemName="_SpineBackgroundModeUnique" />
+		</RemoveDuplicates>
+
+		<MakeDir Directories="$([System.IO.Path]::GetDirectoryName('$(_SpineBackgroundModesFile)'))" />
+
+		<ItemGroup>
+			<!-- '?' is a wildcard in an Include; see _SpineWriteEntitlements. -->
+			<_SpineBackgroundModesLine Include="&lt;%3Fxml version=&quot;1.0&quot; encoding=&quot;UTF-8&quot;%3F&gt;" />
+			<_SpineBackgroundModesLine Include="&lt;!DOCTYPE plist PUBLIC &quot;-//Apple//DTD PLIST 1.0//EN&quot; &quot;http://www.apple.com/DTDs/PropertyList-1.0.dtd&quot;&gt;" />
+			<_SpineBackgroundModesLine Include="&lt;plist version=&quot;1.0&quot;&gt;" />
+			<_SpineBackgroundModesLine Include="&lt;dict&gt;" />
+			<_SpineBackgroundModesLine Include="&lt;key&gt;UIBackgroundModes&lt;/key&gt;" />
+			<_SpineBackgroundModesLine Include="&lt;array&gt;" />
+			<_SpineBackgroundModesLine Include="@(_SpineBackgroundModeUnique->'&lt;string&gt;%(Identity)&lt;/string&gt;')" />
+			<_SpineBackgroundModesLine Include="&lt;/array&gt;" />
+			<_SpineBackgroundModesLine Include="&lt;/dict&gt;" />
+			<_SpineBackgroundModesLine Include="&lt;/plist&gt;" />
+		</ItemGroup>
+
+		<WriteLinesToFile File="$(_SpineBackgroundModesFile)" Lines="@(_SpineBackgroundModesLine)" Overwrite="true" WriteOnlyWhenDifferent="true" />
+
+		<ItemGroup>
+			<PartialAppManifest Include="$(_SpineBackgroundModesFile)" />
+		</ItemGroup>
+
+		<Message Importance="normal" Text="Spine: UIBackgroundModes written to $(_SpineBackgroundModesFile) with @(_SpineBackgroundModeUnique, ', ')." />
+	</Target>
+
 </Project>
