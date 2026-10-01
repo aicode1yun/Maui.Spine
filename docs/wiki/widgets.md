@@ -408,6 +408,8 @@ public sealed class SyncHandler(IRaceService _races) : IBackgroundRefreshHandler
 }
 ```
 
+A run has little time: about 30 seconds on iOS, 20 on Android. The handler's token is cancelled when it runs out, so pass it on to every HTTP call and database query. On Android a handler that is still running 5 seconds after that is left behind: the run is ended without it, so the system does not report the app as not responding, and a warning naming the handler is logged. A widget's `Refresh(after)` alarm and a button tap have the same limit on Android.
+
 The interval is a request: iOS decides when a task actually runs from how the app is used (typically a few times an hour, sometimes not for hours), Android batches alarms in Doze. `TimeSpan.Zero` turns the runs off. The build adds `UIBackgroundModes: fetch` (beside the modes the app declares itself) and the task identifier to `Info.plist` (`SpineWidgetsBackgroundRefresh=false` to leave them out) and the alarm receiver to the Android manifest. On iOS the task cannot be exercised in the simulator; on a device, pause in the debugger and run `e -l objc -- (void)[[BGTaskScheduler sharedScheduler] _simulateLaunchForTaskWithIdentifier:@"<ApplicationId>.spine-widgets.refresh"]`.
 
 ### Remote source
