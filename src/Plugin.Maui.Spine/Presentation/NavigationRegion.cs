@@ -1,5 +1,5 @@
 using Plugin.Maui.Spine.Core;
-using Microsoft.Maui.Controls.Shapes;
+using Plugin.Maui.Spine.Extensions;
 using SpineSafeArea = Plugin.Maui.Spine.Core.SafeAreaEdges;
 
 namespace Plugin.Maui.Spine.Presentation;
@@ -16,30 +16,28 @@ public sealed partial class NavigationRegion : ContentView
     private readonly HeaderBarView _frameActionView;
     private readonly ContentView _contentHostFront;
     private readonly ContentView _contentHostBack;
+    private readonly ContentView _backLayer;
     private readonly BoxView _backDragDimOverlay;
     private readonly ISpineTransitions _transitions;
     private readonly ISystemInsetsProvider _insetsProvider;
     private readonly Grid _container;
 
-    private Geometry? _originalClip;
-    private RectangleGeometry? _draggingClip;
-
     private double _gestureWidth;
-    private double _gestureHeight;
 
     private double _lastBackTx = double.NaN;
     private double _lastOpacity = double.NaN;
-    private double _lastClipWidth = double.NaN;
 
     private const double UpdateEpsilon = 0.5;
 
-    private Color _originalFrontBackground = Colors.Transparent;
     private bool _dragAccepted = false;
     private double _dragStartX;
     private bool _isDragging;
     private const double DragEdgeThreshold = 0.25;
     private const double DragCompleteThreshold = 0.33;  // fraction of width to complete pop
-    private const double BackDragDimStartOpacity = 0.2;
+    private const double BackParallax = 0.25;
+
+    /// <summary>The opacity of the dim over a covered page.</summary>
+    internal const double BackDimOpacity = 0.2;
 
     private NavigationRegionViewModel ViewModel => (NavigationRegionViewModel)BindingContext;
 
@@ -70,7 +68,11 @@ public sealed partial class NavigationRegion : ContentView
         _insetsProvider.InsetsChanged += OnSystemInsetsChanged;
 
         _contentHostBack = new ContentView();
-        _container.Children.Add(_contentHostBack);
+
+        // The back host moves with its page; the layer around it stays put, so a cut at the front
+        // page's edge depends on the front page alone.
+        _backLayer = new ContentView { Content = _contentHostBack };
+        _container.Children.Add(_backLayer);
 
         _backDragDimOverlay = new BoxView
         {
@@ -109,7 +111,11 @@ public sealed partial class NavigationRegion : ContentView
 
         _container.Children.Add(_frameActionView);
 
-        _originalFrontBackground = _contentHostFront.BackgroundColor;
+        _contentHostFront.PropertyChanged += (_, e) =>
+        {
+            if (_cutsBack && e.PropertyName == nameof(TranslationX))
+                CutBackAt(_contentHostFront.TranslationX);
+        };
 
         var panGesture = new PanGestureRecognizer();
         panGesture.PanUpdated += OnPanUpdated;
@@ -121,6 +127,8 @@ public sealed partial class NavigationRegion : ContentView
         _contentHostFront.GestureRecognizers.Add(pointerGesture);
 
         RestrictBackSwipeOnPlatform();
+
+        viewModel.PlayTransition = PlayTransitionAsync;
 
         UpdateContainerMargin();
 
@@ -406,6 +414,102 @@ public sealed partial class NavigationRegion : ContentView
     /// </summary>
     partial void RestrictBackSwipeOnPlatform();
 
+    /// <summary>
+    /// Rounds the front layer to the screen's corners, as iOS 26 rounds a page while it moves. A
+    /// no-op where the platform keeps pages square.
+    /// </summary>
+    partial void RoundFront(bool round);
+
+    /// <summary>
+    /// Shows the back layer only left of <paramref name="frontX"/>, the front page's leading edge,
+    /// or the whole of it at <see langword="null"/>. On iOS it is called inside the animation that
+    /// moves the front page, so the cut moves with it.
+    /// </summary>
+    partial void CutBackOnPlatform(double? frontX);
+
+    // In a sheet the front page cannot carry the sheet's surface, so it stays see-through and the
+    // page underneath is cut off where the front page begins, as UIKit cuts it.
+    private bool _cutsBack;
+
+    private void CutBackAt(double? frontX)
+    {
+#if IOS || MACCATALYST
+        CutBackOnPlatform(frontX);
+#else
+        var width = _container.Width;
+        var height = _container.Height;
+        _backLayer.Clip = frontX is { } x && width > 0
+            ? new Microsoft.Maui.Controls.Shapes.RectangleGeometry(new Rect(-width, -height, width + x, height * 3))
+            : null;
+#endif
+    }
+
+    /// <summary>
+    /// Lifts the front layer off the one under it while it moves. Pages sit on a background painted
+    /// behind the region, so the layer carries its page's colour to hide what is under it, and
+    /// takes the screen's corners where the platform rounds pages. A sheet's pages sit on the
+    /// sheet's surface instead, which a layer cannot carry: there the front page stays see-through
+    /// and the page underneath is cut off at its edge, so only the sheet shows under it.
+    /// </summary>
+    private void LiftFront(bool lift)
+    {
+        if (ViewModel.Presentation is NavigationPresentation.Sheet)
+        {
+            _cutsBack = lift;
+            CutBackAt(lift ? _contentHostFront.TranslationX : null);
+
+            // A dim would only darken the sheet; iOS leaves the page underneath as it is.
+            _backDragDimOverlay.IsVisible = !lift;
+        }
+        else
+        {
+            // Transparent rather than cleared: clearing the value leaves the native colour behind
+            // on iOS, and the page then kept the old theme's colour after a theme change.
+            _contentHostFront.BackgroundColor = lift ? ViewModel.FrontView.PageBackground() : Colors.Transparent;
+        }
+
+        RoundFront(lift);
+    }
+
+    /// <summary>
+    /// Plays a push or a pop on the layers, then lets <paramref name="commit"/> swap the pages
+    /// before the layers return to rest, so the page that moved away is never seen at rest.
+    /// </summary>
+    private async Task PlayTransitionAsync(NavigationDirection direction, Action commit)
+    {
+        var vm = ViewModel;
+        var push = direction is NavigationDirection.NavigateTo;
+        var transition = new SpineTransitionContext(
+            _contentHostFront,
+            _contentHostBack,
+            _backDragDimOverlay,
+            GetEffectiveWidth(),
+            incomingPage: push ? vm.FrontView : vm.BackView,
+            outgoingPage: push ? vm.BackView : vm.FrontView,
+            flatten: () => LiftFront(false));
+
+        LiftFront(true);
+
+        try
+        {
+            await (push ? _transitions.AnimatePushAsync(transition) : _transitions.AnimatePopAsync(transition));
+        }
+        finally
+        {
+            commit();
+
+            foreach (var layer in (View[])[_contentHostFront, _contentHostBack])
+            {
+                layer.TranslationX = 0;
+                layer.TranslationY = 0;
+                layer.Opacity = 1;
+            }
+
+            _backDragDimOverlay.Opacity = 0;
+            LiftFront(false);
+        }
+    }
+
     private double GetEffectiveWidth()
     {
         var width = Width;
@@ -414,19 +518,6 @@ public sealed partial class NavigationRegion : ContentView
             width = app.Windows[0]?.Page?.Width ?? 0;
 
         return width;
-    }
-
-    private double GetEffectiveHeight()
-    {
-        var height = Height;
-
-        if (height <= 0 && Application.Current is { Windows.Count: > 0 } app)
-            height = app.Windows[0]?.Page?.Height ?? 0;
-
-        if (height <= 0)
-            height = _contentHostBack.Height;
-
-        return height;
     }
 
     private void OnPointerPressed(object? sender, PointerEventArgs e)
@@ -444,83 +535,37 @@ public sealed partial class NavigationRegion : ContentView
     private void ApplyBackReveal(double deltaX)
     {
         var width = _gestureWidth;
-        if (width <= 0 || _draggingClip is null)
+        if (width <= 0)
             return;
 
-        var clamped = Math.Clamp(deltaX, 0, width);
-        var dragProgress = clamped / width;
+        var dragProgress = Math.Clamp(deltaX, 0, width) / width;
 
-        var backTx = -width * 0.25 * (1.0 - dragProgress);
-        var opacity = BackDragDimStartOpacity * (1.0 - dragProgress);
+        var backTx = -width * BackParallax * (1.0 - dragProgress);
 
         if (double.IsNaN(_lastBackTx) || Math.Abs(backTx - _lastBackTx) >= UpdateEpsilon)
         {
             _contentHostBack.TranslationX = backTx;
-            _backDragDimOverlay.TranslationX = backTx;
             _lastBackTx = backTx;
         }
+
+        var opacity = BackDimOpacity * (1.0 - dragProgress);
 
         if (double.IsNaN(_lastOpacity) || Math.Abs(opacity - _lastOpacity) >= 0.01)
         {
             _backDragDimOverlay.Opacity = opacity;
             _lastOpacity = opacity;
         }
-
-        var clipWidth = Math.Max(0, clamped - backTx);
-        if (double.IsNaN(_lastClipWidth) || Math.Abs(clipWidth - _lastClipWidth) >= UpdateEpsilon)
-        {
-            _draggingClip.Rect = new Rect(0, 0, clipWidth, _gestureHeight);
-            _lastClipWidth = clipWidth;
-        }
-    }
-
-    private Task AnimateRevealClipAsync(double fromDeltaX, double toDeltaX, uint length, Easing easing)
-    {
-        if (_draggingClip is null || _gestureWidth <= 0)
-            return Task.CompletedTask;
-
-        var tcs = new TaskCompletionSource();
-
-        this.AbortAnimation("InteractiveBackRevealClip");
-
-        var animation = new Animation(progress =>
-        {
-            var deltaX = fromDeltaX + ((toDeltaX - fromDeltaX) * progress);
-            ApplyBackReveal(deltaX);
-        });
-
-        animation.Commit(
-            this,
-            "InteractiveBackRevealClip",
-            16,
-            length,
-            easing,
-            (v, c) => tcs.TrySetResult());
-
-        return tcs.Task;
     }
 
     private void ResetInteractiveState()
     {
-        this.AbortAnimation("InteractiveBackRevealClip");
-
         _backDragDimOverlay.Opacity = 0;
-        _backDragDimOverlay.TranslationX = 0;
-
-        if (_originalClip is not null)
-        {
-            _contentHostBack.Clip = _originalClip;
-            _backDragDimOverlay.Clip = _originalClip;
-            _originalClip = null;
-        }
-
-        _draggingClip = null;
-
         _contentHostBack.TranslationX = 0;
+
+        LiftFront(false);
 
         _lastBackTx = double.NaN;
         _lastOpacity = double.NaN;
-        _lastClipWidth = double.NaN;
     }
 
     private async void OnPanUpdated(object? sender, PanUpdatedEventArgs e)
@@ -539,7 +584,6 @@ public sealed partial class NavigationRegion : ContentView
                 _isDragging = false;
 
                 _gestureWidth = GetEffectiveWidth();
-                _gestureHeight = GetEffectiveHeight();
 
                 // Ensure any previous interactive state doesn't leak into non-interactive back animations
                 ResetInteractiveState();
@@ -558,26 +602,7 @@ public sealed partial class NavigationRegion : ContentView
                 {
                     _isDragging = true;
                     vm.StartInteractiveBack();
-
-                    _originalFrontBackground = _contentHostFront.BackgroundColor;
-                    _contentHostFront.BackgroundColor = _originalFrontBackground;
-
-                    if (_gestureWidth > 0)
-                    {
-                        _contentHostBack.TranslationX = 0;
-
-                        _originalClip ??= _contentHostBack.Clip;
-
-                        _draggingClip = new RectangleGeometry
-                        {
-                            Rect = new Rect(0, 0, 0, Math.Max(0, _gestureHeight))
-                        };
-
-                        _contentHostBack.Clip = _draggingClip;
-                        _backDragDimOverlay.Clip = _draggingClip;
-                    }
-
-                    _backDragDimOverlay.Opacity = BackDragDimStartOpacity;
+                    LiftFront(true);
                 }
 
                 _contentHostFront.TranslationX = Math.Max(0, deltaX);
@@ -593,33 +618,28 @@ public sealed partial class NavigationRegion : ContentView
                     return;
 
                 var currentX = _contentHostFront.TranslationX;
+                var duration = _transitions.InteractiveGestureDuration;
+                var easing = _transitions.InteractiveGestureEasing;
 
                 if (_gestureWidth > 0 && currentX > _gestureWidth * DragCompleteThreshold && e.StatusType == GestureStatus.Completed)
                 {
-                    var animateClipTask = AnimateRevealClipAsync(currentX, _gestureWidth, _transitions.InteractiveGestureDuration, _transitions.InteractiveGestureEasing);
-                    await vm.CompleteInteractiveBackAnimationAsync(_contentHostFront, _contentHostBack, currentX);
-                    await animateClipTask;
+                    await Task.WhenAll(
+                        vm.CompleteInteractiveBackAnimationAsync(_contentHostFront, _contentHostBack, currentX),
+                        _backDragDimOverlay.SpineFadeToAsync(0, duration, easing));
 
+                    // The host is about to show the previous page in place, which stays square.
+                    LiftFront(false);
                     _contentHostFront.TranslationX = 0;
                     await vm.CompleteInteractiveBackAsync();
                 }
                 else
                 {
-                    if (_gestureWidth > 0)
-                    {
-                        var animateClipTask = AnimateRevealClipAsync(currentX, 0, _transitions.InteractiveGestureDuration, _transitions.InteractiveGestureEasing);
-                        await vm.CancelInteractiveBackAnimationAsync(_contentHostFront, _contentHostBack);
-                        await animateClipTask;
-                    }
-                    else
-                    {
-                        await _contentHostFront.TranslateToAsync(0, 0, _transitions.InteractiveGestureDuration, _transitions.InteractiveGestureEasing);
-                    }
+                    await Task.WhenAll(
+                        vm.CancelInteractiveBackAnimationAsync(_contentHostFront, _contentHostBack),
+                        _backDragDimOverlay.SpineFadeToAsync(BackDimOpacity, duration, easing));
 
                     vm.CancelInteractiveBack();
                 }
-
-                _contentHostFront.BackgroundColor = _originalFrontBackground;
 
                 // Fully reset interactive artifacts so subsequent programmatic BackAsync is smooth
                 ResetInteractiveState();
@@ -630,4 +650,3 @@ public sealed partial class NavigationRegion : ContentView
         }
     }
 }
-

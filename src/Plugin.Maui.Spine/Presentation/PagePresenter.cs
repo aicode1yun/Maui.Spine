@@ -396,7 +396,7 @@ internal sealed partial class PagePresenter : Grid
     /// host page (an app styles its <c>ContentPage</c>), otherwise what the platform paints behind
     /// pages in the current theme, so the collapsed bar reads as the page continuing behind the title.
     /// </summary>
-    private Color PageBackground()
+    internal Color PageBackground()
     {
         for (Element? element = Content ?? (Element)this; element is not null; element = element.Parent)
         {

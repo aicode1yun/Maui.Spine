@@ -113,7 +113,11 @@ internal static class BottomSheetPageExtensions
         if (sheetVc.SheetPresentationController is { } spc)
         {
             spc.PrefersGrabberVisible = true;
-            spc.PreferredCornerRadius = 20;
+
+            // iOS 26 rounds a sheet concentrically with the screen; a fixed radius made it look
+            // tighter than the system's own sheets.
+            if (!OperatingSystem.IsIOSVersionAtLeast(26) && !OperatingSystem.IsMacCatalystVersionAtLeast(26))
+                spc.PreferredCornerRadius = 20;
 
             ConfigureDetents(spc, allowedDetents, selectedDetent, bottomSheetBuilder.BackgroundPageOverlay);
 
