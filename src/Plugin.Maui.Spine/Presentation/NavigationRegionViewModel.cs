@@ -47,6 +47,21 @@ internal partial class NavigationRegionViewModel : ObservableObject
         OnPropertyChanged(nameof(SecondaryPageAction));
     }
 
+    /// <summary>
+    /// Plays a push or a pop, then calls the action that swaps the pages before the layers return
+    /// to rest. Set by the <see cref="NavigationRegion"/>, which owns the layers the transition moves.
+    /// </summary>
+    internal Func<NavigationDirection, Action, Task>? PlayTransition { get; set; }
+
+    private Task PlayTransitionAsync(NavigationDirection direction, Action commit)
+    {
+        if (PlayTransition is { } play)
+            return play(direction, commit);
+
+        commit();
+        return Task.CompletedTask;
+    }
+
     /// <summary>The presenter hosting the foreground (active) page view.</summary>
     [ObservableProperty]
     public partial PagePresenter FrontView { get; set; } = new();
@@ -226,9 +241,7 @@ internal partial class NavigationRegionViewModel : ObservableObject
         OnPropertyChanged(nameof(PrimaryPageAction));
         OnPropertyChanged(nameof(SecondaryPageAction));
 
-        await Task.WhenAll([_frameTransition.AnimateNavigateToShowAsync(FrontView), _frameTransition.AnimateNavigateToHideAsync(BackView)]);
-
-        BackView.Content = null;
+        await PlayTransitionAsync(NavigationDirection.NavigateTo, () => BackView.Content = null);
         await _frameTransition.ResetHiddenViewAsync(current);
 
         InvokeOnAppearing(NavigationDirection.NavigateTo);
@@ -320,12 +333,19 @@ internal partial class NavigationRegionViewModel : ObservableObject
 
             ShowHeaderOf(prev.BindingContext as ViewModelBase);
 
-            if (animate)
-                await Task.WhenAll([_frameTransition.AnimateBackShowAsync(BackView), _frameTransition.AnimateBackHideAsync(FrontView)]);
+            void Commit()
+            {
+                BackView.Content = null;
+                FrontView.Content = prev;
+                FrontView.IsVisible = true;
+            }
 
-            BackView.Content = null;
-            FrontView.Content = prev;
-            FrontView.IsVisible = true;
+            // A completed back-swipe has already moved the pages.
+            if (animate)
+                await PlayTransitionAsync(NavigationDirection.Back, Commit);
+            else
+                Commit();
+
             _arrivingHeader = null;
         }
 
@@ -384,11 +404,13 @@ internal partial class NavigationRegionViewModel : ObservableObject
         OnPropertyChanged(nameof(BackView));
         ShowHeaderOf(target.BindingContext as ViewModelBase);
 
-        await Task.WhenAll([_frameTransition.AnimateBackShowAsync(BackView), _frameTransition.AnimateBackHideAsync(FrontView)]);
+        await PlayTransitionAsync(NavigationDirection.Back, () =>
+        {
+            BackView.Content = null;
+            FrontView.Content = target;
+            FrontView.IsVisible = true;
+        });
 
-        BackView.Content = null;
-        FrontView.Content = target;
-        FrontView.IsVisible = true;
         _arrivingHeader = null;
 
         InvokeOnAppearing(NavigationDirection.Back);

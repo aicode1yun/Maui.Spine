@@ -1,8 +1,12 @@
+using Plugin.Maui.Spine.Extensions;
+
 namespace Plugin.Maui.Spine.Presentation;
 
 /// <summary>
 /// The default <see cref="ISpineTransitions"/> implementation.
-/// Provides platform-tuned horizontal slide animations for push/pop navigation and interactive back-swipe gestures.
+/// Moves pages as iOS's navigation does on every platform: the upper page slides over the lower one,
+/// which moves a quarter of the way aside and dims. Motion runs on the platform's own animation
+/// engine where there is one (<see cref="SpineAnimation"/>).
 /// Register a custom <see cref="ISpineTransitions"/> in DI after calling <c>UseSpine</c> to override these defaults.
 /// </summary>
 public class DefaultSpineTransitions : ISpineTransitions
@@ -42,9 +46,30 @@ public class DefaultSpineTransitions : ISpineTransitions
         return Task.CompletedTask;
     }
 
+    /// <summary>How far the lower page moves aside while it is covered: a quarter of the width, as iOS's navigation does.</summary>
+    protected virtual double Parallax => 0.25;
+
+    /// <summary>The opacity of the dim over a covered page.</summary>
+    protected virtual double DimOpacity => NavigationRegion.BackDimOpacity;
+
     // PUSH (forward)
 
+    /// <summary>
+    /// The page arriving slides in from the right over the current page, which moves a quarter of
+    /// the way aside and dims, as a navigation controller pushes.
+    /// </summary>
+    public virtual Task AnimatePushAsync(SpineTransitionContext transition)
+    {
+        transition.Front.TranslationX = transition.Width;
+
+        return Task.WhenAll(
+            transition.Front.SpineTranslateToAsync(0, 0, Duration, Ease),
+            transition.Back.SpineTranslateToAsync(-transition.Width * Parallax, 0, Duration, Ease),
+            transition.Dim.SpineFadeToAsync(DimOpacity, Duration, Ease));
+    }
+
     /// <inheritdoc/>
+    [Obsolete("Spine calls AnimatePushAsync, which moves whole layers; override that instead.")]
     public virtual async Task AnimateNavigateToShowAsync(View view)
     {
         var width = GetWidth(view);
@@ -57,6 +82,7 @@ public class DefaultSpineTransitions : ISpineTransitions
     }
 
     /// <inheritdoc/>
+    [Obsolete("Spine calls AnimatePushAsync, which moves whole layers; override that instead.")]
     public virtual Task AnimateNavigateToHideAsync(View view)
     {
         view.IsVisible = false;
@@ -65,7 +91,23 @@ public class DefaultSpineTransitions : ISpineTransitions
 
     // POP (back)
 
+    /// <summary>
+    /// The current page slides out to the right, uncovering the previous page as it moves back in
+    /// from the side and its dim lifts: the same motion as a completed back-swipe.
+    /// </summary>
+    public virtual Task AnimatePopAsync(SpineTransitionContext transition)
+    {
+        transition.Back.TranslationX = -transition.Width * Parallax;
+        transition.Dim.Opacity = DimOpacity;
+
+        return Task.WhenAll(
+            transition.Front.SpineTranslateToAsync(transition.Width, 0, Duration, Ease),
+            transition.Back.SpineTranslateToAsync(0, 0, Duration, Ease),
+            transition.Dim.SpineFadeToAsync(0, Duration, Ease));
+    }
+
     /// <inheritdoc/>
+    [Obsolete("Spine calls AnimatePopAsync, which moves whole layers; override that instead.")]
     public virtual async Task AnimateBackShowAsync(View view)
     {
         var width = GetWidth(view);
@@ -78,6 +120,7 @@ public class DefaultSpineTransitions : ISpineTransitions
     }
 
     /// <inheritdoc/>
+    [Obsolete("Spine calls AnimatePopAsync, which moves whole layers; override that instead.")]
     public virtual Task AnimateBackHideAsync(View view)
     {
         view.IsVisible = false;
@@ -94,32 +137,21 @@ public class DefaultSpineTransitions : ISpineTransitions
 
     // Interactive back-swipe terminal animations
 
-        /// <inheritdoc/>
-        public virtual Task AnimateInteractiveBackCompleteAsync(View front, View back, double progress)
-        {
-            var width = GetWidth(front);
-            var remaining = width - progress;
+    /// <inheritdoc/>
+    public virtual Task AnimateInteractiveBackCompleteAsync(View front, View back, double progress) =>
+        Task.WhenAll(
+            front.SpineTranslateToAsync(GetWidth(front), 0, Duration, Ease),
+            back.SpineTranslateToAsync(0, 0, Duration, Ease));
 
-            var frontTask = front.TranslateToAsync(progress + remaining, 0, Duration, Ease);
-            var backTask = back.TranslateToAsync(0, 0, Duration, Ease);
+    /// <inheritdoc/>
+    public virtual Task AnimateInteractiveBackCancelAsync(View front, View back) =>
+        Task.WhenAll(
+            front.SpineTranslateToAsync(0, 0, Duration, Ease),
+            back.SpineTranslateToAsync(-GetWidth(front) * Parallax, 0, Duration, Ease));
 
-            return Task.WhenAll(frontTask, backTask);
-        }
+    /// <inheritdoc/>
+    public virtual uint InteractiveGestureDuration => Duration;
 
-        /// <inheritdoc/>
-        public virtual Task AnimateInteractiveBackCancelAsync(View front, View back)
-        {
-            var width = GetWidth(front);
-
-            var frontTask = front.TranslateToAsync(0, 0, Duration, Ease);
-            var backTask = back.TranslateToAsync(-width * 0.25, 0, Duration, Ease);
-
-            return Task.WhenAll(frontTask, backTask);
-        }
-
-        /// <inheritdoc/>
-        public virtual uint InteractiveGestureDuration => Duration;
-
-        /// <inheritdoc/>
-        public virtual Easing InteractiveGestureEasing => Ease;
-    }
+    /// <inheritdoc/>
+    public virtual Easing InteractiveGestureEasing => Ease;
+}

@@ -1,4 +1,5 @@
 #if IOS || MACCATALYST
+using Plugin.Maui.Spine.Core;
 using UIKit;
 
 namespace Plugin.Maui.Spine.Presentation;
@@ -9,6 +10,82 @@ public sealed partial class NavigationRegion
     {
         _contentHostFront.HandlerChanged += (_, _) => RestrictBackSwipe();
         _contentHostFront.Loaded += (_, _) => RestrictBackSwipe();
+    }
+
+    private bool? _frontClippedBeforeRound;
+
+    partial void RoundFront(bool round)
+    {
+#if IOS
+        if (!OperatingSystem.IsIOSVersionAtLeast(26) || _contentHostFront.Handler?.PlatformView is not UIView view)
+            return;
+
+        if (ViewModel.Presentation is NavigationPresentation.Sheet)
+        {
+            // The layer reaches above the sheet, where the status bar would be, so its own corners
+            // fall outside it: the visible part is masked to the sheet's rounded shape instead.
+            view.MaskView = round && SheetShape(view) is { } shape
+                ? new UIView(shape.Visible) { BackgroundColor = UIColor.Black, Layer = { CornerRadius = shape.Radius, CornerCurve = CoreAnimation.CACornerCurve.Continuous } }
+                : null;
+            return;
+        }
+
+        if (round)
+        {
+            // Concentric with the window, which is the screen's own corner radius; UIKit has no
+            // public property for that radius itself.
+            _frontClippedBeforeRound ??= view.ClipsToBounds;
+            view.CornerConfiguration = UICornerConfiguration.CreateUniformCorners(UICornerRadius.CreateContainerConcentric());
+            view.ClipsToBounds = true;
+        }
+        else if (_frontClippedBeforeRound is { } clipped)
+        {
+            view.CornerConfiguration = UICornerConfiguration.CreateUniformCorners(UICornerRadius.CreateFixed(0));
+            view.ClipsToBounds = clipped;
+            _frontClippedBeforeRound = null;
+        }
+#endif
+    }
+
+#if IOS
+    /// <summary>
+    /// The part of <paramref name="view"/> inside the sheet, in its own coordinates, and the
+    /// sheet's corner radius: the sheet's view is the first one up that UIKit rounds.
+    /// </summary>
+    [System.Runtime.Versioning.SupportedOSPlatform("ios26.0")]
+    private static (CoreGraphics.CGRect Visible, nfloat Radius)? SheetShape(UIView view)
+    {
+        for (var ancestor = view.Superview; ancestor is not null; ancestor = ancestor.Superview)
+        {
+            // effectiveRadiusForCorner:, a getter despite the binding's name.
+            var radius = ancestor.SetEffectiveRadius(UIRectCorner.TopLeft);
+            if (radius > 0)
+                return (CoreGraphics.CGRect.Intersect(view.Bounds, view.ConvertRectFromView(ancestor.Bounds, ancestor)), radius);
+        }
+
+        return null;
+    }
+#endif
+
+    partial void CutBackOnPlatform(double? frontX)
+    {
+        if (_backLayer.Handler?.PlatformView is not UIView layer)
+            return;
+
+        if (frontX is not { } x)
+        {
+            layer.MaskView = null;
+            return;
+        }
+
+        var bounds = layer.Bounds;
+        var frame = new CoreGraphics.CGRect(-bounds.Width, -bounds.Height, bounds.Width + (nfloat)Math.Max(0, x), bounds.Height * 3);
+
+        // Set inside the animation that moves the front page, the frame change animates with it.
+        if (layer.MaskView is { } mask)
+            mask.Frame = frame;
+        else
+            layer.MaskView = new UIView(frame) { BackgroundColor = UIColor.Black };
     }
 
     /// <summary>

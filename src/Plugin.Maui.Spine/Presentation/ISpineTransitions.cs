@@ -29,6 +29,31 @@ public interface ISpineTransitions
     Task AnimateBackHideAsync(View view);
 
     /// <summary>
+    /// Animates a forward navigation: <see cref="SpineTransitionContext.Front"/> holds the page
+    /// arriving, <see cref="SpineTransitionContext.Back"/> the page it covers. The default calls
+    /// <see cref="AnimateNavigateToShowAsync"/> and <see cref="AnimateNavigateToHideAsync"/> with
+    /// the two pages, so an implementation written for those keeps working.
+    /// </summary>
+    /// <param name="transition">The layers to move.</param>
+    Task AnimatePushAsync(SpineTransitionContext transition)
+    {
+        transition.Flatten();
+        return Task.WhenAll(AnimateNavigateToShowAsync(transition.IncomingPage), AnimateNavigateToHideAsync(transition.OutgoingPage));
+    }
+
+    /// <summary>
+    /// Animates a back navigation: <see cref="SpineTransitionContext.Front"/> holds the page
+    /// leaving, <see cref="SpineTransitionContext.Back"/> the page coming back. The default calls
+    /// <see cref="AnimateBackShowAsync"/> and <see cref="AnimateBackHideAsync"/> with the two pages.
+    /// </summary>
+    /// <param name="transition">The layers to move.</param>
+    Task AnimatePopAsync(SpineTransitionContext transition)
+    {
+        transition.Flatten();
+        return Task.WhenAll(AnimateBackShowAsync(transition.IncomingPage), AnimateBackHideAsync(transition.OutgoingPage));
+    }
+
+    /// <summary>
     /// Restores a page to its fully visible resting state after it has been hidden by
     /// <see cref="AnimateNavigateToHideAsync"/> and placed back on the navigation stack.
     /// Called after a forward navigation completes, so the page is ready to animate back in
@@ -51,23 +76,23 @@ public interface ISpineTransitions
     /// <param name="progress">The drag offset in device-independent units reached when the gesture ended.</param>
     Task AnimateInteractiveBackCompleteAsync(View front, View back, double progress);
 
-        /// <summary>
-        /// Called when the user cancels an interactive back-swipe gesture to animate the page back to
-        /// its original position.
-        /// </summary>
-        /// <param name="front">The foreground (current) page.</param>
-        /// <param name="back">The background (previous) page.</param>
-        Task AnimateInteractiveBackCancelAsync(View front, View back);
+    /// <summary>
+    /// Called when the user cancels an interactive back-swipe gesture to animate the page back to
+    /// its original position.
+    /// </summary>
+    /// <param name="front">The foreground (current) page.</param>
+    /// <param name="back">The background (previous) page.</param>
+    Task AnimateInteractiveBackCancelAsync(View front, View back);
 
-        /// <summary>
-        /// Duration in milliseconds used for the interactive back-swipe clip-reveal animation
-        /// (both complete and cancel paths). Defaults to <c>250</c>.
-        /// </summary>
-        uint InteractiveGestureDuration => 250;
+    /// <summary>
+    /// Duration in milliseconds of the dim's fade when an interactive back-swipe is released
+    /// (completed or cancelled). Defaults to <c>250</c>.
+    /// </summary>
+    uint InteractiveGestureDuration => 250;
 
-        /// <summary>
-        /// Easing applied to the interactive back-swipe clip-reveal animation.
-        /// Defaults to <see cref="Easing.CubicOut"/>.
-        /// </summary>
-        Easing InteractiveGestureEasing => Easing.CubicOut;
-    }
+    /// <summary>
+    /// Easing of the dim's fade when an interactive back-swipe is released.
+    /// Defaults to <see cref="Easing.CubicOut"/>.
+    /// </summary>
+    Easing InteractiveGestureEasing => Easing.CubicOut;
+}
