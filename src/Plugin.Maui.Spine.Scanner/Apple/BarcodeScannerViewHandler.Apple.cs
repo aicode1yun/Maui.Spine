@@ -19,13 +19,16 @@ public sealed class BarcodeScannerViewHandler() : ViewHandler<BarcodeScannerView
     public static readonly IPropertyMapper<BarcodeScannerView, BarcodeScannerViewHandler> Mapper =
         new PropertyMapper<BarcodeScannerView, BarcodeScannerViewHandler>(ViewMapper)
         {
-            [nameof(BarcodeScannerView.Formats)] = static (h, v) => h.PlatformView.Reader.Formats = v.Formats,
-            [nameof(BarcodeScannerView.LightGrid)] = static (h, v) => h.PlatformView.Reader.SetLightGrid(v.LightGrid),
+            [nameof(BarcodeScannerView.Formats)] = static (h, v) => h.PlatformView.SetFormats(v.Formats),
+            [nameof(BarcodeScannerView.LightGrid)] = static (h, v) => h.PlatformView.SetLightGrid(v.LightGrid),
             [nameof(BarcodeScannerView.IsScanning)] = static (h, v) => h.PlatformView.SetWanted(v.IsScanning),
             [nameof(BarcodeScannerView.IsTorchOn)] = static (h, v) => h.PlatformView.SetTorch(v.IsTorchOn),
         };
 
-    public static readonly CommandMapper<BarcodeScannerView, BarcodeScannerViewHandler> CommandMapper = new(ViewCommandMapper);
+    public static readonly CommandMapper<BarcodeScannerView, BarcodeScannerViewHandler> CommandMapper = new(ViewCommandMapper)
+    {
+        [BarcodeScannerView.FocusCommand] = static (h, _, arg) => { if (arg is Point point) h.PlatformView.FocusAt(point); },
+    };
 
     protected override ScannerPreviewView CreatePlatformView() => new();
 
@@ -55,6 +58,7 @@ public sealed class BarcodeScannerViewHandler() : ViewHandler<BarcodeScannerView
 public sealed class ScannerPreviewView : UIView
 {
     private static readonly TimeSpan FrameTimeout = TimeSpan.FromSeconds(2);
+    private static readonly CGPoint Centre = new(0.5, 0.5);
 
     private readonly AVCaptureSession _session = new();
     private readonly AVCaptureVideoPreviewLayer _previewLayer;
@@ -118,6 +122,26 @@ public sealed class ScannerPreviewView : UIView
     {
         _onScreen = onScreen;
         Update();
+    }
+
+    internal void SetFormats(BarcodeFormat formats)
+    {
+        Reader.Formats = formats;
+        _queue.DispatchAsync(ApplyLens);
+    }
+
+    internal void SetLightGrid(LightGridOptions? options)
+    {
+        Reader.SetLightGrid(options);
+        _queue.DispatchAsync(ApplyLens);
+    }
+
+    /// <summary>Focuses and exposes on a point in this view until the scene changes; main thread only.</summary>
+    internal void FocusAt(Point point)
+    {
+        if (_shutdown || !_configured) return;
+        var target = _previewLayer.CaptureDevicePointOfInterestForPoint(new CGPoint(point.X, point.Y));
+        _queue.DispatchAsync(() => Focus(target, AVCaptureFocusMode.AutoFocus, AVCaptureExposureMode.AutoExpose, watchScene: true));
     }
 
     internal void SetTorch(bool on)
@@ -250,11 +274,11 @@ public sealed class ScannerPreviewView : UIView
             _session.CommitConfiguration();
         }
 
-        if (_device.LockForConfiguration(out _))
+        _queue.DispatchAsync(() =>
         {
-            if (_device.IsFocusModeSupported(AVCaptureFocusMode.ContinuousAutoFocus)) _device.FocusMode = AVCaptureFocusMode.ContinuousAutoFocus;
-            _device.UnlockForConfiguration();
-        }
+            Focus(Centre, AVCaptureFocusMode.ContinuousAutoFocus, AVCaptureExposureMode.ContinuousAutoExposure, watchScene: false);
+            ApplyLens();
+        });
         // After the permission prompt this may run off the main thread; the header only follows main-thread changes
         bool hasTorch = _device.HasTorch;
         BeginInvokeOnMainThread(() => { if (!_shutdown) TorchAvailable?.Invoke(hasTorch); });
@@ -263,6 +287,9 @@ public sealed class ScannerPreviewView : UIView
             Report(ScannerProblem.Failed, $"{ScannerStrings.For(ScannerProblem.Failed)} ({e.Error?.LocalizedDescription})")));
         _observers.Add(AVCaptureSession.Notifications.ObserveWasInterrupted(_session, (_, _) => Report(ScannerProblem.Interrupted)));
         _observers.Add(AVCaptureSession.Notifications.ObserveInterruptionEnded(_session, (_, _) => Report(null)));
+        // After a tap, the phone moving on hands focus back to the camera, as the Camera app does
+        _observers.Add(AVCaptureDevice.Notifications.ObserveSubjectAreaDidChange(_device, (_, _) => _queue.DispatchAsync(() =>
+            Focus(Centre, AVCaptureFocusMode.ContinuousAutoFocus, AVCaptureExposureMode.ContinuousAutoExposure, watchScene: false))));
         return true;
     }
 
@@ -286,6 +313,79 @@ public sealed class ScannerPreviewView : UIView
         {
             Reader.ReportError("torch", ex);
         }
+    }
+
+    /// <summary>Runs on the session queue only. Focus and exposure at <paramref name="point"/>, in device point-of-interest space.</summary>
+    private void Focus(CGPoint point, AVCaptureFocusMode focus, AVCaptureExposureMode exposure, bool watchScene)
+    {
+        if (_device is not { } device || _shutdown) return;
+        try
+        {
+            if (!device.LockForConfiguration(out var error))
+            {
+                Reader.ReportError("focus", new InvalidOperationException(error?.LocalizedDescription ?? "the camera is locked"));
+                return;
+            }
+            // The point only takes effect when the mode is set after it
+            if (device.FocusPointOfInterestSupported) device.FocusPointOfInterest = point;
+            if (device.IsFocusModeSupported(focus)) device.FocusMode = focus;
+            if (device.ExposurePointOfInterestSupported) device.ExposurePointOfInterest = point;
+            if (device.IsExposureModeSupported(exposure)) device.ExposureMode = exposure;
+            device.SubjectAreaChangeMonitoringEnabled = watchScene;
+            device.UnlockForConfiguration();
+        }
+        catch (Exception ex)
+        {
+            Reader.ReportError("focus", ex);
+        }
+    }
+
+    /// <summary>
+    /// Runs on the session queue only. Linear codes are scanned up close, so autofocus is kept to near distances for
+    /// them. Unless a light grid is read across a room, the camera zooms in by as much as it cannot focus close.
+    /// </summary>
+    private void ApplyLens()
+    {
+        if (_device is not { } device || _shutdown) return;
+        var formats = Reader.Formats;
+        bool lightGrid = Reader.WantsLightGrid;
+        bool linearOnly = !lightGrid && formats != BarcodeFormat.None && (formats & ~BarcodeFormat.OneDimensional) == 0;
+        var range = linearOnly ? AVCaptureAutoFocusRangeRestriction.Near : AVCaptureAutoFocusRangeRestriction.None;
+        nfloat zoom = lightGrid ? 1 : CloseUpZoom(device);
+        try
+        {
+            if (!device.LockForConfiguration(out var error))
+            {
+                Reader.ReportError("lens", new InvalidOperationException(error?.LocalizedDescription ?? "the camera is locked"));
+                return;
+            }
+            if (device.AutoFocusRangeRestrictionSupported) device.AutoFocusRangeRestriction = range;
+            device.VideoZoomFactor = zoom;
+            device.UnlockForConfiguration();
+        }
+        catch (Exception ex)
+        {
+            Reader.ReportError("lens", ex);
+        }
+    }
+
+    /// <summary>
+    /// The zoom at which an EAN-13 (37 mm) held at the camera's closest focus distance spans half the preview's width.
+    /// The wide camera of a Pro iPhone focuses no closer than about 20 cm, where a product code is small; zoomed in,
+    /// the user holds the phone where it is sharp and the code still looks big. 1 for a camera that focuses close.
+    /// </summary>
+    private static nfloat CloseUpZoom(AVCaptureDevice device)
+    {
+        const double codeWidth = 37, share = 0.5, most = 3;
+        double closest = device.MinimumFocusDistance;
+        var format = device.ActiveFormat;
+        var size = (format.FormatDescription as CMVideoFormatDescription)?.Dimensions;
+        if (closest <= 0 || size is not { Width: > 0, Height: > 0 } dims) return 1;
+        // The field of view is across the frame's long side; held upright, the preview's width is the short side
+        double halfAcross = Math.Tan(format.VideoFieldOfView * Math.PI / 360) * Math.Min(dims.Width, dims.Height) / Math.Max(dims.Width, dims.Height);
+        double across = 2 * closest * halfAcross;
+        double zoom = Math.Clamp(across * share / codeWidth, 1, Math.Min(most, format.VideoMaxZoomFactor));
+        return zoom < 1.05 ? 1 : (nfloat)zoom;
     }
 
     // No frame for two seconds: say so and restart, rather than show a frozen preview

@@ -34,7 +34,10 @@ public sealed class BarcodeScannerViewHandler() : ViewHandler<BarcodeScannerView
             [nameof(BarcodeScannerView.IsTorchOn)] = static (h, v) => h._camera?.SetTorch(v.IsTorchOn),
         };
 
-    public static readonly CommandMapper<BarcodeScannerView, BarcodeScannerViewHandler> CommandMapper = new(ViewCommandMapper);
+    public static readonly CommandMapper<BarcodeScannerView, BarcodeScannerViewHandler> CommandMapper = new(ViewCommandMapper)
+    {
+        [BarcodeScannerView.FocusCommand] = static (h, _, arg) => { if (arg is Point point) h._camera?.FocusAt(point); },
+    };
 
     private ScannerCamera? _camera;
 
@@ -280,6 +283,17 @@ internal sealed class ScannerCamera : Java.Lang.Object, ImageAnalysis.IAnalyzer
         _previewCase = null;
         _analysisCase = null;
         _cameraControl = null;
+    }
+
+    /// <summary>Focuses and meters on a point in the preview, in device-independent units; CameraX goes back to continuous focus after five seconds.</summary>
+    public void FocusAt(Point point)
+    {
+        if (!_bound || _cameraControl?.CameraControl is not { } control) return;
+        float density = _context.Resources?.DisplayMetrics?.Density ?? 1;
+        var target = _preview.MeteringPointFactory!.CreatePoint((float)point.X * density, (float)point.Y * density);
+        var action = new FocusMeteringAction.Builder(target, FocusMeteringAction.FlagAf | FocusMeteringAction.FlagAe).Build();
+        try { control.StartFocusAndMetering(action); }
+        catch (Exception ex) { Reader.ReportError("focus", ex); }
     }
 
     private void ApplyTorch()

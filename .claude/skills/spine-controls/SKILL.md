@@ -178,7 +178,7 @@ var scan = await navigation.NavigateToWithResultAsync<BarcodeScannerPage, Barcod
 if (scan is { IsSuccess: true, Value: { } code }) await PairAsync(code.Value);   // code.Format, code.IsLightGrid
 ```
 
-`BarcodeScannerView` for a page of the app's own: `Formats` (flags, default `All`; `None` = light grid only), `LightGrid`, `IsScanning`, `IsTorchOn` (two-way), `IsTorchAvailable`, `RepeatInterval`, `Detected` / `DetectedCommand` (main thread), `Problem` / `ProblemChanged` (`PermissionDenied`, `NoCamera`, `Interrupted`, `NoFrames`, `Failed`, with a localised message; strings `Spine.Scanner.*`, en and sv). The camera runs only while the view is on screen and `IsScanning` is true.
+`BarcodeScannerView` for a page of the app's own: `Formats` (flags, default `All`; `None` = light grid only), `LightGrid`, `IsScanning`, `IsTorchOn` (two-way), `IsTorchAvailable`, `RepeatInterval`, `Detected` / `DetectedCommand` (main thread), `Problem` / `ProblemChanged` (`PermissionDenied`, `NoCamera`, `Interrupted`, `NoFrames`, `Failed`, with a localised message; strings `Spine.Scanner.*`, en and sv). The camera runs only while the view is on screen and `IsScanning` is true. A tap focuses on that spot (built in); on iOS the view keeps autofocus near for linear-only formats and zooms in on cameras that cannot focus close (not with a light grid).
 
 Pitfalls:
 - **iOS and Mac Catalyst need `NSCameraUsageDescription`** in each platform's Info.plist. Without it the view reports `Failed` with "Add NSCameraUsageDescription to Info.plist" instead of iOS ending the app. A sandboxed Mac Catalyst app also needs `com.apple.security.device.camera`.
