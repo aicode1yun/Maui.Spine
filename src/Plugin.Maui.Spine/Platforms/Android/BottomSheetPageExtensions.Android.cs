@@ -19,11 +19,12 @@ namespace Plugin.Maui.Spine;
 
 internal static class BottomSheetPageExtensions
 {
-    internal static Action? ActiveBottomSheetDismiss { get; private set; }
+    /// <summary>Asks the open sheet to close: <see langword="true"/> once it goes, <see langword="false"/> when its guard refuses.</summary>
+    internal static Func<Task<bool>>? ActiveBottomSheetDismiss { get; private set; }
 
     internal static event Action? ActiveBottomSheetChanged;
 
-    internal static void DismissActiveBottomSheet() => ActiveBottomSheetDismiss?.Invoke();
+    internal static Task<bool> DismissActiveBottomSheet() => ActiveBottomSheetDismiss?.Invoke() ?? Task.FromResult(false);
 
     internal static async Task<bool> DisplayBottomSheet(
         this MauiPage page,
@@ -130,7 +131,10 @@ internal static class BottomSheetPageExtensions
 
             nativeContent.SetBackgroundColor(Android.Graphics.Color.Transparent);
 
-            var outerWrapper = BuildSheetWrapper(activity, nativeContent, density);
+            var region = bottomSheetContent as NavigationRegion;
+            var outerWrapper = BuildSheetWrapper(activity, nativeContent, density, () => region?.PadsSheetBottom ?? true);
+            if (region is not null)
+                region.CurrentPageChanged += () => outerWrapper.Post(outerWrapper.RequestApplyInsets);
 
             // Pass MATCH_PARENT params so Material's wrapInBottomSheet adds the
             // wrapper to design_bottom_sheet with full dimensions.
@@ -211,7 +215,6 @@ internal static class BottomSheetPageExtensions
             // The sheet is laid out at full height and slid down to each detent, so the part of it
             // below the screen is the overhang a page footer is lifted by. A drag moves the sheet
             // with offsetTopAndBottom — no layout — and onSlide is the only callback that sees it.
-            var region = bottomSheetContent as NavigationRegion;
             var smallestDetentPx = ResolveDetentHeightPx(sortedDetents[0]);
 
             void ReportOverhang(AView sheet)
@@ -295,14 +298,12 @@ internal static class BottomSheetPageExtensions
         });
 
         // ── Programmatic dismiss hook ─────────────────────────────────────────────
-        ActiveBottomSheetDismiss = () =>
+        ActiveBottomSheetDismiss = () => MainThread.InvokeOnMainThreadAsync(async () =>
         {
-            _ = MainThread.InvokeOnMainThreadAsync(async () =>
-            {
-                if (!await CanDismissAsync()) return;
-                dialog?.Dismiss();
-            });
-        };
+            if (!await CanDismissAsync()) return false;
+            dialog?.Dismiss();
+            return true;
+        });
         ActiveBottomSheetChanged?.Invoke();
 
         var result = await tcs.Task;
@@ -383,13 +384,16 @@ internal static class BottomSheetPageExtensions
     // ── Helpers ──────────────────────────────────────────────────────────────────
 
     /// <summary>
-    /// Builds a vertical <see cref="LinearLayout"/> with a drag-handle pill at the
-    /// top followed by the MAUI content view filling all remaining space.
+    /// Builds the sheet's content: the MAUI content view filling the sheet, and a drag-handle pill
+    /// drawn over its top edge. The region keeps an ordinary page's content below the handle
+    /// (<see cref="HeaderBarConstants.SheetTopPadding"/>); a page that runs to the edge, such as a
+    /// camera, goes under it.
     /// </summary>
-    private static LinearLayout BuildSheetWrapper(
+    private static FrameLayout BuildSheetWrapper(
         Android.Content.Context context,
         AView nativeContent,
-        double density)
+        double density,
+        Func<bool> padsBottom)
     {
         var handleHeightPx = (int)(4  * density);
         var handleWidthPx  = (int)(32 * density);
@@ -415,23 +419,24 @@ internal static class BottomSheetPageExtensions
         handleContainer.AddView(handlePill,
             new FrameLayout.LayoutParams(handleWidthPx, handleHeightPx, GravityFlags.Center));
 
-        var wrapper = new LinearLayout(context);
-        wrapper.Orientation = Android.Widget.Orientation.Vertical;
+        var wrapper = new FrameLayout(context);
 
-        wrapper.AddView(handleContainer,
-            new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MatchParent,
-                ViewGroup.LayoutParams.WrapContent));
-
-        // height=0 + weight=1 expands the content to fill all space below the handle.
         wrapper.AddView(nativeContent,
-            new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MatchParent, 0, 1f));
+            new FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MatchParent,
+                ViewGroup.LayoutParams.MatchParent));
+
+        // Not clickable, so touches on the handle reach the content below it.
+        wrapper.AddView(handleContainer,
+            new FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MatchParent,
+                ViewGroup.LayoutParams.WrapContent,
+                GravityFlags.Top));
 
         // Respect the system navigation bar for edge-to-edge layouts: apply bottom
         // padding equal to the nav-bar height, unless the keyboard is visible (in
         // which case AdjustResize already handled the offset).
-        ViewCompat.SetOnApplyWindowInsetsListener(wrapper, new BottomPaddingInsetsListener());
+        ViewCompat.SetOnApplyWindowInsetsListener(wrapper, new BottomPaddingInsetsListener(padsBottom));
 
         return wrapper;
     }
@@ -605,16 +610,23 @@ internal static class BottomSheetPageExtensions
     /// Padding is suppressed when the IME is visible because <c>AdjustResize</c>
     /// already repositions the content.
     /// </summary>
-    private sealed class BottomPaddingInsetsListener : Java.Lang.Object, IOnApplyWindowInsetsListener
+    private sealed class BottomPaddingInsetsListener(Func<bool> padsBottom) : Java.Lang.Object, IOnApplyWindowInsetsListener
     {
         public WindowInsetsCompat? OnApplyWindowInsets(AView? v, WindowInsetsCompat? insets)
         {
             if (v is null || insets is null)
                 return insets;
 
+            // Material's BottomSheetBehavior pads the sheet for the navigation bar as well; with this
+            // padding on top, every sheet ended two navigation bars above the screen's edge, and a
+            // page that excludes Bottom could not reach it. The sheet gets its insets before this
+            // view does, so clearing its padding here wins.
+            if (v.Parent is AView sheet && sheet.PaddingBottom != 0)
+                sheet.SetPadding(sheet.PaddingLeft, sheet.PaddingTop, sheet.PaddingRight, 0);
+
             var sysBarInsets  = insets.GetInsets(WindowInsetsCompat.Type.SystemBars()) ?? AndroidX.Core.Graphics.Insets.None;
             var imeInsets     = insets.GetInsets(WindowInsetsCompat.Type.Ime()) ?? AndroidX.Core.Graphics.Insets.None;
-            var bottomPadding = imeInsets!.Bottom > 0 ? 0 : sysBarInsets!.Bottom;
+            var bottomPadding = imeInsets!.Bottom > 0 || !padsBottom() ? 0 : sysBarInsets!.Bottom;
             v.SetPadding(v.PaddingLeft, v.PaddingTop, v.PaddingRight, bottomPadding);
             return insets;
         }

@@ -118,7 +118,7 @@ public partial class SpineApplication<TNavigable> where TNavigable : INavigable
                 if (sheetVm.BackEnabled())
                     sheetVm.BackAsync().SafeFireAndForget();
                 else
-                    BottomSheetPageExtensions.DismissActiveBottomSheet();
+                    _ = BottomSheetPageExtensions.DismissActiveBottomSheet();
                 return;
             }
 

@@ -166,7 +166,19 @@ public sealed partial class NavigationRegion : ContentView
         // to itself and reports its own height as each tab's bottom inset (ApplyTabBarInset), so
         // pulling the container down there would drag content under a bar that is not painted to
         // be drawn under.
-        _container.Margin = new Thickness(0, -insets.Top, 0, 0);
+        //
+        // Not in a sheet: it is a dialog window of its own, which nothing offsets by the status bar,
+        // so pulling it up hid the top of a page that excluded Top above the sheet's edge, and the
+        // scanner centred its aim in a frame a status bar taller than the part that showed.
+        if (ViewModel.Presentation is NavigationPresentation.Sheet)
+        {
+            _container.Margin = Thickness.Zero;
+            insets.Top = 0;
+        }
+        else
+        {
+            _container.Margin = new Thickness(0, -insets.Top, 0, 0);
+        }
 #endif
 
 #if MACCATALYST
@@ -277,18 +289,25 @@ public sealed partial class NavigationRegion : ContentView
         // The sheet's wrapper view already pads its bottom for the navigation bar (and drops that
         // padding while the keyboard is up), so padding the content as well left a second
         // navigation bar's worth of empty sheet under it — under a footer most visibly.
+        // Nor is the top padded: the sheet is not under the status bar (see UpdateContainerMargin).
         if (ViewModel.Presentation is NavigationPresentation.Sheet)
-            safeAreaEdges &= ~SpineSafeArea.Bottom;
+            safeAreaEdges &= ~(SpineSafeArea.Bottom | SpineSafeArea.Top);
 #endif
 
-        // A sheet starts below its own drag handle, not at the card's edge. Android gets this
-        // from the handle wrapper that sits above the MAUI content; on iOS nothing does it, so
-        // the same offset the header bar gets has to reach the content too — otherwise the title
-        // (page content) and the actions (header overlay) sit on different rows. Not a safe-area
-        // edge, so it applies even when the page excludes Top.
+        // A sheet starts below its own drag handle, not at the card's edge: the same offset the
+        // header bar gets has to reach the content too — otherwise the title (page content) and
+        // the actions (header overlay) sit on different rows. Not a safe-area edge, so it applies
+        // even when the page excludes Top.
         var sheetTop = ViewModel.Presentation is NavigationPresentation.Sheet
             ? HeaderBarConstants.SheetTopPadding
             : 0;
+
+#if ANDROID
+        // Except under a floating header on a page that excludes Top, such as a camera: it runs
+        // to the card's edge under the drag handle, while the header bar stays below the handle.
+        if (RunsToSheetEdge(vm))
+            sheetTop = 0;
+#endif
 
         host.Padding = new Thickness(
             (safeAreaEdges & SpineSafeArea.Left)   != 0 ? insets.Left   : 0,
@@ -296,6 +315,23 @@ public sealed partial class NavigationRegion : ContentView
             (safeAreaEdges & SpineSafeArea.Right)  != 0 ? insets.Right  : 0,
             (safeAreaEdges & SpineSafeArea.Bottom) != 0 ? insets.Bottom : 0);
     }
+
+#if ANDROID
+    private bool RunsToSheetEdge(ViewModelBase vm) =>
+        ViewModel.Presentation is NavigationPresentation.Sheet
+        && vm.HeaderBarFloats
+        && (vm.SafeAreaEdges & SpineSafeArea.Top) == 0;
+
+    /// <summary>
+    /// Whether the Android sheet pads its bottom for the navigation bar under the current page:
+    /// not for a page that excludes Bottom, which runs to the screen's edge.
+    /// </summary>
+    internal bool PadsSheetBottom =>
+        ViewModel.CurrentRegionViewModel is not { } vm || (vm.SafeAreaEdges & SpineSafeArea.Bottom) != 0;
+
+    /// <summary>Raised when the page whose edges the sheet follows changes.</summary>
+    internal event Action? CurrentPageChanged;
+#endif
 
     /// <summary>
     /// Computes the <see cref="Thickness"/> that a page should apply to its own content for the
@@ -333,6 +369,9 @@ public sealed partial class NavigationRegion : ContentView
 
         if (e.PropertyName == nameof(ViewModel.CurrentRegionViewModel))
         {
+#if ANDROID
+            CurrentPageChanged?.Invoke();
+#endif
             // Mac Catalyst: container margin depends on the new page's SafeAreaEdges +
             // IsHeaderBarVisible, so recalculate whenever the page changes.
             UpdateContainerMargin();

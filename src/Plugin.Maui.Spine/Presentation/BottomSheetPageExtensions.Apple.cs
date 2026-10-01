@@ -15,11 +15,12 @@ namespace Plugin.Maui.Spine;
 
 internal static class BottomSheetPageExtensions
 {
-    internal static Action? ActiveBottomSheetDismiss { get; private set; }
+    /// <summary>Asks the open sheet to close: <see langword="true"/> once it goes, <see langword="false"/> when its guard refuses.</summary>
+    internal static Func<Task<bool>>? ActiveBottomSheetDismiss { get; private set; }
 
     internal static event Action? ActiveBottomSheetChanged;
 
-    internal static void DismissActiveBottomSheet() => ActiveBottomSheetDismiss?.Invoke();
+    internal static Task<bool> DismissActiveBottomSheet() => ActiveBottomSheetDismiss?.Invoke() ?? Task.FromResult(false);
 
     internal static async Task<bool> DisplayBottomSheet(
         this MauiPage page,
@@ -128,15 +129,13 @@ internal static class BottomSheetPageExtensions
         }
 
         // ── Programmatic dismiss hook ─────────────────────────────────────────────
-        ActiveBottomSheetDismiss = () =>
+        ActiveBottomSheetDismiss = () => MainThread.InvokeOnMainThreadAsync(async () =>
         {
-            MainThread.BeginInvokeOnMainThread(async () =>
-            {
-                if (!await CanDismissAsync()) return;
-                sheetVc.ModalInPresentation = false;
-                presenterVc.DismissViewController(true, null);
-            });
-        };
+            if (!await CanDismissAsync()) return false;
+            sheetVc.ModalInPresentation = false;
+            presenterVc.DismissViewController(true, null);
+            return true;
+        });
         ActiveBottomSheetChanged?.Invoke();
 
         await MainThread.InvokeOnMainThreadAsync(() =>

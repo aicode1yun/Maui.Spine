@@ -45,6 +45,7 @@ public partial class SpineHostPage : ContentPage, ISpineHost, IDisposable
 
     Page ISpineHost.HostPage => this;
     NavigationRegionViewModel ISpineHost.ActiveRegionViewModel => ActiveRegionViewModel;
+    Task ISpineHost.WhenSheetClosed => _sheets.WhenClosed;
     event Action? ISpineHost.ActiveRegionChanged { add { } remove { } }
     bool ISpineHost.CanHandleRootBack => false;
     bool ISpineHost.TryHandleRootBack() => false;
