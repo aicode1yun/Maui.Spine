@@ -123,7 +123,7 @@ internal static class BottomSheetPageExtensions
             ConfigureDetents(spc, allowedDetents, selectedDetent, bottomSheetBuilder.BackgroundPageOverlay);
 
             if (bottomSheetBuilder.BackgroundPageOverlay == BackgroundPageOverlay.Blurred)
-                blurOverlay = new SheetBlurOverlay(presenterVc.View!, spc);
+                blurOverlay = new SheetBlurOverlay(presenterVc.View!, spc, () => _ = DismissActiveBottomSheet());
 
             spc.Delegate = new SpineSheetDelegate(CanDismissAsync, HandleBackAsync, sheetVc);
         }
@@ -235,28 +235,40 @@ internal static class BottomSheetPageExtensions
     /// The <see cref="MaterialPreset.BlurThin"/> material over the page behind a sheet. It shows as much
     /// of itself as the sheet shows of its own height, so it fades in as the sheet slides up, out as it
     /// slides away, and follows the finger when the sheet is dragged, at the same strength at every detent.
+    /// It takes the touches meant for the page, as the dimming does: the sheet is left undimmed so the blur
+    /// can stand in for the dim, and UIKit lets an undimmed sheet's page be used. A tap closes the sheet.
     /// </summary>
     private sealed class SheetBlurOverlay : IDisposable
     {
         // The surface reads its values from a MAUI view, as every material does; this one is never shown.
         private readonly Microsoft.Maui.Controls.ContentView _owner = new();
         private readonly MaterialSurfaceView _surface;
+        private readonly UIView _catcher;
         private readonly UISheetPresentationController _sheet;
         private CADisplayLink? _link;
 
-        public SheetBlurOverlay(UIView page, UISheetPresentationController sheet)
+        public SheetBlurOverlay(UIView page, UISheetPresentationController sheet, Action tapped)
         {
             _sheet = sheet;
             Material.SetPreset(_owner, MaterialPreset.BlurThin);
 
+            // The surface turns its own interaction off whenever it updates, so a plain view takes the touches
+            _catcher = new UIView(page.Bounds)
+            {
+                AutoresizingMask = UIViewAutoresizing.FlexibleWidth | UIViewAutoresizing.FlexibleHeight,
+                BackgroundColor = UIColor.Clear,
+            };
+            _catcher.AddGestureRecognizer(new UITapGestureRecognizer(tapped));
+
             _surface = new MaterialSurfaceView(_owner)
             {
-                Frame = page.Bounds,
+                Frame = _catcher.Bounds,
                 AutoresizingMask = UIViewAutoresizing.FlexibleWidth | UIViewAutoresizing.FlexibleHeight,
                 UserInteractionEnabled = false,
                 Presence = 0,
             };
-            page.AddSubview(_surface);
+            _catcher.AddSubview(_surface);
+            page.AddSubview(_catcher);
             _surface.Update();
 
             _link = CADisplayLink.Create(Follow);
@@ -280,8 +292,9 @@ internal static class BottomSheetPageExtensions
         {
             _link?.Invalidate();
             _link = null;
-            _surface.RemoveFromSuperview();
+            _catcher.RemoveFromSuperview();
             _surface.Dispose();
+            _catcher.Dispose();
         }
     }
 
