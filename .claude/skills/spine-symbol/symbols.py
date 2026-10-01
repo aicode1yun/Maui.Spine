@@ -148,9 +148,9 @@ def S(p, w=2):
     return (p.s if isinstance(p, P) else p, "stroke", w)
 
 
-def F(p):
-    """A filled part: dots, modules, levels, badges."""
-    return (p.s if isinstance(p, P) else p, "fill", 0)
+def F(p, evenodd=False):
+    """A filled part: dots, modules, levels, badges. evenodd cuts inner subpaths out as holes (RepeatOne)."""
+    return (p.s if isinstance(p, P) else p, "evenodd" if evenodd else "fill", 0)
 
 
 def dot(cx, cy, r=1.56):
@@ -167,7 +167,7 @@ def existing(name):
     parts = []
     for d, rest in re.findall(r'<path d="([^"]*)"\s+([^>]*)>', text):
         if 'fill="currentColor"' in rest:
-            parts.append((d, "fill", 0))
+            parts.append((d, "evenodd" if 'fill-rule="evenodd"' in rest else "fill", 0))
         elif d:
             parts.append((d, "stroke", float(re.search(r'stroke-width="([0-9.]+)"', rest).group(1))))
     return parts
@@ -179,7 +179,8 @@ def svg(parts):
         if kind == "stroke":
             out.append(f'<path d="{d}"  stroke="currentColor" stroke-width="{n(w)}" stroke-opacity="1" fill-opacity="0"></path>')
         else:
-            out.append(f'<path d="{d}"  stroke="currentColor" stroke-width="0" stroke-opacity="1" fill="currentColor" fill-opacity="1"></path>')
+            rule = ' fill-rule="evenodd"' if kind == "evenodd" else ""
+            out.append(f'<path d="{d}"  stroke="currentColor" stroke-width="0" stroke-opacity="1" fill="currentColor" fill-opacity="1"{rule}></path>')
     return "\n".join(out + ["</g>", "</svg>", ""])
 
 
