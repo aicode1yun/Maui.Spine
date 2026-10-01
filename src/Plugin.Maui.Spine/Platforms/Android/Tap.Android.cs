@@ -163,7 +163,14 @@ public static partial class Semantic
             {
                 info.ClassName = "android.widget.Switch";
                 info.Checkable = true;
-                info.Checked = on;
+                // On the platform node, not the compat one: AndroidX.Core 1.19 made the compat Checked a
+                // tri-state int, so an app that pulls 1.19 in (CameraX does) has no bool setter left for
+                // this build and threw MissingMethodException whenever TalkBack read the view.
+                var node = info.Unwrap()!;
+                if (OperatingSystem.IsAndroidVersionAtLeast(36))
+                    node.CheckedState = on ? Android.Views.Accessibility.CheckedState.True : Android.Views.Accessibility.CheckedState.False;
+                else
+                    node.Checked = on;
             }
             else if (Button)
             {
