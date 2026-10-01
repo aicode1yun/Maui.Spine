@@ -633,7 +633,7 @@ internal class ActionsToTitleSlotsConverter : IMultiValueConverter
 
     private static double Reserve(object[] values, int index) =>
         values.Length > index && values[index] is double slot && slot > 0
-            ? slot + PagePresenter.TitleEdgePadding
+            ? slot + HeaderBarConstants.TitleActionGap
             : PagePresenter.TitleEdgePadding;
 
     public object[] ConvertBack(object value, Type[] targetTypes, object parameter, CultureInfo culture)

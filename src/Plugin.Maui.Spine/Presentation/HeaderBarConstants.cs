@@ -72,21 +72,31 @@ public static class HeaderBarConstants
     // Sheet presentation button size
     /// <summary>Width of a header bar button in a sheet.</summary>
     public const double SheetButtonWidth = 48;
+    // Inside the 40-point circle: with the SVG's own 5-point inset, a 24-point icon.
     /// <summary>Padding inside a header bar button in a sheet.</summary>
-    public const double SheetButtonPadding = 8;
+    public const double SheetButtonPadding = 3;
 
     // Region presentation button size
     /// <summary>Width of a header bar button on a region page.</summary>
     public const double RegionButtonWidth = 48;
     /// <summary>Padding inside a header bar button on a region page.</summary>
-    public const double RegionButtonPadding = 8;
+    public const double RegionButtonPadding = 3;
 
+    // Material 3's top app bar: 4 points to the 48-point touch target, whose 40-point circle starts at 8
+    // and whose icon lines up with the content at PageMargin.
     /// <summary>Space between the screen edge and the outermost header bar button on a region page.</summary>
     public const double RegionSideMargin = 4;
+    // Further in than on a page, clear of the sheet's rounded corners: the circle's edge lines up with the
+    // sheet's content at PageMargin, as a glass button's does on iOS.
     /// <summary>Space between the sheet edge and the outermost header bar button in a sheet.</summary>
-    public const double SheetSideMargin = 10;
+    public const double SheetSideMargin = 12;
+    // The drag handle (8 dp above a 4 dp pill) is drawn over the sheet's content, so the content
+    // and the header bar start below it unless the page runs to the edge.
     /// <summary>Space between a sheet's top edge and its header bar.</summary>
-    public const double SheetTopPadding = 0;
+    public const double SheetTopPadding = 12;
+    // Material 3: the title starts 56 dp in, just past the navigation icon's 48 dp slot.
+    /// <summary>Space between a header bar action's slot and the title beside it.</summary>
+    public const double TitleActionGap = 4;
 
     // Material 3 medium top app bar: headline small (24 sp, regular) below the 48-point row.
     /// <summary>Font size of a page's large title.</summary>
@@ -125,6 +135,8 @@ public static class HeaderBarConstants
     // Space below the UISheetPresentationController grabber handle
     /// <summary>Space between a sheet's top edge and its header bar.</summary>
     public const double SheetTopPadding = 20;
+    /// <summary>Space between a header bar action's slot and the title beside it.</summary>
+    public const double TitleActionGap = 8;
 
     // UINavigationBar's large title: 34-point bold in a 52-point row below the bar.
     /// <summary>Font size of a page's large title.</summary>
@@ -160,6 +172,8 @@ public static class HeaderBarConstants
     public const double SheetSideMargin = 16;
     /// <summary>Space between a sheet's top edge and its header bar.</summary>
     public const double SheetTopPadding = 0;
+    /// <summary>Space between a header bar action's slot and the title beside it.</summary>
+    public const double TitleActionGap = 8;
 
     // WinUI's title-large text style.
     /// <summary>Font size of a page's large title.</summary>
