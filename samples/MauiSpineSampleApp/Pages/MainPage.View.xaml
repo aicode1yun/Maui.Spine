@@ -31,15 +31,16 @@
             <HeroCollectionView.HeaderTopContent>
                 <AbsoluteLayout InputTransparent="True" CascadeInputTransparent="False">
 
+                    <!-- Sized like the header bar's icon action on the other pages: a 24-point glyph in a 44-point glass circle on iOS, in a 40-point circle on Android. -->
                     <ImageButton
-                        Padding="2"
-                        CornerRadius="0"
+                        Padding="{OnPlatform Default=2, iOS=0, Android=3}"
+                        CornerRadius="{OnPlatform Default=0, Android=20}"
                         Margin="{Binding GearMargin}"
-                        WidthRequest="{OnPlatform Default=44, iOS=32, MacCatalyst=32, WinUI=48}"
-                        HeightRequest="{OnPlatform Default=44, iOS=32, MacCatalyst=32, WinUI=32}"
+                        WidthRequest="{OnPlatform Default=44, Android=40, MacCatalyst=32, WinUI=48}"
+                        HeightRequest="{OnPlatform Default=44, Android=40, MacCatalyst=32, WinUI=32}"
                         Style="{StaticResource SvgImageButtonStyle}"
                         SvgImageSource.Svg="palette.svg"
-                        SvgImageSource.Padding="{OnPlatform Default=10, iOS=5, MacCatalyst=5, WinUI=5}"
+                        SvgImageSource.Padding="{OnPlatform Default=5, iOS=10}"
                         Glass.Style="Clear"
                         MenuButton.Items="{Binding ThemeMenu}"
                         SemanticProperties.Description="Theme and accent"

@@ -6,10 +6,10 @@ namespace MauiSpineSampleApp.Pages;
 public partial class MainPageViewModel(INavigationService _navigation) : SampleViewModel
 {
 
-    // The collapsed hero header keeps room for the theme button, which sits where the header bar's
-    // buttons sit on every other page: the status-bar inset down, the page margin in from the edge.
-    // The collapsed hero: a bar below the status bar with the title and the theme button centred on one line.
-    private const double CompactBar = 36;
+    // The theme button sits where the header bar's action sits on every other page, so it stays put
+    // when a page is pushed. The collapsed hero is the bar's row below the status bar, with the title
+    // and the theme button centred on one line.
+    private static double CompactBar => HeaderBarConstants.Height;
 
     // On the Mac the theme button sits on the close button's line, whose centre is this far down from the
     // window's top edge (in the iPad idiom's points, which the Mac draws at 77 %). The
@@ -19,9 +19,17 @@ public partial class MainPageViewModel(INavigationService _navigation) : SampleV
     // The glass circle keeps this far from the window's right edge, clear of its rounded corner.
     private const double MacThemeButtonInset = 12;
 
-    // The theme button's glass circle on Apple platforms is small enough to stay inside the compact
-    // bar; Android has no circle to show, so its button keeps the full touch target.
-    private static double ThemeButton => DeviceInfo.Platform == DevicePlatform.Android ? 44 : 32;
+    // The header bar's icon action: on iOS a glass circle as tall as the row, its edge at the page
+    // margin; on Android Material 3's 40-point circle centred in the 48-point slot, so its icon lines up
+    // with the page margin. The Mac keeps a smaller circle that matches the window buttons.
+    private static double ThemeButton =>
+        DeviceInfo.Platform == DevicePlatform.Android ? 40
+        : DeviceInfo.Platform == DevicePlatform.MacCatalyst ? 32
+        : HeaderBarConstants.Height;
+
+    private static double ThemeButtonInset => DeviceInfo.Platform == DevicePlatform.Android
+        ? HeaderBarConstants.RegionSideMargin + (HeaderBarConstants.RegionButtonWidth - ThemeButton) / 2
+        : HeaderBarConstants.PageMargin;
 
     public double HeaderMinHeight => DeviceInfo.Platform == DevicePlatform.MacCatalyst
         ? 2 * MacCloseButtonCentre
@@ -34,7 +42,7 @@ public partial class MainPageViewModel(INavigationService _navigation) : SampleV
         ? new Thickness(0, 0, 144, 0)
         : DeviceInfo.Platform == DevicePlatform.MacCatalyst
             ? new Thickness(0, MacCloseButtonCentre - ThemeButton / 2, MacThemeButtonInset, 0)
-            : new Thickness(0, SystemBarInsets.Top + (CompactBar - ThemeButton) / 2, HeaderBarConstants.PageMargin + SystemBarInsets.Right, 0);
+            : new Thickness(0, SystemBarInsets.Top + (CompactBar - ThemeButton) / 2, ThemeButtonInset + SystemBarInsets.Right, 0);
 
     // The photo runs edge to edge; the title and the rows keep clear of the Dynamic Island and the
     // rounded corners in landscape.
