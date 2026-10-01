@@ -9,8 +9,10 @@ namespace Plugin.Maui.Spine.Common;
 public interface IBackgroundRefreshHandler
 {
     /// <summary>
-    /// Does the app's background work. The platform's time is short (about 30 seconds on iOS);
-    /// <paramref name="cancellationToken"/> is signalled when it runs out.
+    /// Does the app's background work. The platform's time is short — about 30 seconds on iOS, 20 seconds
+    /// on Android — and <paramref name="cancellationToken"/> is signalled when it runs out. On Android a
+    /// handler still running 5 seconds after that is left behind and the run is ended without it, so honour
+    /// the token.
     /// </summary>
     Task RefreshAsync(CancellationToken cancellationToken);
 }

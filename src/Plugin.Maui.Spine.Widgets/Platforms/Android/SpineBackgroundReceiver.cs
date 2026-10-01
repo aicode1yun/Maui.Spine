@@ -33,13 +33,16 @@ internal sealed class SpineBackgroundReceiver : BroadcastReceiver
         var options = services.GetRequiredService<SpineWidgetsOptions>();
         Schedule(context, options.BackgroundRefreshInterval);
 
-        var pending = GoAsync();
-        Task.Run(async () =>
-        {
-            try { await Extensions.SpineWidgetsExtensions.RunBackgroundRefreshAsync(services, CancellationToken.None); }
-            catch (Exception e) { services.GetRequiredService<ILogger<IWidgetService>>().LogError(e, "Background refresh failed."); }
-            finally { pending?.Finish(); }
-        });
+        var logger = services.GetRequiredService<ILogger<IWidgetService>>();
+        var handler = options.BackgroundRefreshHandler?.Name ?? "the widget refresh";
+        ReceiverWork.Run(GoAsync(),
+            cancellationToken => Extensions.SpineWidgetsExtensions.RunBackgroundRefreshAsync(services, cancellationToken),
+            e => logger.LogError(e, "Background refresh failed."),
+            stopped =>
+            {
+                if (stopped) logger.LogWarning("Background refresh used its {Budget} s and was cancelled in {Handler}.", ReceiverWork.Budget.TotalSeconds, handler);
+                else logger.LogWarning("Background refresh was still running in {Handler} after {Deadline} s and did not stop on its cancellation token; the broadcast was finished without it.", handler, ReceiverWork.Deadline.TotalSeconds);
+            });
     }
 
     /// <summary>The intent a Live Activity's notification fires when the user swipes it away.</summary>
