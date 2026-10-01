@@ -101,20 +101,12 @@ internal abstract class SpineAppWidget(int _index) : AppWidgetProvider
             return;
         }
 
-        var pending = GoAsync();
-        Task.Run(async () =>
-        {
-            try
-            {
-                if (remote is { } url) await FetchRemoteAsync(context, kind, url);
-                else await services!.GetRequiredService<IWidgetService>().RefreshAsync(kind);
-            }
-            catch (Exception e)
-            {
-                Android.Util.Log.Warn(Tag, $"Refreshing widget \"{kind}\" from its alarm failed: {e.Message}");
-            }
-            finally { pending?.Finish(); }
-        });
+        ReceiverWork.Run(GoAsync(),
+            cancellationToken => remote is { } url
+                ? FetchRemoteAsync(context, kind, url, cancellationToken)
+                : services!.GetRequiredService<IWidgetService>().RefreshAsync(kind, cancellationToken),
+            e => Android.Util.Log.Warn(Tag, $"Refreshing widget \"{kind}\" from its alarm failed: {e.Message}"),
+            stopped => Android.Util.Log.Warn(Tag, $"Refreshing widget \"{kind}\" from its alarm {(stopped ? $"was cancelled after {ReceiverWork.Budget.TotalSeconds} s" : $"was still running after {ReceiverWork.Deadline.TotalSeconds} s; the broadcast was finished without it")}."));
     }
 
     /// <summary>A W.Button tap: the provider's handler in the app's process, then the widget rebuilt.</summary>
@@ -125,13 +117,10 @@ internal abstract class SpineAppWidget(int _index) : AppWidgetProvider
         // Now, and not something read off the intent: the receiver runs the moment the button is
         // tapped, so this is the tap's own time.
         var at = DateTimeOffset.Now;
-        var pending = GoAsync();
-        Task.Run(async () =>
-        {
-            try { await Extensions.SpineWidgetsExtensions.HandleActionAsync(services, kind, actionId, at); }
-            catch (Exception e) { Android.Util.Log.Warn(Tag, $"Action \"{actionId}\" of widget \"{kind}\" failed: {e.Message}"); }
-            finally { pending?.Finish(); }
-        });
+        ReceiverWork.Run(GoAsync(),
+            cancellationToken => Extensions.SpineWidgetsExtensions.HandleActionAsync(services, kind, actionId, at, cancellationToken),
+            e => Android.Util.Log.Warn(Tag, $"Action \"{actionId}\" of widget \"{kind}\" failed: {e.Message}"),
+            stopped => Android.Util.Log.Warn(Tag, $"Action \"{actionId}\" of widget \"{kind}\" {(stopped ? $"was cancelled after {ReceiverWork.Budget.TotalSeconds} s" : $"was still running after {ReceiverWork.Deadline.TotalSeconds} s; the broadcast was finished without it")}."));
     }
 
     private static Uri? RemoteSource(Context context, string kind)
