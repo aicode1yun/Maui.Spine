@@ -19,12 +19,15 @@ public sealed partial class Choice(string label, string description, Action choo
     [RelayCommand]
     private void Choose()
     {
-        Group?.Select(this);
+        Group?.Choose(this);
         choose();
     }
 }
 
-/// <summary>One setting with a few values, shown as chips; the choice's action changes the page.</summary>
+/// <summary>
+/// One setting with a few values, shown as chips; the choice's action changes the page. With
+/// <see cref="IsMultiple"/> several can be on at once, and the page sets each chip's <see cref="Choice.IsSelected"/>.
+/// </summary>
 public sealed partial class ChoiceGroup : ObservableObject
 {
     public ChoiceGroup(string name, IReadOnlyList<Choice> choices)
@@ -40,6 +43,8 @@ public sealed partial class ChoiceGroup : ObservableObject
 
     public IReadOnlyList<Choice> Choices { get; }
 
+    public bool IsMultiple { get; init; }
+
     [ObservableProperty]
     public partial Choice? Selected { get; private set; }
 
@@ -47,6 +52,15 @@ public sealed partial class ChoiceGroup : ObservableObject
     public partial bool IsVisible { get; set; } = true;
 
     public void Select(Choice choice) => Select(Choices.ToList().IndexOf(choice));
+
+    // With several on, the description is the last chip tapped
+    internal void Choose(Choice choice)
+    {
+        if (IsMultiple)
+            Selected = choice;
+        else
+            Select(choice);
+    }
 
     /// <summary>Selects the choice at <paramref name="index"/>; -1 selects none.</summary>
     public void Select(int index)

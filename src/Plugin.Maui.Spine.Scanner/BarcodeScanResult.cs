@@ -51,7 +51,8 @@ public sealed record BarcodeScanOptions
 
     /// <summary>
     /// On a hit, the frame that was read stops, and the code, marked in the accent colour (with its grid for a light
-    /// grid), bursts towards the user while the frame fades; the sheet closes when that has finished, about half a
+    /// grid), straightens from the angle it was read at to a flat code square to the screen in the middle of the aim
+    /// corners and bursts towards the user while the frame fades; the sheet closes when that has finished, about half a
     /// second later. On by default; off returns at once.
     /// </summary>
     public bool ShowDetection { get; init; } = true;
