@@ -43,6 +43,9 @@ public class BarcodeScannerView : View
     public static readonly BindableProperty RepeatIntervalProperty = BindableProperty.Create(
         nameof(RepeatInterval), typeof(TimeSpan), typeof(BarcodeScannerView), TimeSpan.FromSeconds(2));
 
+    public static readonly BindableProperty ScanAreaProperty = BindableProperty.Create(
+        nameof(ScanArea), typeof(Rect?), typeof(BarcodeScannerView));
+
     private static readonly BindablePropertyKey ProblemPropertyKey = BindableProperty.CreateReadOnly(
         nameof(Problem), typeof(ScannerProblem?), typeof(BarcodeScannerView), null);
 
@@ -122,6 +125,17 @@ public class BarcodeScannerView : View
     }
 
     /// <summary>
+    /// Where in the view a code counts, in device-independent units: a code is reported only when all its corners lie
+    /// inside, so one at the edge of the picture is not read by mistake. <see langword="null"/>, the default, counts the
+    /// whole view.
+    /// </summary>
+    public Rect? ScanArea
+    {
+        get => (Rect?)GetValue(ScanAreaProperty);
+        set => SetValue(ScanAreaProperty, value);
+    }
+
+    /// <summary>
     /// A line about what the camera and the readers are doing, updated twice a second: frames per second, time per
     /// frame, and for a light grid whether the grid is found and read. Show it while setting up a code, to see why
     /// nothing is read.
@@ -139,6 +153,7 @@ public class BarcodeScannerView : View
 
     internal void RaiseDetected(BarcodeScanResult result)
     {
+        if (ScanArea is { } area && result.Corners.Any(c => !area.Contains(c))) return;
         var now = DateTime.UtcNow;
         if (result.Value == _lastValue && now - _lastAt < RepeatInterval)
         {

@@ -172,8 +172,8 @@ The view asks for the camera permission the first time it shows.
 By default:
 - it opens at half height and can be pulled to full screen;
 - the camera fills the sheet under a transparent header, with Spine's close button and, when the device has one, a torch that turns white while it is on and taps with a light haptic;
-- **aim corners**, white with a soft shadow like the system code scanner, breathe outwards where to point the camera: square for 2D codes and light grids, wide when only linear codes are read;
-- on a hit, the frame stops, the code is redrawn as accent dots in the perspective it was found in and **bursts towards the user** while the frame dims to half, with the success haptic and a short sound; the sheet closes when that has finished, about half a second later.
+- **aim corners**, white with a soft shadow like the system code scanner, breathe outwards where to point the camera: square for 2D codes and light grids, wide when only linear codes are read. Only a code inside them counts, with a margin of a fifth of their shorter side, so another code elsewhere in the picture is not read by mistake; with `ShowReticle` off the whole camera counts;
+- on a hit, the frame stops, the code is redrawn as accent dots in the perspective it was found in, straightens to a flat code square to the screen in the middle of the aim corners and **bursts towards the user** while the frame dims to half, with the success haptic and a short sound; the sheet closes when that has finished, about half a second later.
 
 For a light grid the dots are the code encoded again from its value and turned to match the lamps that were lit, so each dot lands on its lamp. For a 2D code from the platform reader the code is encoded again with default options, so the dots may differ in detail from the pattern on screen.
 
@@ -228,6 +228,7 @@ For a scanner inside a page of the app's own:
 | `IsTorchOn` | The torch; two-way |
 | `IsTorchAvailable` | Read-only: whether the camera in use has a torch |
 | `RepeatInterval` | How long the same value stays quiet after it was reported, while the camera keeps seeing it; default 2 s |
+| `ScanArea` | A `Rect?` in the view's device-independent units: a code is reported only when all its corners lie inside. `null` (default) counts the whole view |
 | `Detected` | Event with `BarcodeDetectedEventArgs.Result`, on the main thread |
 | `DetectedCommand` | Run with the `BarcodeScanResult`, on the main thread, when `CanExecute` allows |
 | `Problem` | Read-only: what stops the view from scanning, or `null` while it scans |

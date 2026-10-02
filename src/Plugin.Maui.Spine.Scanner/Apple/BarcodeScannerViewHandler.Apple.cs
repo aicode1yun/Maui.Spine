@@ -1,6 +1,7 @@
 #if IOS || MACCATALYST
 using System.Diagnostics;
 using AVFoundation;
+using CoreAnimation;
 using CoreFoundation;
 using CoreGraphics;
 using CoreMedia;
@@ -104,7 +105,11 @@ public sealed class ScannerPreviewView : UIView
     public override void LayoutSubviews()
     {
         base.LayoutSubviews();
+        // A sublayer's frame animates by itself, so the picture trailed a growing sheet and left a black band under it
+        CATransaction.Begin();
+        CATransaction.DisableActions = true;
         _previewLayer.Frame = Bounds;
+        CATransaction.Commit();
     }
 
     // The one signal that always comes: a sheet can close without its page or MAUI saying so,

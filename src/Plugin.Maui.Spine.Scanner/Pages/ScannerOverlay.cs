@@ -40,6 +40,12 @@ internal sealed class ScannerOverlay : GraphicsView, IDrawable
     /// <summary>0 to 1: how far the marking has faded in.</summary>
     public double HitProgress { get; set; }
 
+    /// <summary>0 to 1: how far the marking has turned from the perspective it was read in to a flat code square to the screen.</summary>
+    public double Straighten { get; set; }
+
+    /// <summary>Where the marking's centre goes as it straightens, or <see langword="null"/> to stay where the code was read.</summary>
+    public PointF? StraightenTo { get; set; }
+
     private static Color Accent =>
         Application.Current?.Resources.TryGetValue("Accent", out var value) == true && value is Color color ? color : FallbackAccent;
 
@@ -101,7 +107,9 @@ internal sealed class ScannerOverlay : GraphicsView, IDrawable
     private void DrawHit(ICanvas canvas, BarcodeScanResult hit, Color accent)
     {
         float t = (float)HitProgress;
-        var quad = new QuadMap(hit.Corners.Select(p => new PointF((float)p.X, (float)p.Y)).ToArray());
+        var corners = hit.Corners.Select(p => new PointF((float)p.X, (float)p.Y)).ToArray();
+        bool square = _modules is { } m && m.GetLength(1) > 1;
+        var quad = new QuadMap(Straightened(corners, (float)Straighten, square, StraightenTo));
         canvas.Antialias = true;
 
         // The code redrawn from what was read, a dot per dark module, in the perspective it was found in
@@ -151,6 +159,37 @@ internal sealed class ScannerOverlay : GraphicsView, IDrawable
     private bool[,]? _modules;
 
     /// <summary>
+    /// The corners on their way from <paramref name="q"/> to a rectangle square to the screen about
+    /// <paramref name="target"/> (else the same centre), of the same width and height on average; a square for a 2D code. The shape flattens in a frame that turns to the
+    /// nearest quarter turn at the same pace, never more than 45°: the platform readers give the corners in the
+    /// sensor's orientation, a quarter turn from the screen's, so turning them upright spun the code sideways.
+    /// </summary>
+    private static PointF[] Straightened(PointF[] q, float t, bool square, PointF? target)
+    {
+        if (t <= 0) return q;
+        float cx = (q[0].X + q[1].X + q[2].X + q[3].X) / 4, cy = (q[0].Y + q[1].Y + q[2].Y + q[3].Y) / 4;
+        float w = (Distance(q[0], q[1]) + Distance(q[3], q[2])) / 2, h = (Distance(q[0], q[3]) + Distance(q[1], q[2])) / 2;
+        if (square) w = h = MathF.Sqrt(w * h);
+        // The code's across direction: from its left edge to its right, averaged over top and bottom
+        float angle = MathF.Atan2(q[1].Y - q[0].Y + q[2].Y - q[3].Y, q[1].X - q[0].X + q[2].X - q[3].X);
+        PointF[] flat = [new(-w / 2, -h / 2), new(w / 2, -h / 2), new(w / 2, h / 2), new(-w / 2, h / 2)];
+        float back = MathF.Cos(-angle), backSin = MathF.Sin(-angle);
+        float square90 = MathF.Round(angle / (MathF.PI / 2)) * (MathF.PI / 2);
+        float turn = square90 + (angle - square90) * (1 - t), cos = MathF.Cos(turn), sin = MathF.Sin(turn);
+        float ox = cx + ((target?.X ?? cx) - cx) * t, oy = cy + ((target?.Y ?? cy) - cy) * t;
+        var result = new PointF[4];
+        for (int i = 0; i < 4; i++)
+        {
+            // In the code's own frame: the corner as read, unturned, blended towards the flat one
+            float dx = q[i].X - cx, dy = q[i].Y - cy;
+            float x = (1 - t) * (dx * back - dy * backSin) + t * flat[i].X;
+            float y = (1 - t) * (dx * backSin + dy * back) + t * flat[i].Y;
+            result[i] = new PointF(ox + x * cos - y * sin, oy + x * sin + y * cos);
+        }
+        return result;
+    }
+
+    /// <summary>
     /// The modules to redraw for a hit: the code encoded again from its value. For a light grid it is turned to match
     /// the lamps that were lit, so each dot lands on its lamp; a 2D code from the platform reader is encoded with
     /// default options, so its pattern may differ in detail from the one on screen.
@@ -175,6 +214,8 @@ internal sealed class ScannerOverlay : GraphicsView, IDrawable
     public void ShowHit(BarcodeScanResult hit)
     {
         Hit = hit;
+        Straighten = 0;
+        StraightenTo = null;
         _modules = hit.Corners.Count == 4 ? ModulesFor(hit) : null;
     }
 

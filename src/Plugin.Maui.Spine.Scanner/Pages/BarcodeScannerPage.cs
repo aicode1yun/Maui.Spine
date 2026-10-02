@@ -78,7 +78,7 @@ public sealed class BarcodeScannerPage : SpinePage<BarcodeScannerPageViewModel>,
             Content = new VerticalStackLayout { Spacing = 4, Children = { _hint, _diagnostics } },
         };
         _promptBox.SizeChanged += (_, _) => PlacePrompt();
-        _overlay.SizeChanged += (_, _) => PlacePrompt();
+        _overlay.SizeChanged += (_, _) => { PlacePrompt(); UpdateScanArea(); };
 
         // The camera and the marking zoom together after a hit; the prompt stays put
         _stage = new Grid { Children = { _scanner, _overlay } };
@@ -136,7 +136,9 @@ public sealed class BarcodeScannerPage : SpinePage<BarcodeScannerPageViewModel>,
         }
     }
 
-    // Halfway between the aim corners and the bottom edge; without corners, above the edge
+    // Halfway between the aim corners and the bottom edge; without corners, above the edge. Moved by translation, not
+    // margin: a new margin laid the box out again at a height a rounding error off, which placed it anew, round and
+    // round, freezing the app while the sheet was dragged; near the bottom the margin also squeezed it to nothing.
     private void PlacePrompt()
     {
         double width = _overlay.Width, height = _overlay.Height, box = _promptBox.Height;
@@ -145,12 +147,13 @@ public sealed class BarcodeScannerPage : SpinePage<BarcodeScannerPageViewModel>,
         {
             _promptBox.VerticalOptions = LayoutOptions.End;
             _promptBox.Margin = new Thickness(16, 0, 16, 36);
+            _promptBox.TranslationY = 0;
             return;
         }
         var frame = ScannerOverlay.ReticleFor(new RectF(0, 0, (float)width, (float)height), _overlay.Reticle);
-        double top = (frame.Bottom + height) / 2 - box / 2;
         _promptBox.VerticalOptions = LayoutOptions.Start;
-        _promptBox.Margin = new Thickness(16, Math.Max(frame.Bottom + 8, top), 16, 0);
+        _promptBox.Margin = new Thickness(16, 0);
+        _promptBox.TranslationY = Math.Round(Math.Max(frame.Bottom + 8, (frame.Bottom + height) / 2 - box / 2));
     }
 
     private void UpdateReticle()
@@ -162,6 +165,22 @@ public sealed class BarcodeScannerPage : SpinePage<BarcodeScannerPageViewModel>,
             : ReticleShape.Square;
         _overlay.Invalidate();
         PlacePrompt();
+        UpdateScanArea();
+    }
+
+    // Codes are read inside the aim corners, with room around them: a code held a little off or a little too close
+    // still counts, one elsewhere in the picture does not. Without corners, the whole camera counts.
+    private void UpdateScanArea()
+    {
+        double width = _overlay.Width, height = _overlay.Height;
+        if (_overlay.Reticle == ReticleShape.None || width <= 0 || height <= 0)
+        {
+            _scanner.ScanArea = null;
+            return;
+        }
+        var frame = ScannerOverlay.ReticleFor(new RectF(0, 0, (float)width, (float)height), _overlay.Reticle);
+        float margin = Math.Min(frame.Width, frame.Height) * 0.2f;
+        _scanner.ScanArea = frame.Inflate(margin, margin);
     }
 
     // The text box shows when asked for, and whenever the scanner has a problem to say
@@ -203,8 +222,8 @@ public sealed class BarcodeScannerPage : SpinePage<BarcodeScannerPageViewModel>,
 
     /// <summary>
     /// The code that was read bursts towards the user the moment it is read: the marking appears on the frozen frame,
-    /// grows four and a half times from the code's centre and fades, while the frame behind it dims to half. The sheet closes
-    /// once it has finished.
+    /// straightens to a flat code square to the screen in the middle of the aim corners, grows four and a half times
+    /// from there and fades, while the frame behind it dims to half. The sheet closes once it has finished.
     /// </summary>
     private async Task ShowDetectionAsync(BarcodeScanResult result)
     {
@@ -219,9 +238,16 @@ public sealed class BarcodeScannerPage : SpinePage<BarcodeScannerPageViewModel>,
             return;
         }
 
-        _overlay.AnchorX = Math.Clamp(corners.Average(p => p.X) / _overlay.Width, 0, 1);
-        _overlay.AnchorY = Math.Clamp(corners.Average(p => p.Y) / _overlay.Height, 0, 1);
+        // The code moves into the middle of the aim corners as it straightens, and the burst grows from there
+        PointF centre = _overlay.Reticle == ReticleShape.None
+            ? new((float)corners.Average(p => p.X), (float)corners.Average(p => p.Y))
+            : ScannerOverlay.ReticleFor(new RectF(0, 0, (float)_overlay.Width, (float)_overlay.Height), _overlay.Reticle).Center;
+        _overlay.StraightenTo = centre;
+        _overlay.AnchorX = Math.Clamp(centre.X / _overlay.Width, 0, 1);
+        _overlay.AnchorY = Math.Clamp(centre.Y / _overlay.Height, 0, 1);
+        // It straightens early and bursts late: the code is flat and in place before it flies past
         await Task.WhenAll(
+            AnimateAsync("SpineScannerStraighten", v => _overlay.Straighten = v, 0, 1, 450),
             _overlay.ScaleToAsync(4.5, 450, Easing.CubicIn),
             _overlay.FadeToAsync(0, 450, Easing.CubicIn),
             _scanner.FadeToAsync(0.5, 450, Easing.CubicOut));
