@@ -132,7 +132,12 @@ public sealed class Example : ContentView
         {
             if (parent is ScrollView scrollView)
             {
-                await scrollView.ScrollToAsync(this, ScrollToPosition.Start, true);
+                // An animated scroll that does not move never completes on iOS, which left the link dead once the
+                // example was at the top or the page could scroll no further; wait only for a scroll that has moved
+                var before = scrollView.ScrollY;
+                var scroll = scrollView.ScrollToAsync(this, ScrollToPosition.Start, true);
+                if (await Task.WhenAny(scroll, Task.Delay(100)) != scroll && scrollView.ScrollY != before)
+                    await scroll;
                 break;
             }
         }
