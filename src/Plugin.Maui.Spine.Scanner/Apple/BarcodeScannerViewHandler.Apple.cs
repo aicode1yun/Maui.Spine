@@ -51,8 +51,8 @@ public sealed class BarcodeScannerViewHandler() : ViewHandler<BarcodeScannerView
 }
 
 /// <summary>
-/// The camera behind <see cref="BarcodeScannerView"/> on iOS and Mac Catalyst. Frames arrive on a serial queue
-/// as bi-planar full-range YUV: Vision reads the standard codes from the pixel buffer, and the light-grid reader
+/// The camera behind <see cref="BarcodeScannerView"/> on iOS and Mac Catalyst. Frames arrive on a serial queue of
+/// their own as bi-planar full-range YUV: Vision reads the standard codes from the pixel buffer, and the light-grid reader
 /// reads the Y plane, which is luminance as it is.
 /// </summary>
 public sealed class ScannerPreviewView : UIView
@@ -62,7 +62,10 @@ public sealed class ScannerPreviewView : UIView
 
     private readonly AVCaptureSession _session = new();
     private readonly AVCaptureVideoPreviewLayer _previewLayer;
-    private readonly DispatchQueue _queue = new("spine.scanner.frames");
+    // Frames keep their queue busy back to back while a frame takes as long as the camera's frame interval, and
+    // anything queued behind them (the torch, focus, zoom) then waits for seconds; the camera is driven from its own
+    private readonly DispatchQueue _queue = new("spine.scanner.session");
+    private readonly DispatchQueue _frameQueue = new("spine.scanner.frames");
     private readonly List<NSObject> _observers = [];
     private AVCaptureDevice? _device;
     private FrameDelegate? _frames;
@@ -261,7 +264,7 @@ public sealed class ScannerPreviewView : UIView
                 WeakVideoSettings = new CVPixelBufferAttributes { PixelFormatType = CVPixelFormatType.CV420YpCbCr8BiPlanarFullRange }.Dictionary,
             };
             _frames = new FrameDelegate(this);
-            output.SetSampleBufferDelegate(_frames, _queue);
+            output.SetSampleBufferDelegate(_frames, _frameQueue);
             if (!_session.CanAddOutput(output))
             {
                 Report(ScannerProblem.Failed);
